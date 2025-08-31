@@ -162,7 +162,9 @@ async function handleSlashCommand(interaction) {
       break;
 
     case 'daily':
-      const lastClaim = user.last_daily_claim || 0;
+      const dailyUserId = interaction.user.id;
+      const dailyUser = ensureUser(dailyUserId);
+      const lastClaim = dailyUser.last_daily_claim || 0;
       const currentTime = Math.floor(Date.now() / 1000); // Timestamp en secondes
       const oneDayInSeconds = 24 * 60 * 60;
       
@@ -176,9 +178,9 @@ async function handleSlashCommand(interaction) {
         return;
       }
       
-      const newBalance = (user.balance || 0) + config.currency.dailyReward;
+      const newBalance = (dailyUser.balance || 0) + config.currency.dailyReward;
       
-      updateUser(userId, {
+      updateUser(dailyUserId, {
         balance: newBalance,
         last_daily_claim: currentTime
       });
