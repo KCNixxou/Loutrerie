@@ -304,72 +304,132 @@ async function handleGiveAdmin(interaction) {
 }
 
 async function handleGive(interaction) {
-  const targetUser = interaction.options.getUser('utilisateur');
-  const amount = interaction.options.getInteger('montant');
-  const giverId = interaction.user.id;
+  try {
+    const targetUser = interaction.options.getUser('utilisateur');
+    const amount = interaction.options.getInteger('montant');
+    const giverId = interaction.user.id;
 
-  if (targetUser.bot) {
-    await interaction.reply({ content: '❌ Tu ne peux pas donner de coquillages à un bot !', ephemeral: true });
-    return;
-  }
+    // Vérifications de base
+    if (!targetUser || !amount) {
+      await interaction.reply({ 
+        content: '❌ Paramètres invalides. Utilisation: `/give @utilisateur montant`', 
+        ephemeral: true 
+      });
+      return;
+    }
 
-  if (targetUser.id === giverId) {
-    await interaction.reply({ content: '❌ Tu ne peux pas te donner des coquillages à toi-même !', ephemeral: true });
-    return;
-  }
+    if (targetUser.bot) {
+      await interaction.reply({ 
+        content: '❌ Tu ne peux pas donner de coquillages à un bot !', 
+        ephemeral: true 
+      });
+      return;
+    }
 
-  const giver = ensureUser(giverId);
-  const currentTime = Date.now();
-  const oneDayMs = 24 * 60 * 60 * 1000;
+    if (targetUser.id === giverId) {
+      await interaction.reply({ 
+        content: '❌ Tu ne peux pas te donner des coquillages à toi-même !', 
+        ephemeral: true 
+      });
+      return;
+    }
 
-  // Reset quotidien
-  if (currentTime - (giver.last_give_reset || 0) >= oneDayMs) {
-    updateUser(giverId, {
-      daily_given: 0,
+    if (amount <= 0) {
+      await interaction.reply({ 
+        content: '❌ Le montant doit être supérieur à 0 !', 
+        ephemeral: true 
+      });
+      return;
+    }
+
+    // Récupérer les informations des utilisateurs
+    const giver = ensureUser(giverId);
+    const currentTime = Math.floor(Date.now() / 1000); // timestamp en secondes
+    const oneDayInSeconds = 24 * 60 * 60;
+
+    // Vérifier et réinitialiser le compteur quotidien si nécessaire
+    const lastReset = giver.last_give_reset || 0;
+    let dailyGiven = giver.daily_given || 0;
+
+    if (currentTime - lastReset >= oneDayInSeconds) {
+      dailyGiven = 0;
+      updateUser(giverId, {
+        daily_given: 0,
+        last_give_reset: currentTime
+      });
+    }
+
+    // Vérifier la limite quotidienne
+    if (dailyGiven + amount > 200) {
+      const remaining = 200 - dailyGiven;
+      await interaction.reply({ 
+        content: `❌ Tu ne peux donner que ${remaining} ${config.currency.emoji} de plus aujourd'hui ! (Limite: 200/jour)`, 
+        ephemeral: true 
+      });
+      return;
+    }
+
+    // Vérifier le solde du donneur
+    const giverBalance = giver.balance || 0;
+    if (giverBalance < amount) {
+      await interaction.reply({ 
+        content: `❌ Tu n'as pas assez de coquillages ! Tu as ${giverBalance} ${config.currency.emoji}`, 
+        ephemeral: true 
+      });
+      return;
+    }
+
+    // Effectuer le transfert
+    const receiver = ensureUser(targetUser.id);
+    const receiverBalance = receiver.balance || 0;
+    
+    // Mise à jour du donneur
+    updateUser(giverId, { 
+      balance: giverBalance - amount,
+      daily_given: dailyGiven + amount,
       last_give_reset: currentTime
     });
-    giver.daily_given = 0;
-    giver.last_give_reset = currentTime;
-  }
-
-  // Vérifier la limite quotidienne
-  if ((giver.daily_given || 0) + amount > 200) {
-    const remaining = 200 - (giver.daily_given || 0);
-    await interaction.reply({ 
-      content: `❌ Tu ne peux donner que ${remaining} ${config.currency.emoji} de plus aujourd'hui ! (Limite: 200/jour)`, 
-      ephemeral: true 
+    
+    // Mise à jour du receveur
+    updateUser(targetUser.id, { 
+      balance: receiverBalance + amount 
     });
-    return;
+
+    // Créer et envoyer l'embed de confirmation
+    const embed = new EmbedBuilder()
+      .setTitle('🎁 Don de coquillages')
+      .setDescription(`<@${giverId}> a donné **${amount}** ${config.currency.emoji} à <@${targetUser.id}> !`)
+      .addFields(
+        { 
+          name: 'Donneur', 
+          value: `Solde: ${giverBalance - amount} ${config.currency.emoji}`, 
+          inline: true 
+        },
+        { 
+          name: 'Receveur', 
+          value: `Solde: ${receiverBalance + amount} ${config.currency.emoji}`, 
+          inline: true 
+        },
+        { 
+          name: 'Limite quotidienne', 
+          value: `${dailyGiven + amount}/200 ${config.currency.emoji}`, 
+          inline: true 
+        }
+      )
+      .setColor(0x00ff00)
+      .setTimestamp();
+
+    await interaction.reply({ embeds: [embed] });
+    
+  } catch (error) {
+    console.error('Erreur dans la commande /give:', error);
+    if (!interaction.replied) {
+      await interaction.reply({
+        content: '❌ Une erreur est survenue lors du traitement de ta commande.',
+        ephemeral: true
+      });
+    }
   }
-
-  // Vérifier si le donneur a assez de coquillages
-  if (giver.balance < amount) {
-    await interaction.reply({ 
-      content: `❌ Tu n'as pas assez de coquillages ! Tu as ${giver.balance} ${config.currency.emoji}`, 
-      ephemeral: true 
-    });
-    return;
-  }
-
-  // Effectuer le transfert
-  const receiver = ensureUser(targetUser.id);
-  updateUser(giverId, { 
-    balance: giver.balance - amount,
-    daily_given: (giver.daily_given || 0) + amount
-  });
-  updateUser(targetUser.id, { balance: receiver.balance + amount });
-
-  const embed = new EmbedBuilder()
-    .setTitle('🎁 Don de coquillages')
-    .setDescription(`<@${giverId}> a donné **${amount}** ${config.currency.emoji} à <@${targetUser.id}> !`)
-    .addFields(
-      { name: 'Donneur', value: `Solde: ${giver.balance - amount} ${config.currency.emoji}`, inline: true },
-      { name: 'Receveur', value: `Solde: ${receiver.balance + amount} ${config.currency.emoji}`, inline: true },
-      { name: 'Limite quotidienne', value: `${(giver.daily_given || 0) + amount}/200 ${config.currency.emoji}`, inline: true }
-    )
-    .setColor(0x00ff00);
-
-  await interaction.reply({ embeds: [embed] });
 }
 
 // Connexion du bot

@@ -255,7 +255,7 @@ async function startCrashGame(interaction) {
   }
 
   // Démarrer la boucle de jeu
-  const gameLoop = setInterval(() => {
+  const gameLoop = setInterval(async () => {
     if (!activeGames.has(userId)) {
       clearInterval(gameLoop);
       return;
@@ -271,9 +271,9 @@ async function startCrashGame(interaction) {
     game.lastUpdate = now;
 
     // Vérifier si ça crash
-    const currentMultiplier = MULTIPLIERS.find(m => m.multiplier >= game.currentMultiplier);
+    const currentMultiplier = CONFIG.MULTIPLIERS.find(m => m.multiplier >= game.currentMultiplier);
     if (currentMultiplier && shouldCrash(game.currentMultiplier)) {
-      endGame(userId, message, true);
+      await endGame(userId, message, true);
       clearInterval(gameLoop);
       return;
     }
@@ -299,7 +299,7 @@ function updateGameInterface(message, game) {
     .setFooter({ text: 'Appuie sur CASHOUT pour récupérer tes gains !' });
 
   // Trouver le prochain multiplicateur
-  const nextMultiplier = MULTIPLIERS.find(m => m.multiplier > game.currentMultiplier)?.multiplier || 
+  const nextMultiplier = CONFIG.MULTIPLIERS.find(m => m.multiplier > game.currentMultiplier)?.multiplier || 
                        (game.currentMultiplier * 1.5).toFixed(1);
 
   const row = new ActionRowBuilder().addComponents(
@@ -332,7 +332,7 @@ async function handleCrashButton(interaction) {
     if (!game) return;
     
     // Mettre à jour l'interface pour montrer que le joueur tente le prochain multiplicateur
-    const nextMultiplier = MULTIPLIERS.find(m => m.multiplier > game.currentMultiplier)?.multiplier || 
+    const nextMultiplier = CONFIG.MULTIPLIERS.find(m => m.multiplier > game.currentMultiplier)?.multiplier || 
                          (game.currentMultiplier * 1.5).toFixed(1);
     
     const embed = new EmbedBuilder()
