@@ -1,0 +1,21 @@
+{
+  "name": "loutrerie-bot",
+  "version": "1.0.0",
+  "description": "Bot Discord avec casino et système de coquillages",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js",
+    "deploy": "gcloud builds submit --config cloudbuild.yaml"
+  },
+  "dependencies": {
+    "discord.js": "^14.22.1",
+    "better-sqlite3": "^12.2.0",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0"
+  },
+  "keywords": ["discord", "bot", "casino", "games"],
+  "author": "",
+  "license": "MIT"
+}
