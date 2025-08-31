@@ -22,7 +22,15 @@ steps:
     - 'managed'
     - '--allow-unauthenticated'
     - '--set-env-vars'
-    - 'PORT=8080'
+    - 'PORT=8080,DISCORD_TOKEN=YOUR_DISCORD_TOKEN_HERE'
+    - '--cpu'
+    - '1'
+    - '--memory'
+    - '512Mi'
+    - '--min-instances'
+    - '1'
+    - '--max-instances'
+    - '1'
 
 options:
   logging: CLOUD_LOGGING_ONLY
