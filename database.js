@@ -4,6 +4,43 @@ const config = require('./config');
 const db = new Database('bot.sqlite');
 db.pragma('journal_mode = WAL');
 
+// Fonction pour vérifier si une colonne existe
+function columnExists(tableName, columnName) {
+  try {
+    const info = db.prepare(`PRAGMA table_info(${tableName})`).all();
+    return info.some(col => col.name === columnName);
+  } catch (error) {
+    console.error('Erreur lors de la vérification de la colonne:', error);
+    return false;
+  }
+}
+
+// Fonction pour ajouter une colonne si elle n'existe pas
+function addColumnIfNotExists(tableName, columnName, columnDef) {
+  if (!columnExists(tableName, columnName)) {
+    try {
+      db.prepare(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDef}`).run();
+      console.log(`Colonne ${columnName} ajoutée à la table ${tableName}`);
+    } catch (error) {
+      console.error(`Erreur lors de l'ajout de la colonne ${columnName}:`, error);
+    }
+  }
+}
+
+// Mise à jour du schéma de la base de données
+function updateDatabaseSchema() {
+  // Ajout des colonnes pour le jeu Crash
+  addColumnIfNotExists('users', 'last_bet', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('users', 'last_bet_time', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('users', 'total_won', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('users', 'total_wagered', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('users', 'last_win', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('users', 'last_win_time', 'INTEGER DEFAULT 0');
+}
+
+// Exécuter la mise à jour du schéma
+updateDatabaseSchema();
+
 // Création des tables
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
@@ -17,7 +54,13 @@ db.exec(`
     daily_missions TEXT DEFAULT '[]',
     last_mission_reset INTEGER DEFAULT 0,
     daily_given INTEGER DEFAULT 0,
-    last_give_reset INTEGER DEFAULT 0
+    last_give_reset INTEGER DEFAULT 0,
+    last_bet INTEGER DEFAULT 0,
+    last_bet_time INTEGER DEFAULT 0,
+    total_won INTEGER DEFAULT 0,
+    total_wagered INTEGER DEFAULT 0,
+    last_win INTEGER DEFAULT 0,
+    last_win_time INTEGER DEFAULT 0
   )
 `);
 
