@@ -297,21 +297,22 @@ async function handleGive(interaction) {
   }
 
   const giver = ensureUser(giverId);
-  const currentTime = now();
+  const currentTime = Date.now();
   const oneDayMs = 24 * 60 * 60 * 1000;
 
   // Reset quotidien
-  if (currentTime - giver.last_give_reset >= oneDayMs) {
+  if (currentTime - (giver.last_give_reset || 0) >= oneDayMs) {
     updateUser(giverId, {
       daily_given: 0,
       last_give_reset: currentTime
     });
     giver.daily_given = 0;
+    giver.last_give_reset = currentTime;
   }
 
   // Vérifier la limite quotidienne
-  if (giver.daily_given + amount > 200) {
-    const remaining = 200 - giver.daily_given;
+  if ((giver.daily_given || 0) + amount > 200) {
+    const remaining = 200 - (giver.daily_given || 0);
     await interaction.reply({ 
       content: `❌ Tu ne peux donner que ${remaining} ${config.currency.emoji} de plus aujourd'hui ! (Limite: 200/jour)`, 
       ephemeral: true 
@@ -332,7 +333,7 @@ async function handleGive(interaction) {
   const receiver = ensureUser(targetUser.id);
   updateUser(giverId, { 
     balance: giver.balance - amount,
-    daily_given: giver.daily_given + amount
+    daily_given: (giver.daily_given || 0) + amount
   });
   updateUser(targetUser.id, { balance: receiver.balance + amount });
 
@@ -342,7 +343,7 @@ async function handleGive(interaction) {
     .addFields(
       { name: 'Donneur', value: `Solde: ${giver.balance - amount} ${config.currency.emoji}`, inline: true },
       { name: 'Receveur', value: `Solde: ${receiver.balance + amount} ${config.currency.emoji}`, inline: true },
-      { name: 'Limite quotidienne', value: `${giver.daily_given + amount}/200 ${config.currency.emoji}`, inline: true }
+      { name: 'Limite quotidienne', value: `${(giver.daily_given || 0) + amount}/200 ${config.currency.emoji}`, inline: true }
     )
     .setColor(0x00ff00);
 
