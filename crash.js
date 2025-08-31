@@ -135,8 +135,8 @@ async function startCrashGame(interaction) {
   // Retirer la mise du solde
   updateUser(userId, { 
     balance: user.balance - betAmount,
-    lastBet: betAmount,
-    lastBetTime: Date.now()
+    last_bet: betAmount,
+    last_bet_time: Date.now()
   });
 
   // Créer la partie
@@ -378,10 +378,10 @@ async function handleCashout(interaction) {
   const user = ensureUser(userId);
   updateUser(userId, { 
     balance: user.balance + winAmount,
-    totalWon: (user.totalWon || 0) + winAmount,
-    totalWagered: (user.totalWagered || 0) + game.betAmount,
-    lastWin: winAmount,
-    lastWinTime: Date.now()
+    total_won: (user.total_won || 0) + winAmount,
+    total_wagered: (user.total_wagered || 0) + game.betAmount,
+    last_win: winAmount,
+    last_win_time: Date.now()
   });
 
   // Mettre à jour l'historique

@@ -162,13 +162,13 @@ async function handleSlashCommand(interaction) {
       break;
 
     case 'daily':
-      const lastClaim = user.last_daily_claim;
-      const currentTime = now();
-      const oneDayMs = 24 * 60 * 60 * 1000;
+      const lastClaim = user.last_daily_claim || 0;
+      const currentTime = Math.floor(Date.now() / 1000); // Timestamp en secondes
+      const oneDayInSeconds = 24 * 60 * 60;
       
-      if (currentTime - lastClaim < oneDayMs) {
-        const timeLeft = oneDayMs - (currentTime - lastClaim);
-        const hoursLeft = Math.ceil(timeLeft / (60 * 60 * 1000));
+      if (currentTime - lastClaim < oneDayInSeconds) {
+        const timeLeft = oneDayInSeconds - (currentTime - lastClaim);
+        const hoursLeft = Math.ceil(timeLeft / 3600);
         await interaction.reply({ 
           content: `⏰ Tu as déjà récupéré ta récompense aujourd'hui ! Reviens dans ${hoursLeft}h.`,
           ephemeral: true 
@@ -176,13 +176,15 @@ async function handleSlashCommand(interaction) {
         return;
       }
       
+      const newBalance = (user.balance || 0) + config.currency.dailyReward;
+      
       updateUser(userId, {
-        balance: user.balance + config.currency.dailyReward,
+        balance: newBalance,
         last_daily_claim: currentTime
       });
       
       await interaction.reply({
-        content: `🎁 Tu as reçu ta récompense journalière de **${config.currency.dailyReward}** ${config.currency.emoji} !`
+        content: `🎁 Tu as reçu ta récompense journalière de **${config.currency.dailyReward}** ${config.currency.emoji} !\nNouveau solde: **${newBalance}** ${config.currency.emoji}`
       });
       break;
 
