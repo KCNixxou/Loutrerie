@@ -20,6 +20,7 @@ const {
   handleShop,
   handlePurchase
 } = require('./games');
+const { startCrashGame, handleCashout, activeGames } = require('./crash');
 const { handleButtonInteraction, handleSelectMenuInteraction } = require('./handlers');
 
 // Client Discord
@@ -116,20 +117,28 @@ client.on('interactionCreate', async (interaction) => {
   if (interaction.isChatInputCommand()) {
     await handleSlashCommand(interaction);
   } else if (interaction.isButton()) {
-    await handleButtonInteraction(interaction);
+    // Vérifier si c'est un bouton du jeu Crash
+    if (interaction.customId === 'cashout') {
+      await handleCashout(interaction);
+    } else {
+      await handleButtonInteraction(interaction);
+    }
   } else if (interaction.isStringSelectMenu()) {
     await handleSelectMenuInteraction(interaction);
   }
 });
 
 async function handleSlashCommand(interaction) {
-  const userId = interaction.user.id;
-  const user = ensureUser(userId);
-  
-  switch (interaction.commandName) {
+  const { commandName } = interaction;
+  switch (commandName) {
+    case 'crash':
+      await startCrashGame(interaction);
+      break;
     case 'profil':
+      const userId = interaction.user.id;
+      const user = ensureUser(userId);
       const embed = new EmbedBuilder()
-        .setTitle(`Profil de ${interaction.user.username}`)
+        .setTitle(`👥 Profil de ${interaction.user.username}`)
         .setThumbnail(interaction.user.displayAvatarURL())
         .addFields(
           { name: 'Niveau', value: `${user.level}`, inline: true },

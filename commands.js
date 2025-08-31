@@ -142,6 +142,16 @@ const commands = [
         .setRequired(true)
         .setMinValue(1)
         .setMaxValue(200)
+    ),
+    
+  new SlashCommandBuilder()
+    .setName('crash')
+    .setDescription('Jouer au jeu du crash 🚀')
+    .addIntegerOption(option =>
+      option.setName('mise')
+        .setDescription('Montant à miser en coquillages')
+        .setRequired(true)
+        .setMinValue(1)
     )
 ];
 
