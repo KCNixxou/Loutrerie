@@ -114,17 +114,28 @@ client.on('messageCreate', async (message) => {
 
 // Gestion des interactions
 client.on('interactionCreate', async (interaction) => {
-  if (interaction.isChatInputCommand()) {
-    await handleSlashCommand(interaction);
-  } else if (interaction.isButton()) {
-    // Vérifier si c'est un bouton du jeu Crash
-    if (interaction.customId === 'cashout') {
-      await handleCashout(interaction);
-    } else {
-      await handleButtonInteraction(interaction);
+  try {
+    if (interaction.isChatInputCommand()) {
+      await handleSlashCommand(interaction);
+    } else if (interaction.isButton()) {
+      // Vérifier si c'est un bouton du jeu Crash
+      if (interaction.customId === 'cashout' || interaction.customId === 'next_multiplier') {
+        const { handleButtonInteraction } = require('./crash');
+        await handleButtonInteraction(interaction);
+      } else {
+        await handleButtonInteraction(interaction);
+      }
+    } else if (interaction.isStringSelectMenu()) {
+      await handleSelectMenuInteraction(interaction);
     }
-  } else if (interaction.isStringSelectMenu()) {
-    await handleSelectMenuInteraction(interaction);
+  } catch (error) {
+    console.error('Erreur lors du traitement de l\'interaction:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: 'Une erreur est survenue lors du traitement de votre demande.',
+        ephemeral: true
+      });
+    }
   }
 });
 
