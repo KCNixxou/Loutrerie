@@ -15,7 +15,9 @@ db.exec(`
     last_daily_claim INTEGER DEFAULT 0,
     daily_messages INTEGER DEFAULT 0,
     daily_missions TEXT DEFAULT '[]',
-    last_mission_reset INTEGER DEFAULT 0
+    last_mission_reset INTEGER DEFAULT 0,
+    daily_given INTEGER DEFAULT 0,
+    last_give_reset INTEGER DEFAULT 0
   )
 `);
 
