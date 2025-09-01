@@ -6,20 +6,27 @@ const CONFIG = {
   // Multiplicateurs et probabilités
   MULTIPLIERS: [
     { multiplier: 0.5, probability: 1 },
+    { multiplier: 1.2, probability: 0.95 },
     { multiplier: 1.5, probability: 0.9 },
-    { multiplier: 2, probability: 0.6 },
-    { multiplier: 3, probability: 0.4 },
-    { multiplier: 5, probability: 0.25 },
-    { multiplier: 10, probability: 0.1 },
-    { multiplier: 20, probability: 0.05 },
-    { multiplier: 50, probability: 0.02 },
-    { multiplier: 100, probability: 0.01 }
+    { multiplier: 1.8, probability: 0.8 },
+    { multiplier: 2, probability: 0.7 },
+    { multiplier: 2.5, probability: 0.6 },
+    { multiplier: 3, probability: 0.5 },
+    { multiplier: 4, probability: 0.4 },
+    { multiplier: 5, probability: 0.35 },
+    { multiplier: 7, probability: 0.25 },
+    { multiplier: 10, probability: 0.2 },
+    { multiplier: 15, probability: 0.1 },
+    { multiplier: 20, probability: 0.08 },
+    { multiplier: 30, probability: 0.05 },
+    { multiplier: 50, probability: 0.03 },
+    { multiplier: 100, probability: 0.02 }
   ],
   // Paramètres de mise
   MIN_BET: 10, // Mise minimale
   MAX_BET: 10000, // Mise maximale
   // Paramètres de gain
-  HOUSE_EDGE: 0.01, // 1% d'avantage pour la maison
+  HOUSE_EDGE: 0.005, // 0.5% d'avantage pour la maison
   // Historique des parties (pour le dernier crash)
   history: []
 };
