@@ -272,21 +272,23 @@ async function startCrashGame(interaction) {
         return;
       }
 
-      // Vérifier si on doit tester pour un crash (toutes les 0.1x)
-      if (Math.floor(userGame.currentMultiplier * 10) > Math.floor((userGame.currentMultiplier - 0.1) * 10)) {
-        // Ne vérifier le crash qu'aux paliers de 0.1x
-        const currentMultiplier = CONFIG.MULTIPLIERS.find(m => m.multiplier >= userGame.currentMultiplier);
-        if (currentMultiplier) {
-          // Augmenter progressivement la probabilité de crash
-          const baseCrashChance = 1 - ((1 / userGame.currentMultiplier) * (1 - CONFIG.HOUSE_EDGE));
-          // Réduire la fréquence des crashs précoces
-          const adjustedChance = baseCrashChance * (userGame.currentMultiplier < 2 ? 0.5 : 1);
-          
-          if (Math.random() < adjustedChance) {
-            await endGame(userId, message, true);
-            clearInterval(gameLoop);
-            return;
-          }
+      // Vérifier le crash uniquement aux paliers de 0.5x
+      if (userGame.currentMultiplier >= 1.0 && userGame.currentMultiplier % 0.5 < 0.1) {
+        // Probabilité de crash réduite pour les petits multiplicateurs
+        let crashChance = 0;
+        
+        if (userGame.currentMultiplier < 2.0) {
+          crashChance = 0.05; // 5% de chance de crash en dessous de 2x
+        } else if (userGame.currentMultiplier < 5.0) {
+          crashChance = 0.1; // 10% de chance entre 2x et 5x
+        } else {
+          crashChance = 0.2; // 20% de chance au-dessus de 5x
+        }
+        
+        if (Math.random() < crashChance) {
+          await endGame(userId, message, true);
+          clearInterval(gameLoop);
+          return;
         }
       }
 
