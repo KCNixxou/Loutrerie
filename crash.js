@@ -97,8 +97,8 @@ async function startCrashGame(interaction) {
   let betAmount = interaction.options.getInteger('mise');
   
   // Vérifier si l'utilisateur a déjà une partie en cours
-  for (const [gameId, game] of activeGames.entries()) {
-    if (game.userId === userId && !game.isCrashed) {
+  for (const [gameId, existingGame] of activeGames.entries()) {
+    if (existingGame.userId === userId && !existingGame.isCrashed) {
       await interaction.reply({
         content: '❌ Vous avez déjà une partie en cours !',
         ephemeral: true
@@ -145,7 +145,7 @@ async function startCrashGame(interaction) {
   const gameId = `${userId}_${Date.now()}`;
   
   // Créer la partie
-  const game = {
+  const userGame = {
     gameId,
     userId,
     username: interaction.user.username,
@@ -173,7 +173,7 @@ async function startCrashGame(interaction) {
   }
 
   // Stocker la partie avec son ID unique
-  activeGames.set(gameId, game);
+  activeGames.set(gameId, userGame);
 
   // Calculer les gains potentiels
   const potentialWin = calculateWinAmount(betAmount, 1.0);
@@ -222,10 +222,10 @@ async function startCrashGame(interaction) {
   });
   
   // Stocker la référence du message dans la partie
-  game.message = message;
+  userGame.message = message;
   
   // Mettre à jour la partie avec la référence du message
-  activeGames.set(gameId, game);
+  activeGames.set(gameId, userGame);
 
   // Ajouter une réaction pour l'effet visuel
   try {
@@ -242,61 +242,66 @@ async function startCrashGame(interaction) {
         return;
       }
 
-      const game = activeGames.get(userId);
+      const userGame = activeGames.get(userId);
+      if (!userGame) {
+        clearInterval(gameLoop);
+        return;
+      }
+      
       const now = Date.now();
-      const timeElapsed = (now - game.lastUpdate) / 1000; // en secondes
+      const timeElapsed = (now - userGame.lastUpdate) / 1000; // en secondes
       
       // Mettre à jour le multiplicateur
-      game.currentMultiplier += 0.1 * timeElapsed;
-      game.currentMultiplier = parseFloat(game.currentMultiplier.toFixed(2));
-      game.lastUpdate = now;
+      userGame.currentMultiplier += 0.1 * timeElapsed;
+      userGame.currentMultiplier = parseFloat(userGame.currentMultiplier.toFixed(2));
+      userGame.lastUpdate = now;
 
       // Vérifier si le joueur a atteint son multiplicateur cible
-      if (game.isAutoCashout && game.targetMultiplier && game.currentMultiplier >= game.targetMultiplier) {
+      if (userGame.isAutoCashout && userGame.targetMultiplier && userGame.currentMultiplier >= userGame.targetMultiplier) {
         await handleCashout({ user: { id: userId }, deferUpdate: () => Promise.resolve(), message });
         clearInterval(gameLoop);
         return;
       }
 
       // Vérifier si ça crash
-      const currentMultiplier = CONFIG.MULTIPLIERS.find(m => m.multiplier >= game.currentMultiplier);
-      if (currentMultiplier && shouldCrash(game.currentMultiplier)) {
+      const currentMultiplier = CONFIG.MULTIPLIERS.find(m => m.multiplier >= userGame.currentMultiplier);
+      if (currentMultiplier && shouldCrash(userGame.currentMultiplier)) {
         await endGame(userId, message, true);
         clearInterval(gameLoop);
         return;
       }
 
       // Mettre à jour l'interface
-      await updateGameInterface(message, game);
+      await updateGameInterface(message, userGame);
     } catch (error) {
       console.error('Erreur dans la boucle de jeu:', error);
       clearInterval(gameLoop);
       // Essayer de sauvegarder les gains en cas d'erreur
-      const game = activeGames.get(userId);
-      if (game) {
-        await endGame(userId, message, false, Math.floor(game.betAmount * game.currentMultiplier));
+      const userGame = activeGames.get(userId);
+      if (userGame) {
+        await endGame(userId, message, false, Math.floor(userGame.betAmount * userGame.currentMultiplier));
       }
     }
   }, 100);
 }
 
-async function updateGameInterface(message, game) {
+async function updateGameInterface(message, userGame) {
   try {
-    const progress = Math.min(game.currentMultiplier / 100, 1);
+    const progress = Math.min(userGame.currentMultiplier / 100, 1);
     const progressBar = await createProgressBar(progress);
-    const winAmount = calculateWinAmount(game.betAmount, game.currentMultiplier);
+    const winAmount = calculateWinAmount(userGame.betAmount, userGame.currentMultiplier);
     
     const embed = new EmbedBuilder()
       .setTitle('🚀 **JEU DU CRASH**')
       .setDescription(
         `\n` +
         `${progressBar}\n\n` +
-        `**Multiplicateur actuel:** \`${game.currentMultiplier.toFixed(2)}x\`\n` +
-        `**Mise:** \`${formatNumber(game.betAmount)} 🐚\`\n` +
+        `**Multiplicateur actuel:** \`${userGame.currentMultiplier.toFixed(2)}x\`\n` +
+        `**Mise:** \`${formatNumber(userGame.betAmount)} 🐚\`\n` +
         `**Gains potentiels:** \`${formatNumber(winAmount)} 🐚\`\n` +
-        `**Chance de gain:** \`${calculateWinChance(game.currentMultiplier).toFixed(1)}%\``
+        `**Chance de gain:** \`${calculateWinChance(userGame.currentMultiplier).toFixed(1)}%\``
       )
-      .setColor(getMultiplierColor(game.currentMultiplier))
+      .setColor(getMultiplierColor(userGame.currentMultiplier))
       .setThumbnail('https://i.imgur.com/8Km9tLL.png')
       .addFields(
         {
@@ -334,9 +339,9 @@ async function handleNextMultiplier(interaction) {
     
     // Trouver la partie active de l'utilisateur
     let userGame = null;
-    for (const [gameId, game] of activeGames.entries()) {
-      if (game.userId === userId && !game.isCrashed) {
-        userGame = game;
+    for (const [gameId, existingGame] of activeGames.entries()) {
+      if (existingGame.userId === userId && !existingGame.isCrashed) {
+        userGame = existingGame;
         break;
       }
     }
@@ -349,7 +354,7 @@ async function handleNextMultiplier(interaction) {
       return;
     }
 
-    if (game.isCrashed) {
+    if (userGame.isCrashed) {
       await interaction.reply({
         content: '❌ La partie est déjà terminée !',
         ephemeral: true
@@ -360,7 +365,7 @@ async function handleNextMultiplier(interaction) {
     // Trouver le prochain multiplicateur dans la liste
     const nextMultiplier = CONFIG.MULTIPLIERS
       .sort((a, b) => a.multiplier - b.multiplier)
-      .find(m => m.multiplier > game.currentMultiplier);
+      .find(m => m.multiplier > userGame.currentMultiplier);
 
     if (!nextMultiplier) {
       await interaction.reply({
@@ -377,11 +382,11 @@ async function handleNextMultiplier(interaction) {
     // Vérifier si le jeu doit s'arrêter
     if (crashPoint > crashThreshold) {
       // Le jeu s'arrête, l'utilisateur perd sa mise
-      const crashMultiplier = (game.currentMultiplier + nextMultiplier.multiplier) / 2;
-      game.currentMultiplier = crashMultiplier;
+      const crashMultiplier = (userGame.currentMultiplier + nextMultiplier.multiplier) / 2;
+      userGame.currentMultiplier = crashMultiplier;
       
       // Mettre à jour l'interface avant de terminer
-      await updateGameInterface(game.message, game);
+      await updateGameInterface(userGame.message, userGame);
       
       // Attendre un court instant pour que l'utilisateur puisse voir le multiplicateur final
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -426,9 +431,9 @@ async function handleCashout(interaction) {
     
     // Trouver la partie active de l'utilisateur
     let userGame = null;
-    for (const [gameId, game] of activeGames.entries()) {
-      if (game.userId === userId && !game.isCrashed) {
-        userGame = game;
+    for (const [gameId, existingGame] of activeGames.entries()) {
+      if (existingGame.userId === userId && !existingGame.isCrashed) {
+        userGame = existingGame;
         break;
       }
     }
@@ -441,7 +446,7 @@ async function handleCashout(interaction) {
       return;
     }
 
-    if (game.isCrashed) {
+    if (userGame.isCrashed) {
       await interaction.reply({
         content: '❌ La partie est déjà terminée !',
         ephemeral: true
@@ -449,7 +454,7 @@ async function handleCashout(interaction) {
       return;
     }
 
-    const winAmount = calculateWinAmount(game.betAmount, game.currentMultiplier);
+    const winAmount = calculateWinAmount(userGame.betAmount, userGame.currentMultiplier);
     
     // Mettre à jour le solde de l'utilisateur
     const user = ensureUser(userId);
@@ -463,7 +468,7 @@ async function handleCashout(interaction) {
     const gameHistory = CONFIG.history.find(g => g.userId === userId && g.status === 'playing');
     if (gameHistory) {
       gameHistory.status = 'cashed_out';
-      gameHistory.endMultiplier = game.currentMultiplier;
+      gameHistory.endMultiplier = userGame.currentMultiplier;
       gameHistory.winAmount = winAmount;
       gameHistory.endTime = new Date().toISOString();
     }
@@ -472,8 +477,8 @@ async function handleCashout(interaction) {
     const embed = new EmbedBuilder()
       .setTitle('💰 **CASHOUT RÉUSSI !**')
       .setDescription(
-        `Félicitations <@${userId}> ! Tu as récupéré tes gains à **${game.currentMultiplier.toFixed(2)}x** !\n` +
-        `**Mise :** \`${formatNumber(game.betAmount)} 🐚\`\n` +
+        `Félicitations <@${userId}> ! Tu as récupéré tes gains à **${userGame.currentMultiplier.toFixed(2)}x** !\n` +
+        `**Mise :** \`${formatNumber(userGame.betAmount)} 🐚\`\n` +
         `**Gains :** \`+${formatNumber(winAmount)} 🐚\`\n` +
         `**Nouveau solde :** \`${formatNumber(user.balance + winAmount)} 🐚\``
       )
@@ -495,9 +500,9 @@ async function endGame(userId, message, crashed, winAmount = 0) {
   try {
     // Trouver la partie active de l'utilisateur
     let userGame = null;
-    for (const [gameId, game] of activeGames.entries()) {
-      if (game.userId === userId && !game.isCrashed) {
-        userGame = game;
+    for (const [gameId, existingGame] of activeGames.entries()) {
+      if (existingGame.userId === userId && !existingGame.isCrashed) {
+        userGame = existingGame;
         break;
       }
     }
