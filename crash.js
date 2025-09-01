@@ -42,13 +42,15 @@ function calculateWinChance(multiplier) {
 }
 
 function shouldCrash(multiplier) {
-  // Ajuster la probabilité en fonction de l'avantage de la maison
-  const target = CONFIG.MULTIPLIERS.find(m => m.multiplier >= multiplier) || 
-                { multiplier: 100, probability: 0.01 };
+  // Calculer la probabilité théorique de crash basée sur le multiplicateur
+  // et l'avantage de la maison
+  const crashProbability = 1 - ((1 / multiplier) * (1 - CONFIG.HOUSE_EDGE));
   
-  // Ajuster la probabilité avec l'avantage de la maison
-  const adjustedProbability = target.probability * (1 - CONFIG.HOUSE_EDGE);
-  return Math.random() > adjustedProbability;
+  // Générer un nombre aléatoire entre 0 et 1
+  const random = Math.random();
+  
+  // Retourner true si le nombre aléatoire est inférieur à la probabilité de crash
+  return random < crashProbability;
 }
 
 function calculateWinAmount(betAmount, multiplier) {
