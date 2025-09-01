@@ -160,7 +160,22 @@ const commands = [
     
   new SlashCommandBuilder()
     .setName('next')
-    .setDescription('Tenter d\'atteindre le prochain multiplicateur dans le jeu du crash 🚀')
+    .setDescription('Tenter d\'atteindre le prochain multiplicateur dans le jeu du crash 🚀'),
+    
+  new SlashCommandBuilder()
+    .setName('morpion')
+    .setDescription('Jouer au morpion contre un autre joueur')
+    .addUserOption(option =>
+      option.setName('adversaire')
+        .setDescription('Le joueur contre qui tu veux jouer')
+        .setRequired(true)
+    )
+    .addIntegerOption(option =>
+      option.setName('mise')
+        .setDescription('Mise optionnelle en coquillages (laissé vide pour jouer sans mise)')
+        .setRequired(false)
+        .setMinValue(1)
+    )
 ];
 
 // Commande spéciale loutre-giveaway (admin uniquement)

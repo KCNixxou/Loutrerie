@@ -11,9 +11,17 @@ function calculateLevel(xp) {
 function getXpMultiplier(member) {
   if (!member || !member.roles) return 1;
   const roles = member.roles.cache;
-  if (roles.some(role => role.name === 'Super VIP')) return config.xp.superVipMultiplier;
-  if (roles.some(role => role.name === 'VIP')) return config.xp.vipMultiplier;
-  return 1;
+  let multiplier = 1;
+  
+  if (roles.some(role => role.name === 'VIP')) {
+    multiplier *= config.xp.vipMultiplier;
+  }
+  
+  if (roles.some(role => role.name === 'Super VIP')) {
+    multiplier *= config.xp.superVipMultiplier;
+  }
+  
+  return multiplier;
 }
 
 // Fonctions pour les jeux de cartes

@@ -6,6 +6,7 @@ const { random, createDeck, calculateHandValue, formatHand, getRouletteColor, pl
 // Variables globales pour les jeux
 const activeBlackjackGames = new Map();
 const activeCoinflipGames = new Map();
+const activeTicTacToeGames = new Map();
 
 // BLACKJACK
 async function handleBlackjackStart(interaction) {
@@ -466,9 +467,236 @@ async function handlePurchase(interaction) {
   await interaction.reply({ embeds: [embed] });
 }
 
+// MORPION (TIC-TAC-TOE)
+async function handleTicTacToe(interaction) {
+  const opponent = interaction.options.getUser('adversaire');
+  const bet = interaction.options.getInteger('mise') || 0;
+  const player1 = interaction.user;
+  const player2 = opponent;
+  
+  // Vérifications initiales
+  if (player1.id === player2.id) {
+    await interaction.reply({ content: '❌ Tu ne peux pas jouer contre toi-même !', ephemeral: true });
+    return;
+  }
+  
+  if (player2.bot) {
+    await interaction.reply({ content: '❌ Tu ne peux pas jouer contre un bot !', ephemeral: true });
+    return;
+  }
+  
+  // Vérification des fonds si mise
+  if (bet > 0) {
+    const user1 = ensureUser(player1.id);
+    const user2 = ensureUser(player2.id);
+    
+    if (user1.balance < bet) {
+      await interaction.reply({ 
+        content: `❌ Tu n'as pas assez de ${config.currency.emoji} pour cette mise !`, 
+        ephemeral: true 
+      });
+      return;
+    }
+    
+    if (user2.balance < bet) {
+      await interaction.reply({ 
+        content: `❌ ${player2.username} n'a pas assez de ${config.currency.emoji} pour cette mise !`, 
+        ephemeral: true 
+      });
+      return;
+    }
+    
+    // Bloquer les fonds
+    updateUser(player1.id, { balance: user1.balance - bet });
+    updateUser(player2.id, { balance: user2.balance - bet });
+  }
+  
+  // Créer la grille de jeu
+  const board = Array(9).fill(null);
+  const gameId = `${player1.id}-${player2.id}-${Date.now()}`;
+  
+  // Créer les boutons pour la grille
+  const rows = [];
+  for (let i = 0; i < 3; i++) {
+    const row = new ActionRowBuilder();
+    for (let j = 0; j < 3; j++) {
+      const index = i * 3 + j;
+      row.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`ttt_${gameId}_${index}`)
+          .setLabel(' ')
+          .setStyle(ButtonStyle.Secondary)
+      );
+    }
+    rows.push(row);
+  }
+  
+  // Enregistrer la partie
+  activeTicTacToeGames.set(gameId, {
+    board,
+    players: [player1.id, player2.id],
+    currentPlayer: 0, // Index du joueur actuel (0 ou 1)
+    bet,
+    message: null
+  });
+  
+  // Créer l'embed
+  const embed = new EmbedBuilder()
+    .setTitle('⭕ Morpion ❌')
+    .setDescription(`**${player1.username}** (❌) vs **${player2.username}** (⭕)\n\nC'est au tour de ${player1}`)
+    .setColor(0x00ff00);
+    
+  if (bet > 0) {
+    embed.addFields({ name: 'Mise', value: `${bet} ${config.currency.emoji} par joueur` });
+  }
+  
+  // Envoyer le message avec les boutons
+  const message = await interaction.reply({ 
+    content: `${player1} vs ${player2} - C'est parti pour une partie de morpion !`,
+    embeds: [embed],
+    components: rows,
+    fetchReply: true
+  });
+  
+  // Sauvegarder la référence du message
+  const game = activeTicTacToeGames.get(gameId);
+  game.message = message;
+  activeTicTacToeGames.set(gameId, game);
+}
+
+// Vérifier si un joueur a gagné
+function checkTicTacToeWinner(board) {
+  const winPatterns = [
+    [0, 1, 2], [3, 4, 5], [6, 7, 8], // Lignes
+    [0, 3, 6], [1, 4, 7], [2, 5, 8], // Colonnes
+    [0, 4, 8], [2, 4, 6] // Diagonales
+  ];
+  
+  for (const pattern of winPatterns) {
+    const [a, b, c] = pattern;
+    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+      return board[a]; // Retourne 'X' ou 'O'
+    }
+  }
+  
+  if (board.every(cell => cell !== null)) return 'tie';
+  return null;
+}
+
+// Gérer les mouvements
+async function handleTicTacToeMove(interaction) {
+  const [_, gameId, index] = interaction.customId.split('_');
+  const game = activeTicTacToeGames.get(gameId);
+  
+  if (!game) {
+    await interaction.update({ components: [] });
+    return;
+  }
+  
+  const currentPlayerId = game.players[game.currentPlayer];
+  
+  // Vérifier si c'est bien le tour du joueur
+  if (interaction.user.id !== currentPlayerId) {
+    await interaction.reply({ 
+      content: '❌ Ce n\'est pas à ton tour de jouer !', 
+      ephemeral: true 
+    });
+    return;
+  }
+  
+  // Vérifier si la case est déjà prise
+  if (game.board[index] !== null) {
+    await interaction.reply({ 
+      content: '❌ Cette case est déjà prise !', 
+      ephemeral: true 
+    });
+    return;
+  }
+  
+  // Mettre à jour le plateau
+  const symbol = game.currentPlayer === 0 ? '❌' : '⭕';
+  game.board[index] = symbol;
+  
+  // Vérifier s'il y a un gagnant
+  const winner = checkTicTacToeWinner(game.board);
+  
+  // Mettre à jour l'affichage
+  const rows = [];
+  for (let i = 0; i < 3; i++) {
+    const row = new ActionRowBuilder();
+    for (let j = 0; j < 3; j++) {
+      const idx = i * 3 + j;
+      const button = new ButtonBuilder()
+        .setCustomId(`ttt_${gameId}_${idx}`)
+        .setLabel(game.board[idx] || ' ')
+        .setStyle(game.board[idx] ? 
+          (game.board[idx] === '❌' ? ButtonStyle.Danger : ButtonStyle.Primary) : 
+          ButtonStyle.Secondary
+        )
+        .setDisabled(!!game.board[idx] || winner);
+      row.addComponents(button);
+    }
+    rows.push(row);
+  }
+  
+  // Mettre à jour le message
+  const player1 = interaction.client.users.cache.get(game.players[0]);
+  const player2 = interaction.client.users.cache.get(game.players[1]);
+  
+  const embed = new EmbedBuilder()
+    .setTitle('⭕ Morpion ❌')
+    .setColor(0x00ff00);
+    
+  if (game.bet > 0) {
+    embed.addFields({ name: 'Mise', value: `${game.bet} ${config.currency.emoji} par joueur` });
+  }
+  
+  if (winner === 'tie') {
+    embed.setDescription('**Match nul !**\nPersonne ne remporte la partie.');
+    
+    // Rembourser les mises en cas d'égalité
+    if (game.bet > 0) {
+      const user1 = ensureUser(game.players[0]);
+      const user2 = ensureUser(game.players[1]);
+      updateUser(game.players[0], { balance: user1.balance + game.bet });
+      updateUser(game.players[1], { balance: user2.balance + game.bet });
+      embed.addFields({ name: 'Remboursement', value: `Chaque joueur récupère sa mise de ${game.bet} ${config.currency.emoji}` });
+    }
+    
+    activeTicTacToeGames.delete(gameId);
+  } else if (winner) {
+    const winnerIndex = winner === '❌' ? 0 : 1;
+    const winnerUser = interaction.client.users.cache.get(game.players[winnerIndex]);
+    const loserUser = interaction.client.users.cache.get(game.players[1 - winnerIndex]);
+    
+    embed.setDescription(`**${winnerUser.username} a gagné !** 🎉`);
+    
+    // Distribuer les gains
+    if (game.bet > 0) {
+      const winnings = game.bet * 2;
+      const winnerData = ensureUser(winnerUser.id);
+      updateUser(winnerUser.id, { balance: winnerData.balance + winnings });
+      embed.addFields({ name: 'Gains', value: `${winnerUser.username} remporte ${winnings} ${config.currency.emoji} !` });
+    }
+    
+    activeTicTacToeGames.delete(gameId);
+  } else {
+    // Passer au joueur suivant
+    game.currentPlayer = 1 - game.currentPlayer;
+    const nextPlayer = game.currentPlayer === 0 ? player1 : player2;
+    embed.setDescription(`**${player1.username}** (❌) vs **${player2.username}** (⭕)\n\nC'est au tour de ${nextPlayer}`);
+    activeTicTacToeGames.set(gameId, game);
+  }
+  
+  await interaction.update({ embeds: [embed], components: rows });
+}
+
 module.exports = {
   activeBlackjackGames,
   activeCoinflipGames,
+  activeTicTacToeGames,
+  handleTicTacToe,
+  handleTicTacToeMove,
   handleBlackjackStart,
   resolveBlackjack,
   handleRouletteStart,
