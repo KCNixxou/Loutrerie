@@ -349,12 +349,27 @@ async function handleNextMultiplier(interaction) {
       return;
     }
 
+    // Calculer la probabilité de crash pour ce multiplicateur
+    const crashPoint = Math.random();
+    const crashThreshold = 1 - (1 / nextMultiplier.multiplier) * (1 - CONFIG.HOUSE_EDGE);
+    
     // Vérifier si le jeu doit s'arrêter
-    if (shouldCrash(nextMultiplier.multiplier)) {
+    if (crashPoint > crashThreshold) {
       // Le jeu s'arrête, l'utilisateur perd sa mise
+      const crashMultiplier = (game.currentMultiplier + nextMultiplier.multiplier) / 2;
+      game.currentMultiplier = crashMultiplier;
+      
+      // Mettre à jour l'interface avant de terminer
+      await updateGameInterface(game.message, game);
+      
+      // Attendre un court instant pour que l'utilisateur puisse voir le multiplicateur final
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Terminer la partie avec perte
       await endGame(userId, game.message, true);
+      
       await interaction.reply({
-        content: `❌ Le crash est arrivé à ${nextMultiplier.multiplier.toFixed(2)}x ! Tu as perdu ta mise de ${game.betAmount} 🐚`,
+        content: `💥 CRASH à ${crashMultiplier.toFixed(2)}x ! Tu as perdu ta mise de ${game.betAmount} 🐚`,
         ephemeral: true
       });
       return;
