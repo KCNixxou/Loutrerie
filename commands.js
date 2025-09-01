@@ -163,4 +163,13 @@ const commands = [
     .setDescription('Tenter d\'atteindre le prochain multiplicateur dans le jeu du crash 🚀')
 ];
 
+// Commande spéciale loutre-giveaway (admin uniquement)
+const loutreGiveaway = new SlashCommandBuilder()
+  .setName('loutre-giveaway')
+  .setDescription('[ADMIN] Lancer un giveaway de 500 🐚 pour la première loutre qui clique')
+  .setDefaultMemberPermissions(0) // Par défaut, personne n'a la permission
+  .setDMPermission(false);
+
+commands.push(loutreGiveaway);
+
 module.exports = commands.map(command => command.toJSON());

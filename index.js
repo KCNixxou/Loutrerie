@@ -158,6 +158,10 @@ async function handleSlashCommand(interaction) {
     case 'next':
       await handleNextMultiplier(interaction);
       break;
+      
+    case 'loutre-giveaway':
+      await handleLoutreGiveaway(interaction);
+      break;
     case 'profil':
       const userId = interaction.user.id;
       const user = ensureUser(userId);
@@ -446,6 +450,112 @@ async function handleGive(interaction) {
     }
   }
 }
+
+// Variables pour le giveaway
+const activeGiveaways = new Map();
+const ADMIN_ID = '314458846754111499'; // Remplacez par votre ID Discord
+
+// Gestion de la commande loutre-giveaway
+async function handleLoutreGiveaway(interaction) {
+  try {
+    // Vérifier si l'utilisateur est l'admin
+    if (interaction.user.id !== ADMIN_ID) {
+      await interaction.reply({
+        content: '❌ Cette commande est réservée à l\'administrateur !',
+        ephemeral: true
+      });
+      return;
+    }
+
+    // Vérifier s'il y a déjà un giveaway en cours
+    if (activeGiveaways.has(interaction.channelId)) {
+      await interaction.reply({
+        content: '❌ Il y a déjà un giveaway en cours dans ce salon !',
+        ephemeral: true
+      });
+      return;
+    }
+
+    // Créer l'embed du giveaway
+    const embed = new EmbedBuilder()
+      .setTitle('🎉 GIVEAWAY LOUTRE 🎉')
+      .setDescription('Réagissez avec 🦦 pour gagner **500 🐚** !')
+      .setColor('#ffd700')
+      .setFooter({ text: 'Seul le premier à réagir gagne !' });
+
+    // Envoyer le message de giveaway
+    const message = await interaction.channel.send({ embeds: [embed] });
+    await message.react('🦦');
+
+    // Stocker le giveaway
+    activeGiveaways.set(interaction.channelId, {
+      messageId: message.id,
+      channelId: interaction.channelId,
+      prize: 500,
+      hasWinner: false
+    });
+
+    // Répondre à l'interaction
+    await interaction.reply({
+      content: '✅ Giveaway lancé avec succès !',
+      ephemeral: true
+    });
+
+    // Supprimer le giveaway après 1 heure
+    setTimeout(() => {
+      if (activeGiveaways.has(interaction.channelId)) {
+        activeGiveaways.delete(interaction.channelId);
+      }
+    }, 3600000); // 1 heure
+
+  } catch (error) {
+    console.error('Erreur dans handleLoutreGiveaway:', error);
+    if (!interaction.replied) {
+      await interaction.reply({
+        content: '❌ Une erreur est survenue lors du lancement du giveaway.',
+        ephemeral: true
+      });
+    }
+  }
+}
+
+// Gestion des réactions
+client.on('messageReactionAdd', async (reaction, user) => {
+  try {
+    // Ignorer les réactions du bot
+    if (user.bot) return;
+
+    // Vérifier si c'est une réaction à un message de giveaway
+    const giveaway = Array.from(activeGiveaways.values())
+      .find(g => g.messageId === reaction.message.id);
+
+    if (!giveaway || giveaway.hasWinner || reaction.emoji.name !== '🦦') return;
+
+    // Marquer qu'il y a un gagnant
+    giveaway.hasWinner = true;
+    activeGiveaways.set(giveaway.channelId, giveaway);
+
+    // Mettre à jour la base de données
+    const userData = ensureUser(user.id);
+    updateUser(user.id, { balance: userData.balance + giveaway.prize });
+
+    // Mettre à jour le message
+    const embed = new EmbedBuilder()
+      .setTitle('🎉 GIVEAWAY TERMINÉ ! 🎉')
+      .setDescription(`Félicitations <@${user.id}> ! Tu as gagné **${giveaway.prize} 🐚** !`)
+      .setColor('#00ff00')
+      .setFooter({ text: 'Giveaway terminé' });
+
+    await reaction.message.edit({ embeds: [embed] });
+    await reaction.message.reactions.removeAll();
+
+    // Supprimer le giveaway
+    activeGiveaways.delete(giveaway.channelId);
+
+  } catch (error) {
+    console.error('Erreur dans la gestion des réactions:', error);
+  }
+});
 
 // Connexion du bot
 client.login(process.env.DISCORD_TOKEN);
