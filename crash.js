@@ -255,23 +255,34 @@ async function startCrashGame(interaction) {
         return;
       }
 
-      // Vérifier le crash uniquement aux paliers de 0.1x
-      if (userGame.currentMultiplier % 0.1 < 0.01) {
-        // Formule de probabilité plus douce
-        const baseChance = 0.005; // 0.5% de base
-        const multiplierFactor = 0.01; // +1% par multiplicateur
+      // Vérifier le crash uniquement aux paliers de 0.5x pour simplifier
+      if (Math.abs(Math.round(userGame.currentMultiplier * 10) / 10 - userGame.currentMultiplier) < 0.01) {
+        console.log(`[DEBUG] Vérification de crash à ${userGame.currentMultiplier.toFixed(2)}x`);
         
-        // Calculer la probabilité de crash
-        let crashChance = baseChance + (Math.pow(userGame.currentMultiplier, 1.5) * multiplierFactor);
-        crashChance = Math.min(crashChance, 0.3); // Maximum 30% de chance
+        // Formule de probabilité plus douce
+        let crashChance = 0.01; // 1% de base
+        
+        // Augmenter progressivement la probabilité avec le multiplicateur
+        if (userGame.currentMultiplier > 1) {
+          crashChance = 0.01 + (Math.pow(userGame.currentMultiplier - 1, 1.5) * 0.01);
+        }
+        
+        // Limiter la probabilité maximale
+        crashChance = Math.min(crashChance, 0.2); // Maximum 20% de chance
         
         // Réduire la fréquence des crashs précoces
         if (userGame.currentMultiplier < 2) {
-          crashChance *= 0.5;
+          crashChance *= 0.5; // Réduire de moitié pour les petits multiplicateurs
         }
         
+        // Debug
+        console.log(`[DEBUG] Multiplicateur: ${userGame.currentMultiplier.toFixed(2)}x, Crash chance: ${(crashChance * 100).toFixed(2)}%`);
+        
         // Vérifier le crash
-        if (Math.random() < crashChance) {
+        const randomValue = Math.random();
+        console.log(`[DEBUG] Random value: ${randomValue.toFixed(4)}, Crash: ${randomValue < crashChance ? 'OUI' : 'non'}`);
+        
+        if (randomValue < crashChance) {
           await endGame(userId, message, true);
           clearInterval(gameLoop);
           return;
