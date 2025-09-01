@@ -152,7 +152,15 @@ const commands = [
         .setDescription('Montant à miser en coquillages')
         .setRequired(true)
         .setMinValue(1)
-    )
+    ),
+    
+  new SlashCommandBuilder()
+    .setName('cashout')
+    .setDescription('Récupérer tes gains dans le jeu du crash 💰'),
+    
+  new SlashCommandBuilder()
+    .setName('next')
+    .setDescription('Tenter d\'atteindre le prochain multiplicateur dans le jeu du crash 🚀')
 ];
 
 module.exports = commands.map(command => command.toJSON());

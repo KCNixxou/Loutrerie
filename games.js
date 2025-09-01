@@ -360,18 +360,18 @@ async function handleCoinflipMulti(interaction) {
     
     const embed = new EmbedBuilder()
       .setTitle('🪙 Pile ou Face Multijoueurs')
-      .setDescription(`<@${interaction.user.id}> a créé une partie !\n\n**Mise:** ${bet} ${config.currency.emoji}\n**Choix:** ${choice}\n\nQuelqu'un d'autre peut rejoindre avec la commande \`/pileface-multi\` avec la même mise !`)
-      .setColor(0x0099ff);
+      .setDescription(
+        `<@${interaction.user.id}> a créé une partie !\n\n` +
+        `**Mise:** ${bet} ${config.currency.emoji}\n` +
+        `**Choix:** ${choice}\n\n` +
+        `Pour rejoindre cette partie, utilisez la commande :\n` +
+        `\`/pileface-multi mise:${bet} choix:${choice === 'pile' ? 'face' : 'pile'}\`\n\n` +
+        `*La partie s'annulera automatiquement après 5 minutes si personne ne rejoint.*`
+      )
+      .setColor(0x0099ff)
+      .setFooter({ text: 'Utilisez la commande /pileface-multi avec les mêmes paramètres pour rejoindre' });
     
-    const row = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId(`coinflip_join_${gameId}`)
-          .setLabel(`Rejoindre (${bet} ${config.currency.emoji})`)
-          .setStyle(ButtonStyle.Primary)
-      );
-    
-    await interaction.reply({ embeds: [embed], components: [row] });
+    await interaction.reply({ embeds: [embed] });
     
     // Supprimer la partie après 5 minutes si personne ne rejoint
     setTimeout(() => {

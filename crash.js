@@ -176,7 +176,7 @@ async function startCrashGame(interaction) {
     .setTitle('🚀 **JEU DU CRASH**')
     .setDescription(
       `\n` +
-      `${createProgressBar(0, 20)}\n\n` +
+      `${await createProgressBar(0, 20)}\n\n` +
       `**Multiplicateur actuel:** \`1.00x\`\n` +
       `**Mise:** \`${formatNumber(betAmount)} 🐚\`\n` +
       `**Gains potentiels:** \`${formatNumber(potentialWin)} 🐚\`\n` +
@@ -203,47 +203,14 @@ async function startCrashGame(interaction) {
       }
     )
     .setFooter({ 
-      text: `💡 Appuie sur CASH OUT pour sécuriser tes gains !`, 
+      text: `💡 Utilise /cashout pour sécuriser tes gains !`, 
       iconURL: interaction.user.displayAvatarURL({ dynamic: true })
     })
     .setTimestamp();
 
-  // Créer les boutons
-  const row = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('cashout')
-        .setLabel(`💰 CASH OUT (1.00x = ${formatNumber(potentialWin)} 🐚)`)
-        .setStyle(ButtonStyle.Success)
-        .setEmoji('💰'),
-      new ButtonBuilder()
-        .setCustomId('next_multiplier')
-        .setLabel('⏫ Tenter le multiplicateur supérieur')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji('🎲')
-    );
-    
-  // Ajouter un deuxième rang de boutons pour l'auto-cashout
-  const autoCashoutRow = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('auto_2x')
-        .setLabel('Auto 2x')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('auto_5x')
-        .setLabel('Auto 5x')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('auto_10x')
-        .setLabel('Auto 10x')
-        .setStyle(ButtonStyle.Secondary)
-    );
-
   // Envoyer le message
   const message = await interaction.reply({ 
     embeds: [embed], 
-    components: [row, autoCashoutRow],
     fetchReply: true 
   });
 
@@ -287,7 +254,7 @@ async function startCrashGame(interaction) {
       }
 
       // Mettre à jour l'interface
-      updateGameInterface(message, game);
+      await updateGameInterface(message, game);
     } catch (error) {
       console.error('Erreur dans la boucle de jeu:', error);
       clearInterval(gameLoop);
@@ -300,259 +267,180 @@ async function startCrashGame(interaction) {
   }, 100);
 }
 
-function updateGameInterface(message, game) {
-  const potentialWin = Math.floor(game.betAmount * game.currentMultiplier);
-  const winChance = calculateWinChance(game.currentMultiplier);
-  
-  const embed = new EmbedBuilder()
-    .setTitle('🚀 Jeu du Crash')
-    .setDescription(
-      `**Multiplicateur actuel: ${game.currentMultiplier.toFixed(2)}x**\n` +
-      `Mise: ${game.betAmount} 🐚\n` +
-      `Gains potentiels: ${potentialWin} 🐚\n` +
-      `Chance de gain: ${winChance.toFixed(1)}%`
-    )
-    .setColor(0x00ff00)
-    .setFooter({ text: 'Appuie sur CASHOUT pour récupérer tes gains !' });
+async function updateGameInterface(message, game) {
+  try {
+    const progress = Math.min(game.currentMultiplier / 100, 1);
+    const progressBar = await createProgressBar(progress);
+    const winAmount = calculateWinAmount(game.betAmount, game.currentMultiplier);
+    
+    const embed = new EmbedBuilder()
+      .setTitle('🚀 **JEU DU CRASH**')
+      .setDescription(
+        `\n` +
+        `${progressBar}\n\n` +
+        `**Multiplicateur actuel:** \`${game.currentMultiplier.toFixed(2)}x\`\n` +
+        `**Mise:** \`${formatNumber(game.betAmount)} 🐚\`\n` +
+        `**Gains potentiels:** \`${formatNumber(winAmount)} 🐚\`\n` +
+        `**Chance de gain:** \`${calculateWinChance(game.currentMultiplier).toFixed(1)}%\``
+      )
+      .setColor(getMultiplierColor(game.currentMultiplier))
+      .setThumbnail('https://i.imgur.com/8Km9tLL.png')
+      .addFields(
+        {
+          name: '📊 Statistiques',
+          value: `• Mise min: \`${formatNumber(CONFIG.MIN_BET)} 🐚\`\n` +
+                `• Mise max: \`${formatNumber(CONFIG.MAX_BET)} 🐚\`\n` +
+                `• Avantage: \`${(CONFIG.HOUSE_EDGE * 100)}%\``,
+          inline: true
+        },
+        {
+          name: '🏆 Derniers gains',
+          value: CONFIG.history
+            .filter(g => g.status === 'cashed_out')
+            .slice(0, 3)
+            .map(g => `\`${g.username}\`: ${g.endMultiplier?.toFixed(2)}x`)
+            .join('\n') || 'Aucun gain récent',
+          inline: true
+        }
+      )
+      .setFooter({ text: `Utilise /cashout pour récupérer tes gains ou /next pour tenter d'aller plus loin !` });
 
-  // Trouver le prochain multiplicateur
-  const nextMultiplier = CONFIG.MULTIPLIERS.find(m => m.multiplier > game.currentMultiplier)?.multiplier || 
-                       (game.currentMultiplier * 1.5).toFixed(1);
-
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId('cashout')
-      .setLabel(`CASH OUT (${game.currentMultiplier.toFixed(2)}x)`)
-      .setStyle(ButtonStyle.Success),
-    new ButtonBuilder()
-      .setCustomId('next_multiplier')
-      .setLabel(`Tenter ${nextMultiplier}x`)
-      .setStyle(ButtonStyle.Primary)
-  );
-
-  message.edit({ embeds: [embed], components: [row] });
+    if (message) {
+      await message.edit({ embeds: [embed] });
+    } else {
+      return { embed };
+    }
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour de l\'interface:', error);
+  }
 }
 
-// Gestion des interactions de boutons pour le jeu Crash
-async function handleCrashButton(interaction) {
-  if (!interaction.isButton()) return;
-  
-  const userId = interaction.user.id;
-  const game = activeGames.get(userId);
-  
-  // Si l'utilisateur n'a pas de partie en cours, ignorer l'interaction
-  if (!game) {
-    await interaction.reply({ content: '❌ Aucune partie en cours. Lancez une nouvelle partie avec `/crash`.', ephemeral: true });
-    return;
-  }
-  if (interaction.customId === 'cashout') {
-    await handleCashout(interaction);
-  } else if (interaction.customId === 'next_multiplier') {
-    try {
-      await interaction.deferUpdate();
-      
-      // Trouver le jeu actif
-      const game = activeGames.get(userId);
-      if (!game) {
-        await interaction.followUp({ 
-          content: '❌ Aucune partie en cours !', 
-          ephemeral: true 
-        });
-        return;
-      }
-      
-      // Calculer le prochain multiplicateur cible
-      const nextMultiplier = CONFIG.MULTIPLIERS.find(m => m.multiplier > game.currentMultiplier)?.multiplier || 
-                           (game.currentMultiplier * 1.5).toFixed(1);
-      
-      // Mettre à jour le jeu avec le multiplicateur cible
-      game.targetMultiplier = parseFloat(nextMultiplier);
-      game.isAutoCashout = true;
-      
-      // Mettre à jour l'interface utilisateur
-      const embed = new EmbedBuilder()
-        .setTitle('🎯 Mode Auto-Cashout')
-        .setDescription(
-          `**En attente du multiplicateur cible: ${nextMultiplier}x**\n` +
-          `Multiplicateur actuel: ${game.currentMultiplier.toFixed(2)}x\n` +
-          `Mise: ${game.betAmount} 🐚\n` +
-          `Gains potentiels: ${Math.floor(game.betAmount * nextMultiplier)} 🐚\n\n` +
-          `Le cashout se fera automatiquement quand le multiplicateur atteindra ${nextMultiplier}x`
-        )
-        .setColor(0x3498db); // Bleu pour indiquer l'auto-cashout
-      
-      // Mettre à jour le message avec un bouton d'annulation
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId('cancel_autocashout')
-          .setLabel('❌ Annuler Auto-Cashout')
-          .setStyle(ButtonStyle.Danger)
-      );
-      
-      await interaction.message.edit({ 
-        embeds: [embed],
-        components: [row]
+async function handleNextMultiplier(interaction) {
+  try {
+    const userId = interaction.user.id;
+    const game = activeGames.get(userId);
+
+    if (!game) {
+      await interaction.reply({
+        content: '❌ Vous n\'avez pas de partie en cours !',
+        ephemeral: true
       });
-      
-    } catch (error) {
-      console.error('Erreur dans le gestionnaire next_multiplier:', error);
-      if (!interaction.replied) {
-        await interaction.followUp({
-          content: '❌ Une erreur est survenue lors de la configuration de l\'auto-cashout.',
-          ephemeral: true
-        });
-      }
+      return;
     }
-  } else if (interaction.customId === 'cancel_autocashout') {
-    try {
-      await interaction.deferUpdate();
-      
-      // Trouver le jeu actif
-      const game = activeGames.get(userId);
-      if (!game) {
-        await interaction.followUp({ 
-          content: '❌ Aucune partie en cours !', 
-          ephemeral: true 
-        });
-        return;
-      }
-      
-      // Annuler l'auto-cashout
-      game.targetMultiplier = null;
-      game.isAutoCashout = false;
-      
-      // Mettre à jour l'interface utilisateur
-      const embed = new EmbedBuilder()
-        .setTitle('🚀 Jeu du Crash')
-        .setDescription(
-          `**Multiplicateur actuel: ${game.currentMultiplier.toFixed(2)}x**\n` +
-          `Mise: ${game.betAmount} 🐚\n` +
-          `Gains potentiels: ${Math.floor(game.betAmount * game.currentMultiplier)} 🐚`
-        )
-        .setColor(0x00ff00)
-        .setFooter({ text: 'Appuie sur CASHOUT pour récupérer tes gains !' });
-      
-      // Mettre à jour le message avec les boutons d'origine
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId('cashout')
-          .setLabel(`CASH OUT (${game.currentMultiplier.toFixed(2)}x)`)
-          .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setCustomId('next_multiplier')
-          .setLabel(`Tenter ${CONFIG.MULTIPLIERS.find(m => m.multiplier > game.currentMultiplier)?.multiplier || 
-                       (game.currentMultiplier * 1.5).toFixed(1)}x`)
-          .setStyle(ButtonStyle.Primary)
-      );
-      
-      await interaction.message.edit({ 
-        embeds: [embed],
-        components: [row]
+
+    if (game.isCrashed) {
+      await interaction.reply({
+        content: '❌ La partie est déjà terminée !',
+        ephemeral: true
       });
-      
-    } catch (error) {
-      console.error('Erreur dans le gestionnaire cancel_autocashout:', error);
-      if (!interaction.replied) {
-        await interaction.followUp({
-          content: '❌ Une erreur est survenue lors de l\'annulation de l\'auto-cashout.',
-          ephemeral: true
-        });
-      }
+      return;
     }
+
+    // Trouver le prochain multiplicateur dans la liste
+    const nextMultiplier = CONFIG.MULTIPLIERS
+      .sort((a, b) => a.multiplier - b.multiplier)
+      .find(m => m.multiplier > game.currentMultiplier);
+
+    if (!nextMultiplier) {
+      await interaction.reply({
+        content: '❌ Vous avez atteint le multiplicateur maximum !',
+        ephemeral: true
+      });
+      return;
+    }
+
+    // Vérifier si le jeu doit s'arrêter
+    if (shouldCrash(nextMultiplier.multiplier)) {
+      // Le jeu s'arrête, l'utilisateur perd sa mise
+      await endGame(userId, game.message, true);
+      await interaction.reply({
+        content: `❌ Le crash est arrivé à ${nextMultiplier.multiplier.toFixed(2)}x ! Tu as perdu ta mise de ${game.betAmount} 🐚`,
+        ephemeral: true
+      });
+      return;
+    }
+
+    // Mettre à jour le multiplicateur actuel
+    game.currentMultiplier = nextMultiplier.multiplier;
+    game.maxMultiplier = Math.max(game.maxMultiplier, game.currentMultiplier);
+    
+    // Mettre à jour l'interface
+    await updateGameInterface(game.message, game);
+    
+    await interaction.reply({
+      content: `✅ Tu as atteint le multiplicateur ${game.currentMultiplier.toFixed(2)}x !`,
+      ephemeral: true
+    });
+    
+  } catch (error) {
+    console.error('Erreur lors du passage au multiplicateur suivant:', error);
+    await interaction.reply({
+      content: '❌ Une erreur est survenue lors du passage au multiplicateur suivant.',
+      ephemeral: true
+    });
   }
 }
 
 async function handleCashout(interaction) {
   try {
-    const userId = interaction.user?.id || interaction.user;
+    const userId = interaction.user.id;
     const game = activeGames.get(userId);
-    
+
     if (!game) {
-      if (interaction.message) {
-        await interaction.reply({
-          content: '❌ Aucune partie en cours !',
-          ephemeral: true
-        });
-      }
+      await interaction.reply({
+        content: '❌ Vous n\'avez pas de partie en cours !',
+        ephemeral: true
+      });
       return;
     }
 
-    // Vérifier si le jeu est déjà terminé
-    if (!activeGames.has(userId)) {
+    if (game.isCrashed) {
+      await interaction.reply({
+        content: '❌ La partie est déjà terminée !',
+        ephemeral: true
+      });
       return;
     }
 
-    // Calculer les gains
-    const winAmount = Math.floor(game.betAmount * game.currentMultiplier);
+    const winAmount = calculateWinAmount(game.betAmount, game.currentMultiplier);
     
     // Mettre à jour le solde de l'utilisateur
     const user = ensureUser(userId);
-    const newBalance = (user.balance || 0) + winAmount;
+    updateUser(userId, { balance: user.balance + winAmount });
     
-    updateUser(userId, { 
-      balance: newBalance,
-      total_won: (user.total_won || 0) + winAmount,
-      total_wagered: (user.total_wagered || 0) + game.betAmount,
-      last_win: winAmount,
-      last_win_time: Math.floor(Date.now() / 1000)
-    });
-
-    // Mettre à jour l'interface utilisateur
-    const embed = new EmbedBuilder()
-      .setTitle('💰 Cashout réussi !')
-      .setDescription(
-        `Tu as retiré ta mise à **${game.currentMultiplier.toFixed(2)}x**\n` +
-        `Mise: ${game.betAmount} ${config.currency.emoji}\n` +
-        `Gains: **+${winAmount}** ${config.currency.emoji}\n` +
-        `Nouveau solde: **${newBalance}** ${config.currency.emoji}`
-      )
-      .setColor(0x00ff00);
-
-    // Supprimer la partie active avant de mettre à jour le message
+    // Marquer la partie comme terminée
+    game.isCrashed = true;
     activeGames.delete(userId);
-
-    // Mettre à jour le message d'origine
-    if (interaction.message) {
-      await interaction.message.edit({
-        embeds: [embed],
-        components: []
-      });
-    }
-
-    // Envoyer un message de confirmation si c'est un cashout manuel
-    if (interaction.reply) {
-      await interaction.reply({
-        content: `✅ Cashout effectué à ${game.currentMultiplier.toFixed(2)}x !`,
-        ephemeral: true
-      });
-    }
-
-    // Mettre à jour l'historique du jeu
+    
+    // Mettre à jour l'historique
     const gameHistory = CONFIG.history.find(g => g.userId === userId && g.status === 'playing');
     if (gameHistory) {
-      gameHistory.endTime = new Date().toISOString();
+      gameHistory.status = 'cashed_out';
       gameHistory.endMultiplier = game.currentMultiplier;
       gameHistory.winAmount = winAmount;
-      gameHistory.status = 'cashed_out';
+      gameHistory.endTime = new Date().toISOString();
     }
-
-    // Mettre fin à la partie
-    await endGame(userId, interaction.message || interaction, false, winAmount);
     
-    return winAmount;
+    // Mettre à jour l'interface
+    const embed = new EmbedBuilder()
+      .setTitle('💰 **CASHOUT RÉUSSI !**')
+      .setDescription(
+        `Félicitations <@${userId}> ! Tu as récupéré tes gains à **${game.currentMultiplier.toFixed(2)}x** !\n` +
+        `**Mise :** \`${formatNumber(game.betAmount)} 🐚\`\n` +
+        `**Gains :** \`+${formatNumber(winAmount)} 🐚\`\n` +
+        `**Nouveau solde :** \`${formatNumber(user.balance + winAmount)} 🐚\``
+      )
+      .setColor(0x00ff00)
+      .setThumbnail('https://i.imgur.com/8Km9tLL.png');
+    
+    await interaction.reply({ embeds: [embed] });
+    
   } catch (error) {
     console.error('Erreur lors du cashout:', error);
-    if (interaction.reply) {
-      await interaction.reply({
-        content: '❌ Une erreur est survenue lors du cashout. Tes coquillages sont en sécurité !',
-        ephemeral: true
-      });
-    }
-    return 0;
-  }
-  
-  if (!interaction.replied && !interaction.deferred) {
-    await interaction.deferUpdate();
+    await interaction.reply({
+      content: '❌ Une erreur est survenue lors du cashout. Tes coquillages sont en sécurité !',
+      ephemeral: true
+    });
   }
 }
 
@@ -571,10 +459,10 @@ async function endGame(userId, message, crashed, winAmount = 0) {
       .setTitle(crashed ? '💥 CRASH !' : isAutoCashout ? '🎯 CASHOUT AUTOMATIQUE !' : '🏆 CASH OUT !')
       .setDescription(
         `Multiplicateur final: **${finalMultiplier.toFixed(2)}x**\n` +
-        `Mise: **${game.betAmount.toLocaleString()}** ${config.currency.emoji}\n` +
+        `Mise: **${game.betAmount.toLocaleString()}** 🐚\n` +
         (crashed 
-          ? `❌ Tu as perdu ta mise de **${game.betAmount.toLocaleString()}** ${config.currency.emoji}`
-          : `✅ Tu as gagné **${winAmount.toLocaleString()}** ${config.currency.emoji} !`)
+          ? `❌ Tu as perdu ta mise de **${game.betAmount.toLocaleString()}** 🐚`
+          : `✅ Tu as gagné **${winAmount.toLocaleString()}** 🐚 !`)
       )
       .addFields(
         { 
@@ -608,28 +496,15 @@ async function endGame(userId, message, crashed, winAmount = 0) {
     }
 
     // Mettre à jour l'historique du jeu
-    const gameHistory = {
-      userId,
-      betAmount: game.betAmount,
-      startTime: new Date(game.startTime).toISOString(),
-      endTime: new Date().toISOString(),
-      endMultiplier: finalMultiplier,
-      winAmount: crashed ? -game.betAmount : winAmount - game.betAmount,
-      status: crashed ? 'crashed' : 'cashed_out'
-    };
+    const gameHistory = CONFIG.history.find(g => g.userId === userId && g.status === 'playing');
+    if (gameHistory) {
+      gameHistory.endTime = new Date().toISOString();
+      gameHistory.endMultiplier = game.currentMultiplier;
+      gameHistory.winAmount = crashed ? -game.betAmount : winAmount - game.betAmount;
+      gameHistory.status = crashed ? 'crashed' : 'cashed_out';
+    }
 
-    // Ajouter à l'historique
-    if (!Array.isArray(CONFIG.history)) {
-      CONFIG.history = [];
-    }
-    CONFIG.history.unshift(gameHistory);
-    
-    // Garder uniquement les 100 dernières parties
-    if (CONFIG.history.length > 100) {
-      CONFIG.history = CONFIG.history.slice(0, 100);
-    }
-    
-    // Nettoyer
+    // Mettre fin à la partie
     activeGames.delete(userId);
   } catch (error) {
     console.error('Erreur dans endGame:', error);
@@ -641,6 +516,7 @@ async function endGame(userId, message, crashed, winAmount = 0) {
 module.exports = {
   startCrashGame,
   handleCashout,
-  handleButtonInteraction: handleCrashButton,
-  activeGames
+  handleNextMultiplier,
+  activeGames,
+  CONFIG
 };

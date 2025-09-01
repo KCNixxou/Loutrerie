@@ -20,7 +20,12 @@ const {
   handleShop,
   handlePurchase
 } = require('./games');
-const { startCrashGame, handleCashout, activeGames } = require('./crash');
+const { 
+  startCrashGame, 
+  handleCashout, 
+  handleNextMultiplier, 
+  activeGames 
+} = require('./crash');
 const { handleButtonInteraction, handleSelectMenuInteraction } = require('./handlers');
 
 // Client Discord
@@ -144,6 +149,14 @@ async function handleSlashCommand(interaction) {
   switch (commandName) {
     case 'crash':
       await startCrashGame(interaction);
+      break;
+      
+    case 'cashout':
+      await handleCashout(interaction);
+      break;
+      
+    case 'next':
+      await handleNextMultiplier(interaction);
       break;
     case 'profil':
       const userId = interaction.user.id;
