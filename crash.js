@@ -272,12 +272,22 @@ async function startCrashGame(interaction) {
         return;
       }
 
-      // Vérifier si ça crash
-      const currentMultiplier = CONFIG.MULTIPLIERS.find(m => m.multiplier >= userGame.currentMultiplier);
-      if (currentMultiplier && shouldCrash(userGame.currentMultiplier)) {
-        await endGame(userId, message, true);
-        clearInterval(gameLoop);
-        return;
+      // Vérifier si on doit tester pour un crash (toutes les 0.1x)
+      if (Math.floor(userGame.currentMultiplier * 10) > Math.floor((userGame.currentMultiplier - 0.1) * 10)) {
+        // Ne vérifier le crash qu'aux paliers de 0.1x
+        const currentMultiplier = CONFIG.MULTIPLIERS.find(m => m.multiplier >= userGame.currentMultiplier);
+        if (currentMultiplier) {
+          // Augmenter progressivement la probabilité de crash
+          const baseCrashChance = 1 - ((1 / userGame.currentMultiplier) * (1 - CONFIG.HOUSE_EDGE));
+          // Réduire la fréquence des crashs précoces
+          const adjustedChance = baseCrashChance * (userGame.currentMultiplier < 2 ? 0.5 : 1);
+          
+          if (Math.random() < adjustedChance) {
+            await endGame(userId, message, true);
+            clearInterval(gameLoop);
+            return;
+          }
+        }
       }
 
       // Mettre à jour l'interface
