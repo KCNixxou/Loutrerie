@@ -3,24 +3,15 @@ const { ensureUser, updateUser } = require('./database');
 
 // Configuration du jeu
 const CONFIG = {
-  // Multiplicateurs et probabilités
+  // Multiplicateurs cibles pour l'interface utilisateur
   MULTIPLIERS: [
-    { multiplier: 0.5, probability: 1 },
-    { multiplier: 1.2, probability: 0.95 },
-    { multiplier: 1.5, probability: 0.9 },
-    { multiplier: 1.8, probability: 0.8 },
-    { multiplier: 2, probability: 0.7 },
-    { multiplier: 2.5, probability: 0.6 },
-    { multiplier: 3, probability: 0.5 },
-    { multiplier: 4, probability: 0.4 },
-    { multiplier: 5, probability: 0.35 },
-    { multiplier: 7, probability: 0.25 },
-    { multiplier: 10, probability: 0.2 },
-    { multiplier: 15, probability: 0.1 },
-    { multiplier: 20, probability: 0.08 },
-    { multiplier: 30, probability: 0.05 },
-    { multiplier: 50, probability: 0.03 },
-    { multiplier: 100, probability: 0.02 }
+    { multiplier: 1.5, label: '1.5x (97% de survie)' },
+    { multiplier: 2, label: '2x (95% de survie)' },
+    { multiplier: 3, label: '3x (93% de survie)' },
+    { multiplier: 5, label: '5x (90% de survie)' },
+    { multiplier: 10, label: '10x (80% de survie)' },
+    { multiplier: 20, label: '20x (60% de survie)' },
+    { multiplier: 50, label: '50x (20% de survie)' }
   ],
   // Paramètres de mise
   MIN_BET: 10, // Mise minimale
@@ -35,23 +26,15 @@ const CONFIG = {
 const activeGames = new Map();
 
 function calculateWinChance(multiplier) {
-  // Trouve le multiplicateur le plus proche dans la liste
-  const target = CONFIG.MULTIPLIERS.find(m => m.multiplier >= multiplier) || 
-                { multiplier: 100, probability: 0.01 };
-  return target.probability * 100; // Retourne en pourcentage
+  // Calculer la probabilité de survie basée sur la nouvelle formule
+  const baseChance = 0.01; // 1% de base
+  const multiplierFactor = 0.02; // +2% par multiplicateur
+  const crashChance = baseChance + (multiplier * multiplierFactor);
+  
+  // Retourner la probabilité de survie (100% - crashChance)
+  return Math.max(0, 100 - (Math.min(crashChance, 0.2) * 100));
 }
 
-function shouldCrash(multiplier) {
-  // Calculer la probabilité théorique de crash basée sur le multiplicateur
-  // et l'avantage de la maison
-  const crashProbability = 1 - ((1 / multiplier) * (1 - CONFIG.HOUSE_EDGE));
-  
-  // Générer un nombre aléatoire entre 0 et 1
-  const random = Math.random();
-  
-  // Retourner true si le nombre aléatoire est inférieur à la probabilité de crash
-  return random < crashProbability;
-}
 
 function calculateWinAmount(betAmount, multiplier) {
   // Calculer le gain brut
