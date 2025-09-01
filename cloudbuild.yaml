@@ -22,7 +22,7 @@ steps:
     - 'managed'
     - '--allow-unauthenticated'
     - '--set-env-vars'
-    - 'PORT=8080,DISCORD_TOKEN=YOUR_DISCORD_TOKEN_HERE'
+    - 'PORT=8080,DISCORD_TOKEN=MTQxMTc1MTA1MzY3Mzg4OTg3Mw.GaiE8a.GdLtzNirz8uLF4-nL7z-mNUWDmd1hr0raXdTtk'
     - '--cpu'
     - '1'
     - '--memory'

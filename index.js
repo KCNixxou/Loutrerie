@@ -119,7 +119,7 @@ client.on('interactionCreate', async (interaction) => {
       await handleSlashCommand(interaction);
     } else if (interaction.isButton()) {
       // Vérifier si c'est un bouton du jeu Crash
-      if (interaction.customId === 'cashout' || interaction.customId === 'next_multiplier') {
+      if (interaction.customId.startsWith('crash_') || interaction.customId === 'cashout' || interaction.customId === 'next_multiplier') {
         const { handleButtonInteraction } = require('./crash');
         await handleButtonInteraction(interaction);
       } else {

@@ -338,6 +338,13 @@ async function handleCrashButton(interaction) {
   if (!interaction.isButton()) return;
   
   const userId = interaction.user.id;
+  const game = activeGames.get(userId);
+  
+  // Si l'utilisateur n'a pas de partie en cours, ignorer l'interaction
+  if (!game) {
+    await interaction.reply({ content: '❌ Aucune partie en cours. Lancez une nouvelle partie avec `/crash`.', ephemeral: true });
+    return;
+  }
   if (interaction.customId === 'cashout') {
     await handleCashout(interaction);
   } else if (interaction.customId === 'next_multiplier') {
