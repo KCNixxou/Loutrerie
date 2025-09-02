@@ -825,17 +825,31 @@ async function handleConnectFour(interaction, opponent, bet = 0) {
   // Créer les boutons pour les colonnes
   const rows = [];
   
-  // Boutons pour choisir une colonne
-  const buttonRow = new ActionRowBuilder();
-  for (let col = 0; col < 7; col++) {
-    buttonRow.addComponents(
+  // Boutons pour choisir une colonne (2 rangées de 4 et 3 boutons)
+  const buttonRow1 = new ActionRowBuilder();
+  const buttonRow2 = new ActionRowBuilder();
+  
+  // Première rangée (4 premiers boutons)
+  for (let col = 0; col < 4; col++) {
+    buttonRow1.addComponents(
       new ButtonBuilder()
         .setCustomId(`cf_${gameId}_${col}`)
         .setLabel(`${col + 1}`)
         .setStyle(ButtonStyle.Primary)
     );
   }
-  rows.push(buttonRow);
+  
+  // Deuxième rangée (3 boutons restants)
+  for (let col = 4; col < 7; col++) {
+    buttonRow2.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`cf_${gameId}_${col}`)
+        .setLabel(`${col + 1}`)
+        .setStyle(ButtonStyle.Primary)
+    );
+  }
+  
+  rows.push(buttonRow1, buttonRow2);
   
   // Créer la grille d'affichage
   const gridRow = new ActionRowBuilder()
