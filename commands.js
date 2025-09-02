@@ -167,24 +167,13 @@ const commands = [
     .setDescription('Jouer au morpion contre un autre joueur')
     .addUserOption(option =>
       option.setName('adversaire')
-        .setDescription('Joueur contre qui vous voulez jouer')
-        .setRequired(true)
-    )
+        .setDescription('L\'adversaire contre qui tu veux jouer')
+        .setRequired(true))
     .addIntegerOption(option =>
       option.setName('mise')
-        .setDescription('Mise en coquillages (optionnel)')
-        .setRequired(false)
-        .setMinValue(1)),
-
-  new SlashCommandBuilder()
-    .setName('classement-morpion')
-    .setDescription('Affiche le classement des meilleurs joueurs de morpion')
-    .addIntegerOption(option =>
-      option.setName('limite')
-        .setDescription('Nombre de joueurs à afficher (par défaut: 10)')
-        .setRequired(false)
+        .setDescription('Mise (optionnelle)')
         .setMinValue(1)
-        .setMaxValue(25)),
+        .setRequired(false)),
 
   new SlashCommandBuilder()
     .setName('puissance4')

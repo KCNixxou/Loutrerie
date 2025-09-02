@@ -43,16 +43,6 @@ updateDatabaseSchema();
 
 // Création des tables
 db.exec(`
-  CREATE TABLE IF NOT EXISTS tic_tac_toe_stats (
-    user_id TEXT PRIMARY KEY,
-    wins INTEGER DEFAULT 0,
-    losses INTEGER DEFAULT 0,
-    draws INTEGER DEFAULT 0,
-    games_played INTEGER DEFAULT 0,
-    last_played INTEGER DEFAULT 0,
-    FOREIGN KEY (user_id) REFERENCES users(user_id)
-  );
-
   CREATE TABLE IF NOT EXISTS users (
     user_id TEXT PRIMARY KEY,
     balance INTEGER DEFAULT ${config.currency.startingBalance},
@@ -142,65 +132,10 @@ function updateMissionProgress(userId, missionType, amount = 1) {
   return rewardEarned;
 }
 
-// Fonctions pour les statistiques du morpion
-function getTicTacToeStats(userId) {
-  const stats = db.prepare('SELECT * FROM tic_tac_toe_stats WHERE user_id = ?').get(userId);
-  if (!stats) {
-    // Créer une entrée si elle n'existe pas
-    db.prepare('INSERT INTO tic_tac_toe_stats (user_id) VALUES (?)').run(userId);
-    return { user_id: userId, wins: 0, losses: 0, draws: 0, games_played: 0, last_played: 0 };
-  }
-  return stats;
-}
-
-function updateTicTacToeStats(userId, result) {
-  // result peut être 'win', 'loss' ou 'draw'
-  const stats = getTicTacToeStats(userId);
-  const now = Date.now();
-  
-  const updateData = {
-    ...stats,
-    games_played: stats.games_played + 1,
-    last_played: now
-  };
-  
-  if (result === 'win') updateData.wins = (stats.wins || 0) + 1;
-  else if (result === 'loss') updateData.losses = (stats.losses || 0) + 1;
-  else if (result === 'draw') updateData.draws = (stats.draws || 0) + 1;
-  
-  db.prepare(`
-    INSERT OR REPLACE INTO tic_tac_toe_stats 
-    (user_id, wins, losses, draws, games_played, last_played)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(
-    userId,
-    updateData.wins,
-    updateData.losses,
-    updateData.draws,
-    updateData.games_played,
-    updateData.last_played
-  );
-  
-  return updateData;
-}
-
-function getTicTacToeLeaderboard(limit = 10) {
-  return db.prepare(`
-    SELECT user_id, wins, losses, draws, games_played, 
-           (wins * 1.0 / NULLIF(games_played, 0)) as win_rate
-    FROM tic_tac_toe_stats
-    WHERE games_played > 0
-    ORDER BY wins DESC, win_rate DESC, games_played DESC
-    LIMIT ?
-  `).all(limit);
-}
-
 module.exports = {
   db,
   ensureUser,
   updateUser,
-  updateMissionProgress,
-  getTicTacToeStats,
-  updateTicTacToeStats,
-  getTicTacToeLeaderboard
+  generateDailyMissions,
+  updateMissionProgress
 };
