@@ -754,8 +754,12 @@ function checkConnectFourWinner(board) {
 
 // Gérer les mouvements du Morpion
 async function handleTicTacToeMove(interaction) {
+  console.log('[MORPION] Nouvelle interaction reçue:', interaction.customId);
   const [_, gameId, index] = interaction.customId.split('_');
+  console.log('[MORPION] ID de jeu:', gameId, 'Index:', index);
+  
   const game = activeTicTacToeGames.get(gameId);
+  console.log('[MORPION] Partie trouvée:', game ? 'Oui' : 'Non');
   
   if (!game) {
     await interaction.update({ components: [] });
@@ -764,8 +768,11 @@ async function handleTicTacToeMove(interaction) {
   
   const currentPlayerId = game.players[game.currentPlayer];
   
+  console.log('[MORPION] Joueur actuel:', currentPlayerId, 'Joueur qui interagit:', interaction.user.id);
+  
   // Vérifier si c'est bien le tour du joueur
   if (interaction.user.id !== currentPlayerId) {
+    console.log('[MORPION] Mauvais tour: ce n\'est pas au tour de ce joueur');
     await interaction.reply({ 
       content: '❌ Ce n\'est pas à ton tour de jouer !', 
       ephemeral: true 
@@ -784,12 +791,15 @@ async function handleTicTacToeMove(interaction) {
   
   // Mettre à jour le plateau
   const symbol = game.currentPlayer === 0 ? 'X' : 'O';
+  console.log('[MORPION] Mise à jour du plateau - Index:', index, 'Symbole:', symbol);
   game.board[index] = symbol;
   
   // Vérifier s'il y a un gagnant ou un match nul
   const winner = checkTicTacToeWinner(game.board);
   const isDraw = !winner && game.board.every(cell => cell !== null);
   const isGameOver = !!winner || isDraw;
+  
+  console.log('[MORPION] État de la partie - Gagnant:', winner || 'Aucun', 'Match nul:', isDraw, 'Partie terminée:', isGameOver);
 
   // Mettre à jour les statistiques si la partie est terminée
   if (isGameOver) {
@@ -866,6 +876,8 @@ async function handleTicTacToeMove(interaction) {
   const player1 = game.player1 || interaction.client.users.cache.get(game.players[0]);
   const player2 = game.player2 || interaction.client.users.cache.get(game.players[1]);
   
+  console.log('[MORPION] Joueurs - Player1:', player1?.username, 'Player2:', player2?.username);
+  
   const embed = new EmbedBuilder()
     .setTitle('O Morpion X')
     .setColor(0x00ff00);
@@ -935,11 +947,16 @@ async function handleTicTacToeMove(interaction) {
           : '🤝 Match nul !')
       : `${player1} vs ${player2} - Partie en cours`;
     
+    console.log('[MORPION] Mise à jour du message avec contenu:', content);
+    console.log('[MORPION] Nombre de rangées de boutons:', rows.length);
+    
     await interaction.update({ 
       embeds: [embed],
       components: rows,
       content: content
     });
+    
+    console.log('[MORPION] Message mis à jour avec succès');
   } catch (error) {
     console.error('Erreur lors de la mise à jour du message:', error);
   }
