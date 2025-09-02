@@ -167,24 +167,32 @@ const commands = [
     .setDescription('Jouer au morpion contre un autre joueur')
     .addUserOption(option =>
       option.setName('adversaire')
-        .setDescription('Le joueur contre qui tu veux jouer')
-        .setRequired(true)
-    )
+        .setDescription('L\'adversaire contre qui tu veux jouer')
+        .setRequired(true))
     .addIntegerOption(option =>
       option.setName('mise')
-        .setDescription('Mise optionnelle en coquillages (laissé vide pour jouer sans mise)')
-        .setRequired(false)
+        .setDescription('Mise (optionnelle)')
         .setMinValue(1)
-    )
+        .setRequired(false)),
+
+  new SlashCommandBuilder()
+    .setName('puissance4')
+    .setDescription('Jouer au Puissance 4 contre un autre joueur')
+    .addUserOption(option =>
+      option.setName('adversaire')
+        .setDescription('L\'adversaire contre qui tu veux jouer')
+        .setRequired(true))
+    .addIntegerOption(option =>
+      option.setName('mise')
+        .setDescription('Mise (optionnelle)')
+        .setMinValue(1)
+        .setRequired(false)),
+
+  new SlashCommandBuilder()
+    .setName('loutre-giveaway')
+    .setDescription('[ADMIN] Lancer un giveaway de 500 🐚 pour la première loutre qui clique')
+    .setDefaultMemberPermissions(0) // Par défaut, personne n'a la permission
+    .setDMPermission(false)
 ];
-
-// Commande spéciale loutre-giveaway (admin uniquement)
-const loutreGiveaway = new SlashCommandBuilder()
-  .setName('loutre-giveaway')
-  .setDescription('[ADMIN] Lancer un giveaway de 500 🐚 pour la première loutre qui clique')
-  .setDefaultMemberPermissions(0) // Par défaut, personne n'a la permission
-  .setDMPermission(false);
-
-commands.push(loutreGiveaway);
 
 module.exports = commands.map(command => command.toJSON());

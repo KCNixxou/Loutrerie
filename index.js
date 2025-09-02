@@ -18,10 +18,12 @@ const {
   handleSlots,
   handleCoinflipSolo,
   handleCoinflipMulti,
+  handleConnectFour,
   handleShop,
   handlePurchase,
   handleTicTacToe,
-  handleTicTacToeMove
+  handleTicTacToeMove,
+  handleConnectFourMove
 } = require('./games');
 const { 
   startCrashGame, 
@@ -132,6 +134,8 @@ client.on('interactionCreate', async (interaction) => {
         await handleRouletteChoice(interaction);
       } else if (interaction.customId.startsWith('ttt_')) {
         await handleTicTacToeMove(interaction);
+      } else if (interaction.customId.startsWith('cf_')) {
+        await handleConnectFourMove(interaction);
       } else if (interaction.customId === 'cashout' || interaction.customId === 'next_multiplier') {
         const { handleButtonInteraction: handleCrashButton } = require('./crash');
         await handleCrashButton(interaction);
@@ -158,6 +162,10 @@ async function handleSlashCommand(interaction) {
   switch (commandName) {
     case 'morpion':
       await handleTicTacToe(interaction);
+      break;
+      
+    case 'puissance4':
+      await handleConnectFour(interaction);
       break;
       
     case 'crash':

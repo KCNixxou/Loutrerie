@@ -7,6 +7,24 @@ const { random, createDeck, calculateHandValue, formatHand, getRouletteColor, pl
 const activeBlackjackGames = new Map();
 const activeCoinflipGames = new Map();
 const activeTicTacToeGames = new Map();
+const activeConnectFourGames = new Map();
+
+// Fonction utilitaire pour ajouter de l'argent à un utilisateur
+async function addMoney(userId, amount, interaction) {
+  const user = ensureUser(userId);
+  const newBalance = user.balance + amount;
+  updateUser(userId, { balance: newBalance });
+  
+  // Mettre à jour le message si une interaction est fournie
+  if (interaction) {
+    await interaction.followUp({ 
+      content: `+${amount} ${config.currency.emoji} ont été ajoutés à votre solde.`,
+      ephemeral: true 
+    });
+  }
+  
+  return newBalance;
+}
 
 // BLACKJACK
 async function handleBlackjackStart(interaction) {
@@ -590,7 +608,7 @@ async function handleTicTacToe(interaction) {
   activeTicTacToeGames.set(gameId, game);
 }
 
-// Vérifier si un joueur a gagné
+// Vérifier si un joueur a gagné au Morpion
 function checkTicTacToeWinner(board) {
   const winPatterns = [
     [0, 1, 2], [3, 4, 5], [6, 7, 8], // Lignes
@@ -609,7 +627,78 @@ function checkTicTacToeWinner(board) {
   return null;
 }
 
-// Gérer les mouvements
+// Vérifier si un joueur a gagné au Puissance 4
+function checkConnectFourWinner(board) {
+  const ROWS = 6;
+  const COLS = 7;
+  
+  // Vérifier les lignes horizontales
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col <= COLS - 4; col++) {
+      const index = row * COLS + col;
+      if (
+        board[index] && 
+        board[index] === board[index + 1] &&
+        board[index] === board[index + 2] &&
+        board[index] === board[index + 3]
+      ) {
+        return board[index];
+      }
+    }
+  }
+  
+  // Vérifier les colonnes verticales
+  for (let col = 0; col < COLS; col++) {
+    for (let row = 0; row <= ROWS - 4; row++) {
+      const index = row * COLS + col;
+      if (
+        board[index] && 
+        board[index] === board[index + COLS] &&
+        board[index] === board[index + 2 * COLS] &&
+        board[index] === board[index + 3 * COLS]
+      ) {
+        return board[index];
+      }
+    }
+  }
+  
+  // Vérifier les diagonales montantes
+  for (let row = 3; row < ROWS; row++) {
+    for (let col = 0; col <= COLS - 4; col++) {
+      const index = row * COLS + col;
+      if (
+        board[index] && 
+        board[index] === board[index - COLS + 1] &&
+        board[index] === board[index - 2 * COLS + 2] &&
+        board[index] === board[index - 3 * COLS + 3]
+      ) {
+        return board[index];
+      }
+    }
+  }
+  
+  // Vérifier les diagonales descendantes
+  for (let row = 0; row <= ROWS - 4; row++) {
+    for (let col = 0; col <= COLS - 4; col++) {
+      const index = row * COLS + col;
+      if (
+        board[index] && 
+        board[index] === board[index + COLS + 1] &&
+        board[index] === board[index + 2 * COLS + 2] &&
+        board[index] === board[index + 3 * COLS + 3]
+      ) {
+        return board[index];
+      }
+    }
+  }
+  
+  // Vérifier si le plateau est plein (match nul)
+  if (board.every(cell => cell !== null)) return 'tie';
+  
+  return null; // Pas de gagnant pour l'instant
+}
+
+// Gérer les mouvements du Morpion
 async function handleTicTacToeMove(interaction) {
   const [_, gameId, index] = interaction.customId.split('_');
   const game = activeTicTacToeGames.get(gameId);
@@ -695,7 +784,7 @@ async function handleTicTacToeMove(interaction) {
     
     activeTicTacToeGames.delete(gameId);
   } else if (winner) {
-    const winnerIndex = winner === '❌' ? 0 : 1;
+    const winnerIndex = winner === 'X' ? 0 : 1;
     const winnerUser = interaction.client.users.cache.get(game.players[winnerIndex]);
     const loserUser = interaction.client.users.cache.get(game.players[1 - winnerIndex]);
     
@@ -721,19 +810,273 @@ async function handleTicTacToeMove(interaction) {
   await interaction.update({ embeds: [embed], components: rows });
 }
 
+// Gestion des parties de Puissance 4
+async function handleConnectFour(interaction, opponent, bet = 0) {
+  const player1 = interaction.user;
+  const player2 = opponent || interaction.user; // Si pas d'adversaire spécifié, jouer contre soi-même (pour test)
+  
+  // Créer le plateau de jeu (6 lignes x 7 colonnes)
+  const board = Array(6 * 7).fill(null);
+  const gameId = `cf_${player1.id}-${player2.id}-${Date.now()}`;
+  
+  console.log(`[PUISSANCE4] Création d'une nouvelle partie: ${gameId}`);
+  console.log(`[PUISSANCE4] Joueurs: ${player1.username} vs ${player2.username}`);
+  
+  // Créer les boutons pour les colonnes
+  const rows = [];
+  
+  // Boutons pour choisir une colonne
+  const buttonRow = new ActionRowBuilder();
+  for (let col = 0; col < 7; col++) {
+    buttonRow.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`cf_${gameId}_${col}`)
+        .setLabel(`${col + 1}`)
+        .setStyle(ButtonStyle.Primary)
+    );
+  }
+  rows.push(buttonRow);
+  
+  // Créer la grille d'affichage
+  const gridRow = new ActionRowBuilder()
+    .addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('connect4_grid')
+        .setPlaceholder('Grille de jeu')
+        .setDisabled(true)
+        .addOptions([
+          {
+            label: 'Grille de jeu',
+            description: formatConnectFourBoard(board, 0),
+            value: 'grid',
+            emoji: '⬜'
+          }
+        ])
+    );
+  rows.push(gridRow);
+  
+  // Enregistrer la partie
+  activeConnectFourGames.set(gameId, {
+    board,
+    players: [player1.id, player2.id],
+    currentPlayer: 0, // Index du joueur actuel (0 ou 1)
+    bet,
+    message: null,
+    lastMove: null
+  });
+  
+  // Créer l'embed
+  const embed = new EmbedBuilder()
+    .setTitle('🎮 Puissance 4')
+    .setDescription(`**${player1.username}** (🔴) vs **${player2.username}** (🟡)\nC'est au tour de **${player1.username}** de jouer !`)
+    .setColor(0x00ff00);
+  
+  if (bet > 0) {
+    embed.addFields({ name: 'Mise', value: `${bet} ${config.currency.emoji} par joueur` });
+  }
+  
+  // Envoyer le message
+  try {
+    const message = await interaction.reply({ 
+      embeds: [embed], 
+      components: rows,
+      fetchReply: true 
+    });
+    
+    // Sauvegarder la référence du message
+    const game = activeConnectFourGames.get(gameId);
+    game.message = message;
+    activeConnectFourGames.set(gameId, game);
+    
+  } catch (error) {
+    console.error('[PUISSANCE4] Erreur lors de l\'envoi du message:', error);
+    throw error;
+  }
+}
+
+// Formater le plateau de Puissance 4 pour l'affichage
+function formatConnectFourBoard(board, lastMoveCol = null) {
+  const ROWS = 6;
+  const COLS = 7;
+  let output = '';
+  
+  // Afficher les numéros de colonnes
+  output += '1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣7️⃣\n';
+  
+  // Afficher la grille
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col < COLS; col++) {
+      const index = row * COLS + col;
+      const cell = board[index];
+      
+      if (cell === 'R') output += '🔴';
+      else if (cell === 'Y') output += '🟡';
+      else output += '⚪';
+    }
+    output += '\n';
+  }
+  
+  // Mettre en surbrillance la dernière colonne jouée
+  if (lastMoveCol !== null) {
+    output += ' '.repeat(lastMoveCol * 2) + '⬇️';
+  }
+  
+  return output;
+}
+
+// Gérer les mouvements au Puissance 4
+async function handleConnectFourMove(interaction) {
+  const [_, gameId, col] = interaction.customId.split('_');
+  const game = activeConnectFourGames.get(gameId);
+  
+  if (!game) {
+    await interaction.update({ components: [] });
+    return;
+  }
+  
+  const currentPlayerId = interaction.user.id;
+  if (currentPlayerId !== game.players[game.currentPlayer]) {
+    await interaction.reply({ content: 'Ce n\'est pas à votre tour de jouer !', ephemeral: true });
+    return;
+  }
+  
+  const column = parseInt(col, 10);
+  const ROWS = 6;
+  const COLS = 7;
+  
+  // Trouver la première case vide dans la colonne
+  let row = ROWS - 1;
+  while (row >= 0 && game.board[row * COLS + column] !== null) {
+    row--;
+  }
+  
+  if (row < 0) {
+    await interaction.reply({ content: 'Cette colonne est pleine !', ephemeral: true });
+    return;
+  }
+  
+  // Placer le jeton
+  const index = row * COLS + column;
+  game.board[index] = game.currentPlayer === 0 ? 'R' : 'Y';
+  game.lastMove = column;
+  
+  // Vérifier s'il y a un gagnant
+  const winner = checkConnectFourWinner(game.board);
+  
+  // Mettre à jour l'affichage
+  const player1 = interaction.client.users.cache.get(game.players[0]);
+  const player2 = interaction.client.cache.get(game.players[1]);
+  
+  // Mettre à jour la grille d'affichage
+  const gridRow = new ActionRowBuilder()
+    .addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('connect4_grid')
+        .setPlaceholder('Grille de jeu')
+        .setDisabled(true)
+        .addOptions([
+          {
+            label: 'Grille de jeu',
+            description: formatConnectFourBoard(game.board, column),
+            value: 'grid',
+            emoji: '⬜'
+          }
+        ])
+    );
+  
+  // Mettre à jour les boutons
+  const buttonRow = new ActionRowBuilder();
+  for (let c = 0; c < 7; c++) {
+    const isColumnFull = game.board[c] !== null; // Vérifie si la colonne est pleine
+    buttonRow.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`cf_${gameId}_${c}`)
+        .setLabel(`${c + 1}`)
+        .setStyle(ButtonStyle.Primary)
+        .setDisabled(winner !== null || isColumnFull)
+    );
+  }
+  
+  // Mettre à jour l'embed
+  const embed = new EmbedBuilder()
+    .setTitle('🎮 Puissance 4')
+    .setColor(0x00ff00);
+  
+  if (game.bet > 0) {
+    embed.addFields({ name: 'Mise', value: `${game.bet} ${config.currency.emoji} par joueur` });
+  }
+  
+  if (winner === 'R' || winner === 'Y') {
+    const winnerIndex = winner === 'R' ? 0 : 1;
+    const winnerUser = interaction.client.users.cache.get(game.players[winnerIndex]);
+    
+    embed.setDescription(`**${player1.username}** (🔴) vs **${player2.username}** (🟡)\n🎉 **${winnerUser.username} a gagné la partie !**`);
+    
+    // Désactiver tous les boutons
+    buttonRow.components.forEach(btn => btn.setDisabled(true));
+    
+    // Gagner la mise si applicable
+    if (game.bet > 0) {
+      const winnerId = game.players[winnerIndex];
+      const loserId = game.players[1 - winnerIndex];
+      
+      await addMoney(winnerId, game.bet * 2, interaction);
+      await interaction.followUp({ 
+        content: `🏆 ${winnerUser} a gagné ${game.bet * 2} ${config.currency.emoji} !`,
+        ephemeral: true 
+      });
+    }
+    
+    // Supprimer la partie
+    activeConnectFourGames.delete(gameId);
+    
+  } else if (winner === 'tie') {
+    embed.setDescription(`**${player1.username}** (🔴) vs **${player2.username}** (🟡)\n🤝 **Match nul !**`);
+    
+    // Rembourser les mises en cas d'égalité
+    if (game.bet > 0) {
+      await addMoney(game.players[0], game.bet, interaction);
+      await addMoney(game.players[1], game.bet, interaction);
+      await interaction.followUp({ 
+        content: `Les mises ont été remboursées (${game.bet} ${config.currency.emoji} par joueur).`,
+        ephemeral: true 
+      });
+    }
+    
+    // Supprimer la partie
+    activeConnectFourGames.delete(gameId);
+    
+  } else {
+    // Changer de joueur
+    game.currentPlayer = 1 - game.currentPlayer;
+    const currentPlayer = interaction.client.users.cache.get(game.players[game.currentPlayer]);
+    embed.setDescription(`**${player1.username}** (🔴) vs **${player2.username}** (🟡)\nC'est au tour de **${currentPlayer.username}** de jouer !`);
+    
+    // Mettre à jour le jeu
+    activeConnectFourGames.set(gameId, game);
+  }
+  
+  // Mettre à jour le message
+  await interaction.update({
+    embeds: [embed],
+    components: [buttonRow, gridRow]
+  });
+}
+
+// Exporter les fonctions
 module.exports = {
-  activeBlackjackGames,
-  activeCoinflipGames,
-  activeTicTacToeGames,
+  handleBlackjack,
   handleTicTacToe,
   handleTicTacToeMove,
-  handleBlackjackStart,
-  resolveBlackjack,
-  handleRouletteStart,
-  handleRouletteChoice,
+  handleConnectFour,
+  handleConnectFourMove,
+  activeBlackjackGames,
+  activeTicTacToeGames,
+  activeConnectFourGames,
   handleSlots,
   handleCoinflipSolo,
   handleCoinflipMulti,
   handleShop,
-  handlePurchase
+  handlePurchase,
+  addMoney
 };
