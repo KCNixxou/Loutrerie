@@ -1065,7 +1065,7 @@ async function handleConnectFourMove(interaction) {
 
 // Exporter les fonctions
 module.exports = {
-  handleBlackjack,
+  handleBlackjack: handleBlackjackStart,
   handleTicTacToe,
   handleTicTacToeMove,
   handleConnectFour,
