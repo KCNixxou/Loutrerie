@@ -35,9 +35,11 @@ async function handleBlackjackStart(interaction) {
   const playerHand = [deck.pop(), deck.pop()];
   const dealerHand = [deck.pop()];
   
-  activeBlackjackGames.set(interaction.user.id, {
+  const gameData = {
     deck, playerHand, dealerHand, bet, userId: interaction.user.id
-  });
+  };
+  console.log(`[DEBUG] Creating new blackjack game for user ${interaction.user.id}`, gameData);
+  activeBlackjackGames.set(interaction.user.id, gameData);
   
   const playerValue = calculateHandValue(playerHand);
   
@@ -92,6 +94,7 @@ async function resolveBlackjack(interaction, game) {
     updateUser(userId, { balance: user.balance + winnings });
   }
   
+  console.log(`[DEBUG] Deleting blackjack game for user ${userId}`);
   activeBlackjackGames.delete(userId);
   
   const embed = new EmbedBuilder()

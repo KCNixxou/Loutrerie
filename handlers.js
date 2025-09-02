@@ -6,8 +6,12 @@ async function handleButtonInteraction(interaction) {
   const userId = interaction.user.id;
   
   if (interaction.customId.startsWith('blackjack_')) {
+    console.log(`[DEBUG] Blackjack interaction - User ID: ${userId}`);
+    console.log(`[DEBUG] Active games:`, [...activeBlackjackGames.keys()]);
+    
     const game = activeBlackjackGames.get(userId);
     if (!game) {
+      console.log(`[DEBUG] No game found for user ${userId}`);
       await interaction.reply({ content: '❌ Aucune partie trouvée !', ephemeral: true });
       return;
     }
