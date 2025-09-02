@@ -676,68 +676,66 @@ function checkConnectFourWinner(board) {
   const ROWS = 6;
   const COLS = 7;
   
-  // Vérifier les lignes horizontales
+  // Vérifier les lignes horizontales (de gauche à droite)
   for (let row = 0; row < ROWS; row++) {
     for (let col = 0; col <= COLS - 4; col++) {
       const index = row * COLS + col;
-      if (
-        board[index] && 
-        board[index] === board[index + 1] &&
-        board[index] === board[index + 2] &&
-        board[index] === board[index + 3]
-      ) {
-        return board[index];
+      const cell = board[index];
+      if (cell && 
+          cell === board[index + 1] &&
+          cell === board[index + 2] &&
+          cell === board[index + 3]) {
+        return cell; // Retourne 'R' ou 'Y' selon le gagnant
       }
     }
   }
   
-  // Vérifier les colonnes verticales
+  // Vérifier les colonnes verticales (de haut en bas)
   for (let col = 0; col < COLS; col++) {
     for (let row = 0; row <= ROWS - 4; row++) {
       const index = row * COLS + col;
-      if (
-        board[index] && 
-        board[index] === board[index + COLS] &&
-        board[index] === board[index + 2 * COLS] &&
-        board[index] === board[index + 3 * COLS]
-      ) {
-        return board[index];
+      const cell = board[index];
+      if (cell && 
+          cell === board[index + COLS] &&
+          cell === board[index + 2 * COLS] &&
+          cell === board[index + 3 * COLS]) {
+        return cell;
       }
     }
   }
   
-  // Vérifier les diagonales montantes
-  for (let row = 3; row < ROWS; row++) {
-    for (let col = 0; col <= COLS - 4; col++) {
-      const index = row * COLS + col;
-      if (
-        board[index] && 
-        board[index] === board[index - COLS + 1] &&
-        board[index] === board[index - 2 * COLS + 2] &&
-        board[index] === board[index - 3 * COLS + 3]
-      ) {
-        return board[index];
-      }
-    }
-  }
-  
-  // Vérifier les diagonales descendantes
+  // Vérifier les diagonales descendantes (\\)
   for (let row = 0; row <= ROWS - 4; row++) {
     for (let col = 0; col <= COLS - 4; col++) {
       const index = row * COLS + col;
-      if (
-        board[index] && 
-        board[index] === board[index + COLS + 1] &&
-        board[index] === board[index + 2 * COLS + 2] &&
-        board[index] === board[index + 3 * COLS + 3]
-      ) {
-        return board[index];
+      const cell = board[index];
+      if (cell &&
+          cell === board[index + COLS + 1] &&
+          cell === board[index + 2 * (COLS + 1)] &&
+          cell === board[index + 3 * (COLS + 1)]) {
+        return cell;
+      }
+    }
+  }
+  
+  // Vérifier les diagonales montantes (//)
+  for (let row = 3; row < ROWS; row++) {
+    for (let col = 0; col <= COLS - 4; col++) {
+      const index = row * COLS + col;
+      const cell = board[index];
+      if (cell &&
+          cell === board[index - COLS + 1] &&
+          cell === board[index - 2 * COLS + 2] &&
+          cell === board[index - 3 * COLS + 3]) {
+        return cell;
       }
     }
   }
   
   // Vérifier si le plateau est plein (match nul)
-  if (board.every(cell => cell !== null)) return 'tie';
+  if (board.every(cell => cell !== null)) {
+    return 'tie';
+  }
   
   return null; // Pas de gagnant pour l'instant
 }
@@ -859,6 +857,50 @@ async function handleConnectFour(interaction, opponent, bet = 0) {
   const player1 = interaction.user;
   const player2 = opponent || interaction.user; // Si pas d'adversaire spécifié, jouer contre soi-même (pour test)
   
+  // Vérifier si le joueur ne joue pas contre lui-même
+  if (player1.id === player2.id) {
+    await interaction.reply({ 
+      content: '❌ Tu ne peux pas jouer contre toi-même !', 
+      ephemeral: true 
+    });
+    return;
+  }
+  
+  // Vérifier si l'adversaire est un bot
+  if (player2.bot) {
+    await interaction.reply({ 
+      content: '❌ Tu ne peux pas jouer contre un bot !', 
+      ephemeral: true 
+    });
+    return;
+  }
+  
+  // Vérifier la mise si nécessaire
+  if (bet > 0) {
+    const user1 = ensureUser(player1.id);
+    const user2 = ensureUser(player2.id);
+    
+    if (user1.balance < bet) {
+      await interaction.reply({ 
+        content: `❌ Tu n'as pas assez d'argent pour miser ${bet} ${config.currency.emoji} !`, 
+        ephemeral: true 
+      });
+      return;
+    }
+    
+    if (user2.balance < bet) {
+      await interaction.reply({ 
+        content: `❌ ${player2.username} n'a pas assez d'argent pour miser ${bet} ${config.currency.emoji} !`, 
+        ephemeral: true 
+      });
+      return;
+    }
+    
+    // Bloquer les fonds
+    updateUser(player1.id, { balance: user1.balance - bet });
+    updateUser(player2.id, { balance: user2.balance - bet });
+  }
+  
   // Créer le plateau de jeu (6 lignes x 7 colonnes)
   const board = Array(6 * 7).fill(null);
   const gameId = `cf_${player1.id}-${player2.id}-${Date.now()}`;
@@ -866,52 +908,33 @@ async function handleConnectFour(interaction, opponent, bet = 0) {
   console.log(`[PUISSANCE4] Création d'une nouvelle partie: ${gameId}`);
   console.log(`[PUISSANCE4] Joueurs: ${player1.username} vs ${player2.username}`);
   
-  // Créer les boutons pour les colonnes
+  // Créer les boutons pour la grille 6x7
   const rows = [];
-  
-  // Boutons pour choisir une colonne (2 rangées de 4 et 3 boutons)
-  const buttonRow1 = new ActionRowBuilder();
-  const buttonRow2 = new ActionRowBuilder();
-  
-  // Première rangée (4 premiers boutons)
-  for (let col = 0; col < 4; col++) {
-    buttonRow1.addComponents(
-      new ButtonBuilder()
-        .setCustomId(`cf_${gameId}_${col}`)
-        .setLabel(`${col + 1}`)
-        .setStyle(ButtonStyle.Primary)
-    );
+  for (let row = 0; row < 6; row++) {
+    const buttonRow = new ActionRowBuilder();
+    for (let col = 0; col < 7; col++) {
+      const index = row * 7 + col;
+      const button = new ButtonBuilder()
+        .setCustomId(`cf_${gameId}_${index}`)
+        .setLabel('·') // Point médian comme marqueur visuel
+        .setStyle(ButtonStyle.Secondary);
+      buttonRow.addComponents(button);
+    }
+    rows.push(buttonRow);
   }
   
-  // Deuxième rangée (3 boutons restants)
-  for (let col = 4; col < 7; col++) {
-    buttonRow2.addComponents(
-      new ButtonBuilder()
-        .setCustomId(`cf_${gameId}_${col}`)
-        .setLabel(`${col + 1}`)
-        .setStyle(ButtonStyle.Primary)
-    );
+  // Créer l'embed
+  const embed = new EmbedBuilder()
+    .setTitle('🎮 Puissance 4')
+    .setDescription(`**${player1.username}** (🔴) vs **${player2.username}** (🟡)\nC'est au tour de **${player1.username}** de jouer !`)
+    .setColor(0x00ff00);
+  
+  if (bet > 0) {
+    embed.addFields({ 
+      name: 'Mise', 
+      value: `${bet} ${config.currency.emoji} par joueur` 
+    });
   }
-  
-  rows.push(buttonRow1, buttonRow2);
-  
-  // Créer la grille d'affichage
-  const gridRow = new ActionRowBuilder()
-    .addComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId('connect4_grid')
-        .setPlaceholder('Grille de jeu')
-        .setDisabled(true)
-        .addOptions([
-          {
-            label: 'Grille de jeu',
-            description: formatConnectFourBoard(board, 0),
-            value: 'grid',
-            emoji: '⬜'
-          }
-        ])
-    );
-  rows.push(gridRow);
   
   // Enregistrer la partie
   activeConnectFourGames.set(gameId, {
@@ -922,16 +945,6 @@ async function handleConnectFour(interaction, opponent, bet = 0) {
     message: null,
     lastMove: null
   });
-  
-  // Créer l'embed
-  const embed = new EmbedBuilder()
-    .setTitle('🎮 Puissance 4')
-    .setDescription(`**${player1.username}** (🔴) vs **${player2.username}** (🟡)\nC'est au tour de **${player1.username}** de jouer !`)
-    .setColor(0x00ff00);
-  
-  if (bet > 0) {
-    embed.addFields({ name: 'Mise', value: `${bet} ${config.currency.emoji} par joueur` });
-  }
   
   // Envoyer le message
   try {
@@ -984,7 +997,7 @@ function formatConnectFourBoard(board, lastMoveCol = null) {
 
 // Gérer les mouvements au Puissance 4
 async function handleConnectFourMove(interaction) {
-  const [_, gameId, col] = interaction.customId.split('_');
+  const [_, gameId, pos] = interaction.customId.split('_');
   const game = activeConnectFourGames.get(gameId);
   
   if (!game) {
@@ -998,108 +1011,110 @@ async function handleConnectFourMove(interaction) {
     return;
   }
   
-  const column = parseInt(col, 10);
+  const position = parseInt(pos, 10);
   const ROWS = 6;
   const COLS = 7;
   
-  // Trouver la première case vide dans la colonne
-  let row = ROWS - 1;
-  while (row >= 0 && game.board[row * COLS + column] !== null) {
-    row--;
-  }
-  
-  if (row < 0) {
-    await interaction.reply({ content: 'Cette colonne est pleine !', ephemeral: true });
+  // Vérifier si la case est déjà prise
+  if (game.board[position] !== null) {
+    await interaction.reply({ content: 'Cette case est déjà prise !', ephemeral: true });
     return;
   }
   
+  // Calculer la position dans le tableau 1D
+  const row = Math.floor(position / COLS);
+  const col = position % COLS;
+  
   // Placer le jeton
-  const index = row * COLS + column;
-  game.board[index] = game.currentPlayer === 0 ? 'R' : 'Y';
-  game.lastMove = column;
+  game.board[position] = game.currentPlayer === 0 ? 'R' : 'Y';
+  game.lastMove = col;
   
   // Vérifier s'il y a un gagnant
   const winner = checkConnectFourWinner(game.board);
   
   // Mettre à jour l'affichage
-  const player1 = interaction.client.users.cache.get(game.players[0]);
-  const player2 = interaction.client.cache.get(game.players[1]);
-  
-  // Mettre à jour la grille d'affichage
-  const gridRow = new ActionRowBuilder()
-    .addComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId('connect4_grid')
-        .setPlaceholder('Grille de jeu')
-        .setDisabled(true)
-        .addOptions([
-          {
-            label: 'Grille de jeu',
-            description: formatConnectFourBoard(game.board, column),
-            value: 'grid',
-            emoji: '⬜'
-          }
-        ])
-    );
-  
-  // Mettre à jour les boutons
-  const buttonRow = new ActionRowBuilder();
-  for (let c = 0; c < 7; c++) {
-    const isColumnFull = game.board[c] !== null; // Vérifie si la colonne est pleine
-    buttonRow.addComponents(
-      new ButtonBuilder()
-        .setCustomId(`cf_${gameId}_${c}`)
-        .setLabel(`${c + 1}`)
-        .setStyle(ButtonStyle.Primary)
-        .setDisabled(winner !== null || isColumnFull)
-    );
+  const rows = [];
+  for (let i = 0; i < 6; i++) {
+    const buttonRow = new ActionRowBuilder();
+    for (let j = 0; j < 7; j++) {
+      const idx = i * 7 + j;
+      const button = new ButtonBuilder()
+        .setCustomId(`cf_${gameId}_${idx}`)
+        .setLabel(game.board[idx] ? (game.board[idx] === 'R' ? '🔴' : '🟡') : '·')
+        .setStyle(game.board[idx] ? 
+          (game.board[idx] === 'R' ? ButtonStyle.Danger : ButtonStyle.Primary) : 
+          ButtonStyle.Secondary
+        );
+      
+      if (game.board[idx] || winner) {
+        button.setDisabled(true);
+      }
+      
+      buttonRow.addComponents(button);
+    }
+    rows.push(buttonRow);
   }
+  const player1 = interaction.client.users.cache.get(game.players[0]);
+  const player2 = interaction.client.users.cache.get(game.players[1]);
   
-  // Mettre à jour l'embed
+  // Créer l'embed
   const embed = new EmbedBuilder()
-    .setTitle('🎮 Puissance 4')
+    .setTitle('Puissance 4')
+    .setDescription(`**${player1.username}** (🔴) vs **${player2.username}** (🟡)\nC'est au tour de **${game.currentPlayer === 0 ? player1.username : player2.username}** de jouer !`)
     .setColor(0x00ff00);
   
   if (game.bet > 0) {
     embed.addFields({ name: 'Mise', value: `${game.bet} ${config.currency.emoji} par joueur` });
   }
   
-  if (winner === 'R' || winner === 'Y') {
-    const winnerIndex = winner === 'R' ? 0 : 1;
-    const winnerUser = interaction.client.users.cache.get(game.players[winnerIndex]);
-    
-    embed.setDescription(`**${player1.username}** (🔴) vs **${player2.username}** (🟡)\n🎉 **${winnerUser.username} a gagné la partie !**`);
-    
+  // Vérifier s'il y a un gagnant ou un match nul
+  if (winner) {
     // Désactiver tous les boutons
-    buttonRow.components.forEach(btn => btn.setDisabled(true));
+    for (const row of rows) {
+      for (const component of row.components) {
+        component.setDisabled(true);
+      }
+    }
     
-    // Gagner la mise si applicable
-    if (game.bet > 0) {
-      const winnerId = game.players[winnerIndex];
-      const loserId = game.players[1 - winnerIndex];
+    if (winner === 'tie') {
+      // Match nul - Rembourser les mises
+      if (game.bet > 0) {
+        const user1 = ensureUser(game.players[0]);
+        const user2 = ensureUser(game.players[1]);
+        updateUser(game.players[0], { balance: user1.balance + game.bet });
+        updateUser(game.players[1], { balance: user2.balance + game.bet });
+        
+        await interaction.followUp({
+          content: `Match nul ! Les mises ont été remboursées (${game.bet} ${config.currency.emoji} par joueur).`,
+          ephemeral: true 
+        });
+      }
       
-      await addMoney(winnerId, game.bet * 2, interaction);
-      await interaction.followUp({ 
-        content: `🏆 ${winnerUser} a gagné ${game.bet * 2} ${config.currency.emoji} !`,
-        ephemeral: true 
-      });
+      // Mettre à jour le message final
+      embed.setDescription(`**${player1.username}** (🔴) vs **${player2.username}** (🟡)\n**Match nul !**`);
+      
+    } else {
+      // Il y a un gagnant
+      const winnerIndex = winner === 'R' ? 0 : 1;
+      const winnerUser = interaction.client.users.cache.get(game.players[winnerIndex]);
+      
+      // Mettre à jour le message final
+      embed.setDescription(`**${player1.username}** (🔴) vs **${player2.username}** (🟡)\n**${winnerUser.username} a gagné !**`);
+      
+      // Distribuer les gains si une mise est en jeu
+      if (game.bet > 0) {
+        const winnings = game.bet * 2;
+        updateUser(winnerUser.id, { balance: ensureUser(winnerUser.id).balance + winnings });
+        
+        embed.addFields({
+          name: 'Gains',
+          value: `${winnerUser} remporte ${winnings} ${config.currency.emoji} !`
+        });
+      }
     }
     
-    // Supprimer la partie
-    activeConnectFourGames.delete(gameId);
-    
-  } else if (winner === 'tie') {
-    embed.setDescription(`**${player1.username}** (🔴) vs **${player2.username}** (🟡)\n🤝 **Match nul !**`);
-    
-    // Rembourser les mises en cas d'égalité
-    if (game.bet > 0) {
-      await addMoney(game.players[0], game.bet, interaction);
-      await addMoney(game.players[1], game.bet, interaction);
-      await interaction.followUp({ 
-        content: `Les mises ont été remboursées (${game.bet} ${config.currency.emoji} par joueur).`,
-        ephemeral: true 
-      });
-    }
+    // Mettre à jour le message avec le résultat final
+    await interaction.update({ embeds: [embed], components: rows });
     
     // Supprimer la partie
     activeConnectFourGames.delete(gameId);
@@ -1112,13 +1127,10 @@ async function handleConnectFourMove(interaction) {
     
     // Mettre à jour le jeu
     activeConnectFourGames.set(gameId, game);
+    
+    // Mettre à jour le message avec le nouveau plateau
+    await interaction.update({ embeds: [embed], components: rows });
   }
-  
-  // Mettre à jour le message
-  await interaction.update({
-    embeds: [embed],
-    components: [buttonRow, gridRow]
-  });
 }
 
 // Exporter les fonctions
