@@ -120,105 +120,21 @@ client.on('messageCreate', async (message) => {
   }
 });
 
-// Fonctions utilitaires pour le blackjack
-function calculateHandValue(hand) {
-  let value = 0;
-  let aces = 0;
-  
-  for (const card of hand) {
-    if (card.value === 'A') {
-      aces++;
-      value += 11;
-    } else if (['J', 'Q', 'K'].includes(card.value)) {
-      value += 10;
-    } else {
-      value += parseInt(card.value);
-    }
-  }
-  
-  // Ajuster les As
-  while (value > 21 && aces > 0) {
-    value -= 10;
-    aces--;
-  }
-  
-  return value;
-}
-
-function formatHand(hand) {
-  return hand.map(card => card.display).join(' ');
-}
-
-// Gestion des interactions du blackjack
-async function handleBlackjackInteraction(interaction) {
-  const [_, action, userId] = interaction.customId.split('_');
-  const game = activeBlackjackGames.get(userId);
-  
-  if (!game || interaction.user.id !== userId) {
-    await interaction.reply({ content: '❌ Cette partie est terminée ou ne vous appartient pas !', ephemeral: true });
-    return;
-  }
-  
-  if (action === 'hit') {
-    // Tirer une carte
-    const card = game.deck.pop();
-    game.playerHand.push(card);
-    
-    const playerValue = calculateHandValue(game.playerHand);
-    
-    if (playerValue > 21) {
-      // Le joueur a dépassé 21, il perd
-      await resolveBlackjack(interaction, game);
-      activeBlackjackGames.delete(userId);
-    } else {
-      // Mettre à jour l'affichage
-      const embed = new EmbedBuilder()
-        .setTitle('🃏 Blackjack')
-        .addFields(
-          { name: 'Ta main', value: `${formatHand(game.playerHand)}\nValeur: **${playerValue}**`, inline: true },
-          { name: 'Croupier', value: `${game.dealerHand[0].display} ❓\nValeur: **?**`, inline: true },
-          { name: 'Mise', value: `${game.bet} ${config.currency.emoji}`, inline: true }
-        )
-        .setColor(0x0099ff);
-      
-      const row = new ActionRowBuilder()
-        .addComponents(
-          new ButtonBuilder()
-            .setCustomId(`blackjack_hit_${userId}`)
-            .setLabel('Hit 🃏')
-            .setStyle(ButtonStyle.Primary),
-          new ButtonBuilder()
-            .setCustomId(`blackjack_stay_${userId}`)
-            .setLabel('Stay ✋')
-            .setStyle(ButtonStyle.Secondary)
-        );
-      
-      await interaction.update({ embeds: [embed], components: [row] });
-    }
-  } else if (action === 'stay') {
-    // Le joueur reste, c'est au tour du croupier
-    await resolveBlackjack(interaction, game);
-    activeBlackjackGames.delete(userId);
-  }
-}
-
 // Gestion des interactions
 client.on('interactionCreate', async (interaction) => {
   try {
     if (interaction.isChatInputCommand()) {
       await handleSlashCommand(interaction);
     } else if (interaction.isButton()) {
-      if (interaction.customId.startsWith('blackjack_')) {
-        await handleBlackjackInteraction(interaction);
-      } else if (interaction.customId.startsWith('coinflip_multi_')) {
+      if (interaction.customId.startsWith('coinflip_multi_')) {
         await handleCoinflipMulti(interaction);
       } else if (interaction.customId.startsWith('roulette_')) {
         await handleRouletteChoice(interaction);
       } else if (interaction.customId.startsWith('ttt_')) {
         await handleTicTacToeMove(interaction);
       } else if (interaction.customId === 'cashout' || interaction.customId === 'next_multiplier') {
-        const { handleButtonInteraction } = require('./crash');
-        await handleButtonInteraction(interaction);
+        const { handleButtonInteraction: handleCrashButton } = require('./crash');
+        await handleCrashButton(interaction);
       } else {
         await handleButtonInteraction(interaction);
       }
