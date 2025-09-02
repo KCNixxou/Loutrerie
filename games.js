@@ -766,8 +766,8 @@ async function handleTicTacToeMove(interaction) {
     return;
   }
   
-  // Utiliser currentPlayerId s'il existe, sinon utiliser l'ancienne méthode
-  const currentPlayerId = game.currentPlayerId || game.players[game.currentPlayer];
+  // Utiliser directement l'index du joueur actuel pour plus de fiabilité
+  const currentPlayerId = game.players[game.currentPlayer];
   
   console.log('[MORPION] Joueur actuel:', currentPlayerId, 'Joueur qui interagit:', interaction.user.id);
   console.log('[MORPION] Détails du jeu:', {
@@ -804,7 +804,7 @@ async function handleTicTacToeMove(interaction) {
   // Mettre à jour le plateau
   game.board[index] = symbol;
   
-  // Mettre à jour le joueur actuel pour le prochain tour
+  // Changer de joueur pour le prochain tour
   game.currentPlayer = game.currentPlayer === 0 ? 1 : 0;
   game.currentPlayerId = game.players[game.currentPlayer];
   console.log('[MORPION] Prochain joueur:', game.currentPlayerId, '(Index:', game.currentPlayer, ')');
@@ -943,7 +943,7 @@ async function handleTicTacToeMove(interaction) {
     
     activeTicTacToeGames.delete(gameId);
   } else {
-    // Récupérer les informations du prochain joueur (déjà mis à jour plus haut)
+    // Récupérer les informations du prochain joueur
     const nextPlayer = game.currentPlayer === 0 ? game.player1 : game.player2;
     const currentSymbol = game.currentPlayer === 0 ? '❌' : '⭕';
     
