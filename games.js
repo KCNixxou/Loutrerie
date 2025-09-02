@@ -605,15 +605,15 @@ async function handleTicTacToe(interaction) {
       fetchReply: true
     });
     console.log('[MORPION] Message envoyé avec succès');
+    
+    // Sauvegarder la référence du message
+    const game = activeTicTacToeGames.get(gameId);
+    game.message = message;
+    activeTicTacToeGames.set(gameId, game);
   } catch (error) {
     console.error('[MORPION] Erreur lors de l\'envoi du message:', error);
     throw error;
   }
-  
-  // Sauvegarder la référence du message
-  const game = activeTicTacToeGames.get(gameId);
-  game.message = message;
-  activeTicTacToeGames.set(gameId, game);
 }
 
 // Vérifier si un joueur a gagné au Morpion 5x5
