@@ -536,33 +536,18 @@ async function handleTicTacToe(interaction) {
   console.log(`[MORPION] Joueurs: ${player1.username} vs ${player2.username}`);
   
   // Créer les boutons pour la grille
-  const rows = [
-    new ActionRowBuilder().addComponents(
-      createTicTacToeButton(gameId, 0, null),
-      createTicTacToeButton(gameId, 1, null),
-      createTicTacToeButton(gameId, 2, null)
-    ),
-    new ActionRowBuilder().addComponents(
-      createTicTacToeButton(gameId, 3, null),
-      createTicTacToeButton(gameId, 4, null),
-      createTicTacToeButton(gameId, 5, null)
-    ),
-    new ActionRowBuilder().addComponents(
-      createTicTacToeButton(gameId, 6, null),
-      createTicTacToeButton(gameId, 7, null),
-      createTicTacToeButton(gameId, 8, null)
-    )
-  ];
-  
-  function createTicTacToeButton(gameId, index, value) {
-    const button = new ButtonBuilder()
-      .setCustomId(`ttt_${gameId}_${index}`)
-      .setLabel(value || ' ')
-      .setStyle(value ? 
-        (value === 'X' ? ButtonStyle.Danger : ButtonStyle.Primary) : 
-        ButtonStyle.Secondary
-      );
-    return button;
+  const rows = [];
+  for (let i = 0; i < 3; i++) {
+    const row = new ActionRowBuilder();
+    for (let j = 0; j < 3; j++) {
+      const index = i * 3 + j;
+      const button = new ButtonBuilder()
+        .setCustomId(`ttt_${gameId}_${index}`)
+        .setLabel('·') // Point médian comme marqueur visuel
+        .setStyle(ButtonStyle.Secondary);
+      row.addComponents(button);
+    }
+    rows.push(row);
   }
   
   // Enregistrer la partie
@@ -662,38 +647,26 @@ async function handleTicTacToeMove(interaction) {
   const winner = checkTicTacToeWinner(game.board);
   
   // Mettre à jour l'affichage
-  const rows = [
-    new ActionRowBuilder().addComponents(
-      createTicTacToeButton(gameId, 0, game.board[0]),
-      createTicTacToeButton(gameId, 1, game.board[1]),
-      createTicTacToeButton(gameId, 2, game.board[2])
-    ),
-    new ActionRowBuilder().addComponents(
-      createTicTacToeButton(gameId, 3, game.board[3]),
-      createTicTacToeButton(gameId, 4, game.board[4]),
-      createTicTacToeButton(gameId, 5, game.board[5])
-    ),
-    new ActionRowBuilder().addComponents(
-      createTicTacToeButton(gameId, 6, game.board[6]),
-      createTicTacToeButton(gameId, 7, game.board[7]),
-      createTicTacToeButton(gameId, 8, game.board[8])
-    )
-  ];
-  
-  function createTicTacToeButton(gameId, index, value) {
-    const button = new ButtonBuilder()
-      .setCustomId(`ttt_${gameId}_${index}`)
-      .setLabel(value || ' ')
-      .setStyle(value ? 
-        (value === 'X' ? ButtonStyle.Danger : ButtonStyle.Primary) : 
-        ButtonStyle.Secondary
-      );
-    
-    if (value || winner) {
-      button.setDisabled(true);
+  const rows = [];
+  for (let i = 0; i < 3; i++) {
+    const row = new ActionRowBuilder();
+    for (let j = 0; j < 3; j++) {
+      const idx = i * 3 + j;
+      const button = new ButtonBuilder()
+        .setCustomId(`ttt_${gameId}_${idx}`)
+        .setLabel(game.board[idx] || '·') // Point médian comme marqueur visuel
+        .setStyle(game.board[idx] ? 
+          (game.board[idx] === 'X' ? ButtonStyle.Danger : ButtonStyle.Primary) : 
+          ButtonStyle.Secondary
+        );
+      
+      if (game.board[idx] || winner) {
+        button.setDisabled(true);
+      }
+      
+      row.addComponents(button);
     }
-    
-    return button;
+    rows.push(row);
   }
   
   // Mettre à jour le message
@@ -701,7 +674,7 @@ async function handleTicTacToeMove(interaction) {
   const player2 = interaction.client.users.cache.get(game.players[1]);
   
   const embed = new EmbedBuilder()
-    .setTitle('⭕ Morpion ❌')
+    .setTitle('O Morpion X')
     .setColor(0x00ff00);
     
   if (game.bet > 0) {
