@@ -797,12 +797,17 @@ async function handleTicTacToeMove(interaction) {
     return;
   }
   
-  // Déterminer le symbole du joueur actuel
+  // Déterminer le symbole du joueur actuel et mettre à jour le plateau
   const symbol = game.currentPlayer === 0 ? 'X' : 'O';
   console.log('[MORPION] Mise à jour du plateau - Index:', index, 'Symbole:', symbol, 'Joueur:', game.currentPlayer);
   
   // Mettre à jour le plateau
   game.board[index] = symbol;
+  
+  // Mettre à jour le joueur actuel pour le prochain tour
+  game.currentPlayer = game.currentPlayer === 0 ? 1 : 0;
+  game.currentPlayerId = game.players[game.currentPlayer];
+  console.log('[MORPION] Prochain joueur:', game.currentPlayerId, '(Index:', game.currentPlayer, ')');
   
   // Vérifier s'il y a un gagnant ou un match nul
   const winner = checkTicTacToeWinner(game.board);
@@ -938,24 +943,19 @@ async function handleTicTacToeMove(interaction) {
     
     activeTicTacToeGames.delete(gameId);
   } else {
-    // Déterminer l'index du prochain joueur
-    const nextPlayerIndex = 1 - game.currentPlayer;
+    // Récupérer les informations du prochain joueur (déjà mis à jour plus haut)
+    const nextPlayer = game.currentPlayer === 0 ? game.player1 : game.player2;
+    const currentSymbol = game.currentPlayer === 0 ? '❌' : '⭕';
     
-    // Mettre à jour le joueur actuel
-    game.currentPlayer = nextPlayerIndex;
-    game.currentPlayerId = game.players[nextPlayerIndex];
+    console.log('[MORPION] Tour suivant - Joueur:', nextPlayer.username, '(ID:', game.currentPlayerId, 'Index:', game.currentPlayer, ')');
     activeTicTacToeGames.set(gameId, game);
-    
-    // Récupérer les informations du prochain joueur
-    const nextPlayer = nextPlayerIndex === 0 ? game.player1 : game.player2;
-    const currentSymbol = nextPlayerIndex === 0 ? '❌' : '⭕';
     
     embed.setDescription(
       `**${game.player1}** (❌) vs **${game.player2}** (⭕)\n\n` +
       `C'est au tour de ${nextPlayer} (${currentSymbol})`
     );
     
-    console.log('[MORPION] Tour mis à jour - Prochain joueur:', nextPlayer.username, '(ID:', game.currentPlayerId, 'Index:', nextPlayerIndex, ')');
+    console.log('[MORPION] Tour mis à jour - Prochain joueur:', nextPlayer.username, '(ID:', game.currentPlayerId, 'Index:', game.currentPlayer, ')');
   }
   
   try {
