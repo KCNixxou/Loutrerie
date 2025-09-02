@@ -6,53 +6,75 @@ async function handleButtonInteraction(interaction) {
   const userId = interaction.user.id;
   
   if (interaction.customId.startsWith('blackjack_')) {
+    // Vérifier si l'interaction a déjà été traitée
+    if (interaction.replied || interaction.deferred) {
+      return;
+    }
+    
     console.log(`[DEBUG] Blackjack interaction - User ID: ${userId}`);
     console.log(`[DEBUG] Active games:`, [...activeBlackjackGames.keys()]);
     
     const game = activeBlackjackGames.get(userId);
     if (!game) {
       console.log(`[DEBUG] No game found for user ${userId}`);
-      await interaction.reply({ content: '❌ Aucune partie trouvée !', ephemeral: true });
+      await interaction.reply({ content: '❌ Aucune partie trouvée !', ephemeral: true }).catch(console.error);
       return;
     }
     
-    if (interaction.customId === 'blackjack_hit') {
-      game.playerHand.push(game.deck.pop());
-      const playerValue = calculateHandValue(game.playerHand);
-      
-      if (playerValue > 21) {
-        // Bust
-        activeBlackjackGames.delete(userId);
-        const embed = new EmbedBuilder()
-          .setTitle('🃏 Blackjack - Résultat')
-          .addFields(
-            { name: 'Ta main', value: `${formatHand(game.playerHand)}\nValeur: **${playerValue}**`, inline: true },
-            { name: 'Résultat', value: '💥 **BUST !** Tu as perdu ta mise.', inline: false }
-          )
-          .setColor(0xff0000);
+    // Vérifier que la partie appartient bien à l'utilisateur
+    if (game.userId !== userId) {
+      console.log(`[DEBUG] Game user ID (${game.userId}) doesn't match interaction user ID (${userId})`);
+      await interaction.reply({ content: '❌ Cette partie ne vous appartient pas !', ephemeral: true }).catch(console.error);
+      return;
+    }
+    
+    try {
+      if (interaction.customId === 'blackjack_hit') {
+        game.playerHand.push(game.deck.pop());
+        const playerValue = calculateHandValue(game.playerHand);
         
-        await interaction.update({ embeds: [embed], components: [] });
-      } else {
-        // Continuer
-        const embed = new EmbedBuilder()
-          .setTitle('🃏 Blackjack')
-          .addFields(
-            { name: 'Ta main', value: `${formatHand(game.playerHand)}\nValeur: **${playerValue}**`, inline: true },
-            { name: 'Croupier', value: `${game.dealerHand[0].display} ❓\nValeur: **?**`, inline: true },
-            { name: 'Mise', value: `${game.bet} 🐚`, inline: true }
-          )
-          .setColor(0x0099ff);
-        
-        const row = new ActionRowBuilder()
-          .addComponents(
-            new ButtonBuilder().setCustomId('blackjack_hit').setLabel('Hit 🃏').setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId('blackjack_stay').setLabel('Stay ✋').setStyle(ButtonStyle.Secondary)
-          );
-        
-        await interaction.update({ embeds: [embed], components: [row] });
+        if (playerValue > 21) {
+          // Bust
+          activeBlackjackGames.delete(userId);
+          const embed = new EmbedBuilder()
+            .setTitle('🃏 Blackjack - Résultat')
+            .addFields(
+              { name: 'Ta main', value: `${formatHand(game.playerHand)}\nValeur: **${playerValue}**`, inline: true },
+              { name: 'Résultat', value: '💥 **BUST !** Tu as perdu ta mise.', inline: false }
+            )
+            .setColor(0xff0000);
+          
+          await interaction.update({ embeds: [embed], components: [] });
+        } else {
+          // Continuer
+          const embed = new EmbedBuilder()
+            .setTitle('🃏 Blackjack')
+            .addFields(
+              { name: 'Ta main', value: `${formatHand(game.playerHand)}\nValeur: **${playerValue}**`, inline: true },
+              { name: 'Croupier', value: `${game.dealerHand[0].display} ❓\nValeur: **?**`, inline: true },
+              { name: 'Mise', value: `${game.bet} 🐚`, inline: true }
+            )
+            .setColor(0x0099ff);
+          
+          const row = new ActionRowBuilder()
+            .addComponents(
+              new ButtonBuilder().setCustomId('blackjack_hit').setLabel('Hit 🃏').setStyle(ButtonStyle.Primary),
+              new ButtonBuilder().setCustomId('blackjack_stay').setLabel('Stay ✋').setStyle(ButtonStyle.Secondary)
+            );
+          
+          await interaction.update({ embeds: [embed], components: [row] });
+        }
+      } else if (interaction.customId === 'blackjack_stay') {
+        await resolveBlackjack(interaction, game);
       }
-    } else if (interaction.customId === 'blackjack_stay') {
-      await resolveBlackjack(interaction, game);
+    } catch (error) {
+      console.error('Error in blackjack interaction:', error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ 
+          content: '❌ Une erreur est survenue lors du traitement de votre action. Veuillez réessayer.', 
+          ephemeral: true 
+        }).catch(console.error);
+      }
     }
   } else if (interaction.customId.startsWith('roulette_')) {
     await handleRouletteChoice(interaction);

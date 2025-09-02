@@ -36,10 +36,21 @@ async function handleBlackjackStart(interaction) {
   const dealerHand = [deck.pop()];
   
   const gameData = {
-    deck, playerHand, dealerHand, bet, userId: interaction.user.id
+    deck, 
+    playerHand, 
+    dealerHand, 
+    bet, 
+    userId: interaction.user.id,
+    createdAt: Date.now()
   };
-  console.log(`[DEBUG] Creating new blackjack game for user ${interaction.user.id}`, gameData);
+  
+  console.log(`[BLACKJACK] Création d'une nouvelle partie pour ${interaction.user.id}`);
+  console.log(`[BLACKJACK] Nombre de cartes dans le jeu: ${deck.length}`);
+  console.log(`[BLACKJACK] Main du joueur:`, playerHand.map(card => card.display));
+  console.log(`[BLACKJACK] Main du croupier:`, dealerHand.map(card => card.display));
+  
   activeBlackjackGames.set(interaction.user.id, gameData);
+  console.log(`[BLACKJACK] Parties actives:`, [...activeBlackjackGames.keys()]);
   
   const playerValue = calculateHandValue(playerHand);
   
@@ -95,7 +106,10 @@ async function resolveBlackjack(interaction, game) {
   }
   
   console.log(`[DEBUG] Deleting blackjack game for user ${userId}`);
+  console.log(`[BLACKJACK] Suppression de la partie pour ${userId}`);
+  console.log(`[BLACKJACK] Durée de la partie: ${((Date.now() - (game.createdAt || Date.now())) / 1000).toFixed(2)}s`);
   activeBlackjackGames.delete(userId);
+  console.log(`[BLACKJACK] Parties restantes:`, [...activeBlackjackGames.keys()]);
   
   const embed = new EmbedBuilder()
     .setTitle('🃏 Blackjack - Résultat')
