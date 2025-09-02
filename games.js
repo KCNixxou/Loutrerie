@@ -557,14 +557,11 @@ async function handleTicTacToe(interaction) {
   function createTicTacToeButton(gameId, index, value) {
     const button = new ButtonBuilder()
       .setCustomId(`ttt_${gameId}_${index}`)
-      .setLabel(' ') // Toujours définir un espace insécable comme label
-      .setStyle(ButtonStyle.Secondary);
-      
-    if (value) {
-      button.setLabel(value)
-        .setStyle(value === '❌' ? ButtonStyle.Danger : ButtonStyle.Primary);
-    }
-    
+      .setLabel(value || ' ')
+      .setStyle(value ? 
+        (value === 'X' ? ButtonStyle.Danger : ButtonStyle.Primary) : 
+        ButtonStyle.Secondary
+      );
     return button;
   }
   
@@ -579,8 +576,8 @@ async function handleTicTacToe(interaction) {
   
   // Créer l'embed
   const embed = new EmbedBuilder()
-    .setTitle('⭕ Morpion ❌')
-    .setDescription(`**${player1.username}** (❌) vs **${player2.username}** (⭕)\n\nC'est au tour de ${player1}`)
+    .setTitle('O Morpion X')
+    .setDescription(`**${player1.username}** (X) vs **${player2.username}** (O)\n\nC'est au tour de ${player1}`)
     .setColor(0x00ff00);
     
   if (bet > 0) {
@@ -658,7 +655,7 @@ async function handleTicTacToeMove(interaction) {
   }
   
   // Mettre à jour le plateau
-  const symbol = game.currentPlayer === 0 ? '❌' : '⭕';
+  const symbol = game.currentPlayer === 0 ? 'X' : 'O';
   game.board[index] = symbol;
   
   // Vérifier s'il y a un gagnant
@@ -686,13 +683,11 @@ async function handleTicTacToeMove(interaction) {
   function createTicTacToeButton(gameId, index, value) {
     const button = new ButtonBuilder()
       .setCustomId(`ttt_${gameId}_${index}`)
-      .setLabel(' ') // Toujours définir un espace insécable comme label
-      .setStyle(ButtonStyle.Secondary);
-      
-    if (value) {
-      button.setLabel(value)
-        .setStyle(value === '❌' ? ButtonStyle.Danger : ButtonStyle.Primary);
-    }
+      .setLabel(value || ' ')
+      .setStyle(value ? 
+        (value === 'X' ? ButtonStyle.Danger : ButtonStyle.Primary) : 
+        ButtonStyle.Secondary
+      );
     
     if (value || winner) {
       button.setDisabled(true);
