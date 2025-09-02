@@ -927,6 +927,29 @@ async function handleConnectFour(interaction, opponent, bet = 0) {
   
   // Créer les boutons pour la grille 6x7
   const rows = [];
+  // Première rangée : 4 boutons
+  const firstRow = new ActionRowBuilder();
+  for (let col = 0; col < 4; col++) {
+    const button = new ButtonBuilder()
+      .setCustomId(`cf_${gameId}_${col}`)
+      .setLabel('⬇️') // Flèche vers le bas pour indiquer où le jeton va tomber
+      .setStyle(ButtonStyle.Secondary);
+    firstRow.addComponents(button);
+  }
+  rows.push(firstRow);
+  
+  // Deuxième rangée : 3 boutons
+  const secondRow = new ActionRowBuilder();
+  for (let col = 4; col < 7; col++) {
+    const button = new ButtonBuilder()
+      .setCustomId(`cf_${gameId}_${col}`)
+      .setLabel('⬇️') // Flèche vers le bas pour indiquer où le jeton va tomber
+      .setStyle(ButtonStyle.Secondary);
+    secondRow.addComponents(button);
+  }
+  rows.push(secondRow);
+  
+  // Créer les rangées pour le plateau (6 rangées de 7 colonnes)
   for (let row = 0; row < 6; row++) {
     const buttonRow = new ActionRowBuilder();
     for (let col = 0; col < 7; col++) {
@@ -934,7 +957,8 @@ async function handleConnectFour(interaction, opponent, bet = 0) {
       const button = new ButtonBuilder()
         .setCustomId(`cf_${gameId}_${index}`)
         .setLabel('·') // Point médian comme marqueur visuel
-        .setStyle(ButtonStyle.Secondary);
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(true); // Désactiver les boutons du plateau
       buttonRow.addComponents(button);
     }
     rows.push(buttonRow);
@@ -1014,87 +1038,84 @@ function formatConnectFourBoard(board, lastMoveCol = null) {
 
 // Gérer les mouvements au Puissance 4
 async function handleConnectFourMove(interaction) {
-  const [_, gameId, pos] = interaction.customId.split('_');
-  const game = activeConnectFourGames.get(gameId);
-  
-  if (!game) {
-    await interaction.update({ components: [] });
-    return;
-  }
-  
-  const currentPlayerId = interaction.user.id;
-  if (currentPlayerId !== game.players[game.currentPlayer]) {
-    await interaction.reply({ content: 'Ce n\'est pas à votre tour de jouer !', ephemeral: true });
-    return;
-  }
-  
-  const position = parseInt(pos, 10);
-  const ROWS = 6;
-  const COLS = 7;
-  
-  // Vérifier si la case est déjà prise
-  if (game.board[position] !== null) {
-    await interaction.reply({ content: 'Cette case est déjà prise !', ephemeral: true });
-    return;
-  }
-  
-  // Calculer la position dans le tableau 1D
-  const row = Math.floor(position / COLS);
-  const col = position % COLS;
-  
-  // Placer le jeton
-  game.board[position] = game.currentPlayer === 0 ? 'R' : 'Y';
-  game.lastMove = col;
-  
-  // Vérifier s'il y a un gagnant
-  const winner = checkConnectFourWinner(game.board);
-  
-  // Mettre à jour l'affichage
-  const rows = [];
-  for (let i = 0; i < 6; i++) {
-    const buttonRow = new ActionRowBuilder();
-    for (let j = 0; j < 7; j++) {
-      const idx = i * 7 + j;
-      const button = new ButtonBuilder()
-        .setCustomId(`cf_${gameId}_${idx}`)
-        .setLabel(game.board[idx] ? (game.board[idx] === 'R' ? '🔴' : '🟡') : '·')
-        .setStyle(game.board[idx] ? 
-          (game.board[idx] === 'R' ? ButtonStyle.Danger : ButtonStyle.Primary) : 
-          ButtonStyle.Secondary
-        );
-      
-      if (game.board[idx] || winner) {
-        button.setDisabled(true);
-      }
-      
-      buttonRow.addComponents(button);
+  try {
+    const [_, gameId, col] = interaction.customId.split('_');
+    const game = activeConnectFourGames.get(gameId);
+    
+    if (!game) {
+      await interaction.update({ components: [] });
+      return;
     }
-    rows.push(buttonRow);
-  }
-  const player1 = interaction.client.users.cache.get(game.players[0]);
-  const player2 = interaction.client.users.cache.get(game.players[1]);
-  
-  // Créer l'embed
-  const embed = new EmbedBuilder()
-    .setTitle('Puissance 4')
-    .setDescription(`**${player1.username}** (🔴) vs **${player2.username}** (🟡)\nC'est au tour de **${game.currentPlayer === 0 ? player1.username : player2.username}** de jouer !`)
-    .setColor(0x00ff00);
-  
-  if (game.bet > 0) {
-    embed.addFields({ name: 'Mise', value: `${game.bet} ${config.currency.emoji} par joueur` });
-  }
-  
-  // Vérifier s'il y a un gagnant ou un match nul
-  if (winner) {
-    // Désactiver tous les boutons
-    for (const row of rows) {
-      for (const component of row.components) {
-        component.setDisabled(true);
+    
+    const currentPlayerId = interaction.user.id;
+    if (currentPlayerId !== game.players[game.currentPlayer]) {
+      await interaction.reply({ 
+        content: '❌ Ce n\'est pas à votre tour de jouer !', 
+        ephemeral: true 
+      });
+      return;
+    }
+    
+    // Trouver la première case vide dans la colonne sélectionnée
+    const column = parseInt(col);
+    let row;
+    for (row = 5; row >= 0; row--) {
+      const index = row * 7 + column;
+      if (game.board[index] === null) {
+        // Placer le jeton du joueur actuel
+        game.board[index] = game.currentPlayer === 0 ? 'R' : 'Y';
+        game.lastMove = { row, col: column };
+        break;
       }
     }
     
-    if (winner === 'tie') {
-      // Match nul - Rembourser les mises
+    // Si la colonne est pleine
+    if (row < 0) {
+      await interaction.reply({ 
+        content: '❌ Cette colonne est pleine !', 
+        ephemeral: true 
+      });
+      return;
+    }
+    
+    // Vérifier s'il y a un gagnant
+    const winner = checkConnectFourWinner(game.board);
+    const isDraw = game.board.every(cell => cell !== null);
+    const isGameOver = !!winner || isDraw;
+    
+    // Mettre à jour l'affichage
+    const player1 = await interaction.client.users.fetch(game.players[0]);
+    const player2 = await interaction.client.users.fetch(game.players[1]);
+    
+    // Mettre à jour l'embed
+    const embed = new EmbedBuilder()
+      .setTitle('🎮 Puissance 4')
+      .setColor(0x00ff00);
+    
+    // Gérer la fin de partie
+    if (winner) {
+      const winnerUser = winner === 'R' ? player1 : player2;
+      embed.setDescription(`**${player1.username}** (🔴) vs **${player2.username}** (🟡)\n\n🎉 **${winnerUser.username} a gagné !**`);
+      
+      // Distribuer les gains si nécessaire
+      if (game.bet > 0) {
+        const winnerId = winner === 'R' ? player1.id : player2.id;
+        const winnerUser = ensureUser(winnerId);
+        const winnings = game.bet * 2;
+        updateUser(winnerId, { balance: winnerUser.balance + winnings });
+        
+        embed.addFields({
+          name: '🎉 Gains',
+          value: `${winnerUser.username} remporte ${winnings} ${config.currency.emoji} !`
+        });
+      }
+      
+      // Marquer la partie comme terminée
+      activeConnectFourGames.delete(gameId);
+    } else if (isDraw) {
+      embed.setDescription(`**${player1.username}** (🔴) vs **${player2.username}** (🟡)\n\n🤝 **Match nul !**`);
+      
+      // Rembourser les mises en cas de match nul
       if (game.bet > 0) {
         const user1 = ensureUser(game.players[0]);
         const user2 = ensureUser(game.players[1]);
@@ -1107,46 +1128,82 @@ async function handleConnectFourMove(interaction) {
         });
       }
       
-      // Mettre à jour le message final
-      embed.setDescription(`**${player1.username}** (🔴) vs **${player2.username}** (🟡)\n**Match nul !**`);
-      
+      // Marquer la partie comme terminée
+      activeConnectFourGames.delete(gameId);
     } else {
-      // Il y a un gagnant
-      const winnerIndex = winner === 'R' ? 0 : 1;
-      const winnerUser = interaction.client.users.cache.get(game.players[winnerIndex]);
+      // Passer au joueur suivant
+      game.currentPlayer = game.currentPlayer === 0 ? 1 : 0;
+      const nextPlayer = game.currentPlayer === 0 ? player1 : player2;
+      embed.setDescription(`**${player1.username}** (🔴) vs **${player2.username}** (🟡)\n\nC'est au tour de **${nextPlayer.username}** de jouer !`);
       
-      // Mettre à jour le message final
-      embed.setDescription(`**${player1.username}** (🔴) vs **${player2.username}** (🟡)\n**${winnerUser.username} a gagné !**`);
-      
-      // Distribuer les gains si une mise est en jeu
-      if (game.bet > 0) {
-        const winnings = game.bet * 2;
-        updateUser(winnerUser.id, { balance: ensureUser(winnerUser.id).balance + winnings });
-        
-        embed.addFields({
-          name: 'Gains',
-          value: `${winnerUser} remporte ${winnings} ${config.currency.emoji} !`
-        });
-      }
+      // Mettre à jour le jeu
+      activeConnectFourGames.set(gameId, game);
     }
     
-    // Mettre à jour le message avec le résultat final
-    await interaction.update({ embeds: [embed], components: rows });
+    // Mettre à jour le plateau
+    const boardText = formatConnectFourBoard(game.board, column);
+    embed.addFields({
+      name: 'Plateau',
+      value: boardText
+    });
     
-    // Supprimer la partie
-    activeConnectFourGames.delete(gameId);
+    // Créer les boutons de contrôle (flèches vers le bas)
+    const controlRows = [];
     
-  } else {
-    // Changer de joueur
-    game.currentPlayer = 1 - game.currentPlayer;
-    const currentPlayer = interaction.client.users.cache.get(game.players[game.currentPlayer]);
-    embed.setDescription(`**${player1.username}** (🔴) vs **${player2.username}** (🟡)\nC'est au tour de **${currentPlayer.username}** de jouer !`);
+    // Première rangée : 4 boutons
+    const firstRow = new ActionRowBuilder();
+    for (let i = 0; i < 4; i++) {
+      firstRow.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`cf_${gameId}_${i}`)
+          .setLabel('⬇️')
+          .setStyle(ButtonStyle.Secondary)
+          .setDisabled(isGameOver)
+      );
+    }
+    controlRows.push(firstRow);
     
-    // Mettre à jour le jeu
-    activeConnectFourGames.set(gameId, game);
+    // Deuxième rangée : 3 boutons
+    const secondRow = new ActionRowBuilder();
+    for (let i = 4; i < 7; i++) {
+      secondRow.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`cf_${gameId}_${i}`)
+          .setLabel('⬇️')
+          .setStyle(ButtonStyle.Secondary)
+          .setDisabled(isGameOver)
+      );
+    }
+    controlRows.push(secondRow);
     
-    // Mettre à jour le message avec le nouveau plateau
-    await interaction.update({ embeds: [embed], components: rows });
+    // Si la partie est terminée, ajouter un bouton pour rejouer
+    if (isGameOver) {
+      const actionRow = new ActionRowBuilder()
+        .addComponents(
+          new ButtonBuilder()
+            .setCustomId('cf_new_game')
+            .setLabel('🎮 Nouvelle partie')
+            .setStyle(ButtonStyle.Success)
+        );
+      controlRows.push(actionRow);
+    }
+    
+    // Mettre à jour le message
+    await interaction.update({ 
+      embeds: [embed],
+      components: controlRows 
+    });
+    
+  } catch (error) {
+    console.error('[PUISSANCE4] Erreur lors du traitement du mouvement:', error);
+    try {
+      await interaction.reply({ 
+        content: '❌ Une erreur est survenue lors du traitement de votre coup.', 
+        ephemeral: true 
+      });
+    } catch (replyError) {
+      console.error('[PUISSANCE4] Impossible d\'envoyer le message d\'erreur:', replyError);
+    }
   }
 }
 
