@@ -766,9 +766,17 @@ async function handleTicTacToeMove(interaction) {
     return;
   }
   
-  const currentPlayerId = game.players[game.currentPlayer];
+  // Utiliser currentPlayerId s'il existe, sinon utiliser l'ancienne méthode
+  const currentPlayerId = game.currentPlayerId || game.players[game.currentPlayer];
   
   console.log('[MORPION] Joueur actuel:', currentPlayerId, 'Joueur qui interagit:', interaction.user.id);
+  console.log('[MORPION] Détails du jeu:', {
+    players: game.players,
+    currentPlayer: game.currentPlayer,
+    currentPlayerId: game.currentPlayerId,
+    player1: game.player1?.id,
+    player2: game.player2?.id
+  });
   
   // Vérifier si c'est bien le tour du joueur
   if (interaction.user.id !== currentPlayerId) {
@@ -845,6 +853,9 @@ async function handleTicTacToeMove(interaction) {
   } else {
     // Passer au joueur suivant
     game.currentPlayer = game.currentPlayer === 0 ? 1 : 0;
+    // Mettre à jour l'ID du joueur actuel
+    game.currentPlayerId = game.players[game.currentPlayer];
+    console.log('[MORPION] Passage au joueur suivant:', game.currentPlayerId, '(Index:', game.currentPlayer, ')');
     activeTicTacToeGames.set(gameId, game);
   }
   
@@ -925,19 +936,21 @@ async function handleTicTacToeMove(interaction) {
     
     activeTicTacToeGames.delete(gameId);
   } else {
-    // Passer au joueur suivant
-    game.currentPlayer = 1 - game.currentPlayer;
-    const nextPlayer = game.currentPlayer === 0 ? player1 : player2;
-    const currentSymbol = game.currentPlayer === 0 ? '❌' : '⭕';
-    
-    // Mettre à jour la référence du joueur actuel
+    // Mettre à jour le joueur actuel avant de mettre à jour l'interface
+    game.currentPlayer = game.currentPlayer === 0 ? 1 : 0;
     game.currentPlayerId = game.players[game.currentPlayer];
     activeTicTacToeGames.set(gameId, game);
     
+    // Récupérer les objets utilisateurs complets
+    const nextPlayer = game.currentPlayer === 0 ? game.player1 : game.player2;
+    const currentSymbol = game.currentPlayer === 0 ? '❌' : '⭕';
+    
     embed.setDescription(
-      `**${player1}** (❌) vs **${player2}** (⭕)\n\n` +
+      `**${game.player1}** (❌) vs **${game.player2}** (⭕)\n\n` +
       `C'est au tour de ${nextPlayer} (${currentSymbol})`
     );
+    
+    console.log('[MORPION] Tour mis à jour - Prochain joueur:', nextPlayer.username, '(ID:', game.currentPlayerId, 'Index:', game.currentPlayer, ')');
   }
   
   try {
