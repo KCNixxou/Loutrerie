@@ -23,7 +23,8 @@ const {
   handlePurchase,
   handleTicTacToe,
   handleTicTacToeMove,
-  handleConnectFourMove
+  handleConnectFourMove,
+  getTicTacToeLeaderboard
 } = require('./games');
 const { 
   startCrashGame, 
@@ -184,6 +185,10 @@ async function handleSlashCommand(interaction) {
       
     case 'loutre-giveaway':
       await handleLoutreGiveaway(interaction);
+      break;
+      
+    case 'classement-morpion':
+      await handleTicTacToeLeaderboard(interaction);
       break;
     case 'profil':
       const userId = interaction.user.id;

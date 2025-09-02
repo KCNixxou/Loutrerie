@@ -1,6 +1,14 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const config = require('./config');
-const { ensureUser, updateUser, updateMissionProgress, db } = require('./database');
+const { 
+  ensureUser, 
+  updateUser, 
+  updateMissionProgress, 
+  db, 
+  getTicTacToeStats, 
+  updateTicTacToeStats, 
+  getTicTacToeLeaderboard 
+} = require('./database');
 const { random, createDeck, calculateHandValue, formatHand, getRouletteColor, playSlots } = require('./utils');
 
 // Variables globales pour les jeux
@@ -774,8 +782,57 @@ async function handleTicTacToeMove(interaction) {
   const symbol = game.currentPlayer === 0 ? 'X' : 'O';
   game.board[index] = symbol;
   
-  // Vérifier s'il y a un gagnant
+  // Vérifier s'il y a un gagnant ou un match nul
   const winner = checkTicTacToeWinner(game.board);
+  const isDraw = !winner && game.board.every(cell => cell !== null);
+  const isGameOver = !!winner || isDraw;
+
+  // Mettre à jour les statistiques si la partie est terminée
+  if (isGameOver) {
+    const player1 = game.players[0];
+    const player2 = game.players[1];
+    
+    if (winner) {
+      const winnerId = winner === 'X' ? player1 : player2;
+      const loserId = winner === 'X' ? player2 : player1;
+      
+      // Mettre à jour les statistiques du gagnant et du perdant
+      updateTicTacToeStats(winnerId, 'win');
+      updateTicTacToeStats(loserId, 'loss');
+      
+      // Mettre à jour les missions pour les joueurs
+      updateMissionProgress(winnerId, 'win_games', 1);
+      updateMissionProgress(loserId, 'play_games', 1);
+      
+      // Distribuer les gains si une mise était en jeu
+      if (game.bet > 0) {
+        const winnerUser = ensureUser(winnerId);
+        const winnings = game.bet * 2;
+        updateUser(winnerId, { balance: winnerUser.balance + winnings });
+      }
+    } else if (isDraw) {
+      // Match nul
+      updateTicTacToeStats(player1, 'draw');
+      updateTicTacToeStats(player2, 'draw');
+      updateMissionProgress(player1, 'play_games', 1);
+      updateMissionProgress(player2, 'play_games', 1);
+      
+      // Rembourser les mises en cas de match nul
+      if (game.bet > 0) {
+        const user1 = ensureUser(player1);
+        const user2 = ensureUser(player2);
+        updateUser(player1, { balance: user1.balance + game.bet });
+        updateUser(player2, { balance: user2.balance + game.bet });
+      }
+    }
+    
+    // Supprimer la partie de la mémoire
+    activeTicTacToeGames.delete(gameId);
+  } else {
+    // Passer au joueur suivant
+    game.currentPlayer = game.currentPlayer === 0 ? 1 : 0;
+    activeTicTacToeGames.set(gameId, game);
+  }
   
   // Mettre à jour l'affichage pour la grille 5x5
   const rows = [];
@@ -791,7 +848,7 @@ async function handleTicTacToeMove(interaction) {
           ButtonStyle.Secondary
         );
       
-      if (game.board[idx] || winner) {
+      if (game.board[idx] || isGameOver) {
         button.setDisabled(true);
       }
       
@@ -1208,6 +1265,92 @@ async function handleConnectFourMove(interaction) {
 }
 
 // Exporter les fonctions
+// Afficher le classement du morpion
+async function handleTicTacToeLeaderboard(interaction) {
+  try {
+    const limit = interaction.options.getInteger('limite') || 10;
+    const leaderboard = getTicTacToeLeaderboard(limit);
+    
+    if (leaderboard.length === 0) {
+      await interaction.reply({
+        content: 'Aucune donnée de classement disponible pour le moment.',
+        ephemeral: true
+      });
+      return;
+    }
+    
+    // Récupérer les informations des utilisateurs
+    const userPromises = leaderboard.map(async (entry, index) => {
+      try {
+        const user = await interaction.client.users.fetch(entry.user_id);
+        const winRate = (entry.win_rate * 100).toFixed(1);
+        return {
+          rank: index + 1,
+          username: user.username,
+          wins: entry.wins,
+          losses: entry.losses,
+          draws: entry.draws,
+          winRate
+        };
+      } catch (error) {
+        console.error(`Erreur lors de la récupération de l'utilisateur ${entry.user_id}:`, error);
+        return null;
+      }
+    });
+    
+    const leaderboardData = (await Promise.all(userPromises)).filter(Boolean);
+    
+    // Créer l'embed
+    const embed = new EmbedBuilder()
+      .setTitle('🏆 Classement du Morpion')
+      .setColor(0x00ff00)
+      .setDescription(`Top ${leaderboardData.length} des meilleurs joueurs de morpion`)
+      .setTimestamp();
+    
+    // Ajouter les champs au classement
+    const leaderboardFields = leaderboardData.map(entry => {
+      return {
+        name: `#${entry.rank} - ${entry.username}`,
+        value: `✅ ${entry.wins} victoires | ❌ ${entry.losses} défaites | 🤝 ${entry.draws} matchs nuls\n📊 Taux de victoire: ${entry.winRate}%`,
+        inline: false
+      };
+    });
+    
+    // Ajouter les champs par lots de 25 (limite de Discord)
+    for (let i = 0; i < leaderboardFields.length; i += 25) {
+      const fieldsBatch = leaderboardFields.slice(i, i + 25);
+      embed.addFields(fieldsBatch);
+    }
+    
+    // Afficher les statistiques de l'utilisateur actuel s'il n'est pas dans le top
+    const currentUserStats = getTicTacToeStats(interaction.user.id);
+    if (currentUserStats.games_played > 0) {
+      const currentUserRank = leaderboard.findIndex(entry => entry.user_id === interaction.user.id);
+      
+      if (currentUserRank === -1) {
+        const winRate = (currentUserStats.wins / currentUserStats.games_played * 100).toFixed(1);
+        embed.addFields({
+          name: '\u200B',
+          value: `\nVotre classement: Hors du top ${limit}\n` +
+                 `✅ ${currentUserStats.wins} victoires | ❌ ${currentUserStats.losses} défaites | 🤝 ${currentUserStats.draws} matchs nuls\n` +
+                 `📊 Taux de victoire: ${winRate}%`
+        });
+      }
+    }
+    
+    await interaction.reply({ embeds: [embed] });
+    
+  } catch (error) {
+    console.error('Erreur lors de la génération du classement du morpion:', error);
+    if (!interaction.replied) {
+      await interaction.reply({
+        content: 'Une erreur est survenue lors de la génération du classement.',
+        ephemeral: true
+      });
+    }
+  }
+}
+
 module.exports = {
   handleBlackjack: handleBlackjackStart,
   handleTicTacToe,
@@ -1222,5 +1365,7 @@ module.exports = {
   handleCoinflipMulti,
   handleShop,
   handlePurchase,
-  addMoney
+  addMoney,
+  handleTicTacToeLeaderboard,
+  getTicTacToeLeaderboard
 };
