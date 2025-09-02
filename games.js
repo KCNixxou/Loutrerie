@@ -580,9 +580,13 @@ async function handleTicTacToe(interaction) {
   activeTicTacToeGames.set(gameId, {
     board,
     players: [player1.id, player2.id],
+    player1,  // Stocker l'objet utilisateur complet
+    player2,  // Stocker l'objet utilisateur complet
     currentPlayer: 0, // Index du joueur actuel (0 ou 1)
+    currentPlayerId: player1.id, // ID du joueur dont c'est le tour
     bet,
-    message: null
+    message: null,
+    createdAt: Date.now()
   });
   
   // Créer l'embed
@@ -846,7 +850,8 @@ async function handleTicTacToeMove(interaction) {
         .setStyle(game.board[idx] ? 
           (game.board[idx] === 'X' ? ButtonStyle.Danger : ButtonStyle.Primary) : 
           ButtonStyle.Secondary
-        );
+        )
+        .setDisabled(isGameOver); // Désactiver les boutons si la partie est terminée
       
       if (game.board[idx] || isGameOver) {
         button.setDisabled(true);
@@ -858,8 +863,8 @@ async function handleTicTacToeMove(interaction) {
   }
   
   // Mettre à jour le message
-  const player1 = interaction.client.users.cache.get(game.players[0]);
-  const player2 = interaction.client.users.cache.get(game.players[1]);
+  const player1 = game.player1 || interaction.client.users.cache.get(game.players[0]);
+  const player2 = game.player2 || interaction.client.users.cache.get(game.players[1]);
   
   const embed = new EmbedBuilder()
     .setTitle('O Morpion X')
@@ -869,7 +874,7 @@ async function handleTicTacToeMove(interaction) {
     embed.addFields({ name: 'Mise', value: `${game.bet} ${config.currency.emoji} par joueur` });
   }
   
-  if (winner === 'tie') {
+  if (isDraw) {
     embed.setDescription('**Match nul !**\nPersonne ne remporte la partie.');
     
     // Rembourser les mises en cas d'égalité
@@ -881,11 +886,15 @@ async function handleTicTacToeMove(interaction) {
       embed.addFields({ name: 'Remboursement', value: `Chaque joueur récupère sa mise de ${game.bet} ${config.currency.emoji}` });
     }
     
+    // Désactiver tous les boutons
+    rows.forEach(row => {
+      row.components.forEach(button => button.setDisabled(true));
+    });
+    
     activeTicTacToeGames.delete(gameId);
   } else if (winner) {
     const winnerIndex = winner === 'X' ? 0 : 1;
-    const winnerUser = interaction.client.users.cache.get(game.players[winnerIndex]);
-    const loserUser = interaction.client.users.cache.get(game.players[1 - winnerIndex]);
+    const winnerUser = winnerIndex === 0 ? player1 : player2;
     
     embed.setDescription(`**${winnerUser.username} a gagné !** 🎉`);
     
@@ -894,19 +903,46 @@ async function handleTicTacToeMove(interaction) {
       const winnings = game.bet * 2;
       const winnerData = ensureUser(winnerUser.id);
       updateUser(winnerUser.id, { balance: winnerData.balance + winnings });
-      embed.addFields({ name: 'Gains', value: `${winnerUser.username} remporte ${winnings} ${config.currency.emoji} !` });
+      embed.addFields({ name: 'Gains', value: `${winnerUser} remporte ${winnings} ${config.currency.emoji} !` });
     }
+    
+    // Désactiver tous les boutons
+    rows.forEach(row => {
+      row.components.forEach(button => button.setDisabled(true));
+    });
     
     activeTicTacToeGames.delete(gameId);
   } else {
     // Passer au joueur suivant
     game.currentPlayer = 1 - game.currentPlayer;
     const nextPlayer = game.currentPlayer === 0 ? player1 : player2;
-    embed.setDescription(`**${player1.username}** (❌) vs **${player2.username}** (⭕)\n\nC'est au tour de ${nextPlayer}`);
+    const currentSymbol = game.currentPlayer === 0 ? '❌' : '⭕';
+    
+    // Mettre à jour la référence du joueur actuel
+    game.currentPlayerId = game.players[game.currentPlayer];
     activeTicTacToeGames.set(gameId, game);
+    
+    embed.setDescription(
+      `**${player1}** (❌) vs **${player2}** (⭕)\n\n` +
+      `C'est au tour de ${nextPlayer} (${currentSymbol})`
+    );
   }
   
-  await interaction.update({ embeds: [embed], components: rows });
+  try {
+    const content = isGameOver 
+      ? (winner 
+          ? `🎉 **${winner === 'X' ? player1.username : player2.username}** a gagné la partie !` 
+          : '🤝 Match nul !')
+      : `${player1} vs ${player2} - Partie en cours`;
+    
+    await interaction.update({ 
+      embeds: [embed],
+      components: rows,
+      content: content
+    });
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour du message:', error);
+  }
 }
 
 // Gestion des parties de Puissance 4
