@@ -538,12 +538,14 @@ async function handleTicTacToe(interaction) {
     const row = new ActionRowBuilder();
     for (let j = 0; j < 3; j++) {
       const index = i * 3 + j;
-      row.addComponents(
-        new ButtonBuilder()
-          .setCustomId(`ttt_${gameId}_${index}`)
-          .setLabel(' ')
-          .setStyle(ButtonStyle.Secondary)
-      );
+      const button = new ButtonBuilder()
+        .setCustomId(`ttt_${gameId}_${index}`)
+        .setStyle(ButtonStyle.Secondary);
+      
+      // S'assurer que le label n'est jamais vide
+      button.setLabel(' '); // Caractère espace insécable
+      
+      row.addComponents(button);
     }
     rows.push(row);
   }
@@ -645,12 +647,14 @@ async function handleTicTacToeMove(interaction) {
       const idx = i * 3 + j;
       const button = new ButtonBuilder()
         .setCustomId(`ttt_${gameId}_${idx}`)
-        .setLabel(game.board[idx] || ' ')
         .setStyle(game.board[idx] ? 
           (game.board[idx] === '❌' ? ButtonStyle.Danger : ButtonStyle.Primary) : 
           ButtonStyle.Secondary
         )
         .setDisabled(!!game.board[idx] || winner);
+      
+      // Toujours définir un label valide
+      button.setLabel(game.board[idx] || ' ');
       row.addComponents(button);
     }
     rows.push(row);
