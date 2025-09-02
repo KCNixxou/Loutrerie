@@ -546,19 +546,19 @@ async function handleTicTacToe(interaction) {
     updateUser(player2.id, { balance: user2.balance - bet });
   }
   
-  // Créer la grille de jeu
-  const board = Array(9).fill(null);
+  // Créer la grille de jeu 5x5
+  const board = Array(25).fill(null);
   const gameId = `${player1.id}-${player2.id}-${Date.now()}`;
   
   console.log(`[MORPION] Création d'une nouvelle partie: ${gameId}`);
   console.log(`[MORPION] Joueurs: ${player1.username} vs ${player2.username}`);
   
-  // Créer les boutons pour la grille
+  // Créer les boutons pour la grille 5x5
   const rows = [];
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 5; i++) {
     const row = new ActionRowBuilder();
-    for (let j = 0; j < 3; j++) {
-      const index = i * 3 + j;
+    for (let j = 0; j < 5; j++) {
+      const index = i * 5 + j;
       const button = new ButtonBuilder()
         .setCustomId(`ttt_${gameId}_${index}`)
         .setLabel('·') // Point médian comme marqueur visuel
@@ -608,23 +608,67 @@ async function handleTicTacToe(interaction) {
   activeTicTacToeGames.set(gameId, game);
 }
 
-// Vérifier si un joueur a gagné au Morpion
+// Vérifier si un joueur a gagné au Morpion 5x5
 function checkTicTacToeWinner(board) {
-  const winPatterns = [
-    [0, 1, 2], [3, 4, 5], [6, 7, 8], // Lignes
-    [0, 3, 6], [1, 4, 7], [2, 5, 8], // Colonnes
-    [0, 4, 8], [2, 4, 6] // Diagonales
-  ];
+  const size = 5;
+  const winLength = 4; // Nombre de symboles alignés nécessaires pour gagner
   
-  for (const pattern of winPatterns) {
-    const [a, b, c] = pattern;
-    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-      return board[a]; // Retourne 'X' ou 'O'
+  // Vérifier les lignes
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col <= size - winLength; col++) {
+      const index = row * size + col;
+      if (board[index] && 
+          board[index] === board[index + 1] && 
+          board[index] === board[index + 2] && 
+          board[index] === board[index + 3]) {
+        return board[index];
+      }
     }
   }
   
+  // Vérifier les colonnes
+  for (let col = 0; col < size; col++) {
+    for (let row = 0; row <= size - winLength; row++) {
+      const index = row * size + col;
+      if (board[index] && 
+          board[index] === board[index + size] && 
+          board[index] === board[index + 2 * size] && 
+          board[index] === board[index + 3 * size]) {
+        return board[index];
+      }
+    }
+  }
+  
+  // Vérifier les diagonales descendantes
+  for (let row = 0; row <= size - winLength; row++) {
+    for (let col = 0; col <= size - winLength; col++) {
+      const index = row * size + col;
+      if (board[index] && 
+          board[index] === board[index + size + 1] && 
+          board[index] === board[index + 2 * (size + 1)] && 
+          board[index] === board[index + 3 * (size + 1)]) {
+        return board[index];
+      }
+    }
+  }
+  
+  // Vérifier les diagonales montantes
+  for (let row = winLength - 1; row < size; row++) {
+    for (let col = 0; col <= size - winLength; col++) {
+      const index = row * size + col;
+      if (board[index] && 
+          board[index] === board[index - (size - 1)] && 
+          board[index] === board[index - 2 * (size - 1)] && 
+          board[index] === board[index - 3 * (size - 1)]) {
+        return board[index];
+      }
+    }
+  }
+  
+  // Vérifier le match nul
   if (board.every(cell => cell !== null)) return 'tie';
-  return null;
+  
+  return null; // Pas de gagnant pour l'instant
 }
 
 // Vérifier si un joueur a gagné au Puissance 4
@@ -735,12 +779,12 @@ async function handleTicTacToeMove(interaction) {
   // Vérifier s'il y a un gagnant
   const winner = checkTicTacToeWinner(game.board);
   
-  // Mettre à jour l'affichage
+  // Mettre à jour l'affichage pour la grille 5x5
   const rows = [];
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 5; i++) {
     const row = new ActionRowBuilder();
-    for (let j = 0; j < 3; j++) {
-      const idx = i * 3 + j;
+    for (let j = 0; j < 5; j++) {
+      const idx = i * 5 + j;
       const button = new ButtonBuilder()
         .setCustomId(`ttt_${gameId}_${idx}`)
         .setLabel(game.board[idx] || '·') // Point médian comme marqueur visuel
