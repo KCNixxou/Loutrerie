@@ -532,22 +532,40 @@ async function handleTicTacToe(interaction) {
   const board = Array(9).fill(null);
   const gameId = `${player1.id}-${player2.id}-${Date.now()}`;
   
+  console.log(`[MORPION] Création d'une nouvelle partie: ${gameId}`);
+  console.log(`[MORPION] Joueurs: ${player1.username} vs ${player2.username}`);
+  
   // Créer les boutons pour la grille
-  const rows = [];
-  for (let i = 0; i < 3; i++) {
-    const row = new ActionRowBuilder();
-    for (let j = 0; j < 3; j++) {
-      const index = i * 3 + j;
-      const button = new ButtonBuilder()
-        .setCustomId(`ttt_${gameId}_${index}`)
-        .setStyle(ButtonStyle.Secondary);
+  const rows = [
+    new ActionRowBuilder().addComponents(
+      createTicTacToeButton(gameId, 0, null),
+      createTicTacToeButton(gameId, 1, null),
+      createTicTacToeButton(gameId, 2, null)
+    ),
+    new ActionRowBuilder().addComponents(
+      createTicTacToeButton(gameId, 3, null),
+      createTicTacToeButton(gameId, 4, null),
+      createTicTacToeButton(gameId, 5, null)
+    ),
+    new ActionRowBuilder().addComponents(
+      createTicTacToeButton(gameId, 6, null),
+      createTicTacToeButton(gameId, 7, null),
+      createTicTacToeButton(gameId, 8, null)
+    )
+  ];
+  
+  function createTicTacToeButton(gameId, index, value) {
+    const button = new ButtonBuilder()
+      .setCustomId(`ttt_${gameId}_${index}`)
+      .setLabel(' ') // Toujours définir un espace insécable comme label
+      .setStyle(ButtonStyle.Secondary);
       
-      // S'assurer que le label n'est jamais vide
-      button.setLabel(' '); // Caractère espace insécable
-      
-      row.addComponents(button);
+    if (value) {
+      button.setLabel(value)
+        .setStyle(value === '❌' ? ButtonStyle.Danger : ButtonStyle.Primary);
     }
-    rows.push(row);
+    
+    return button;
   }
   
   // Enregistrer la partie
@@ -570,12 +588,19 @@ async function handleTicTacToe(interaction) {
   }
   
   // Envoyer le message avec les boutons
-  const message = await interaction.reply({ 
-    content: `${player1} vs ${player2} - C'est parti pour une partie de morpion !`,
-    embeds: [embed],
-    components: rows,
-    fetchReply: true
-  });
+  console.log('[MORPION] Envoi du message avec les boutons...');
+  try {
+    const message = await interaction.reply({ 
+      content: `${player1} vs ${player2} - C'est parti pour une partie de morpion !`,
+      embeds: [embed],
+      components: rows,
+      fetchReply: true
+    });
+    console.log('[MORPION] Message envoyé avec succès');
+  } catch (error) {
+    console.error('[MORPION] Erreur lors de l\'envoi du message:', error);
+    throw error;
+  }
   
   // Sauvegarder la référence du message
   const game = activeTicTacToeGames.get(gameId);
@@ -640,24 +665,40 @@ async function handleTicTacToeMove(interaction) {
   const winner = checkTicTacToeWinner(game.board);
   
   // Mettre à jour l'affichage
-  const rows = [];
-  for (let i = 0; i < 3; i++) {
-    const row = new ActionRowBuilder();
-    for (let j = 0; j < 3; j++) {
-      const idx = i * 3 + j;
-      const button = new ButtonBuilder()
-        .setCustomId(`ttt_${gameId}_${idx}`)
-        .setStyle(game.board[idx] ? 
-          (game.board[idx] === '❌' ? ButtonStyle.Danger : ButtonStyle.Primary) : 
-          ButtonStyle.Secondary
-        )
-        .setDisabled(!!game.board[idx] || winner);
+  const rows = [
+    new ActionRowBuilder().addComponents(
+      createTicTacToeButton(gameId, 0, game.board[0]),
+      createTicTacToeButton(gameId, 1, game.board[1]),
+      createTicTacToeButton(gameId, 2, game.board[2])
+    ),
+    new ActionRowBuilder().addComponents(
+      createTicTacToeButton(gameId, 3, game.board[3]),
+      createTicTacToeButton(gameId, 4, game.board[4]),
+      createTicTacToeButton(gameId, 5, game.board[5])
+    ),
+    new ActionRowBuilder().addComponents(
+      createTicTacToeButton(gameId, 6, game.board[6]),
+      createTicTacToeButton(gameId, 7, game.board[7]),
+      createTicTacToeButton(gameId, 8, game.board[8])
+    )
+  ];
+  
+  function createTicTacToeButton(gameId, index, value) {
+    const button = new ButtonBuilder()
+      .setCustomId(`ttt_${gameId}_${index}`)
+      .setLabel(' ') // Toujours définir un espace insécable comme label
+      .setStyle(ButtonStyle.Secondary);
       
-      // Toujours définir un label valide
-      button.setLabel(game.board[idx] || ' ');
-      row.addComponents(button);
+    if (value) {
+      button.setLabel(value)
+        .setStyle(value === '❌' ? ButtonStyle.Danger : ButtonStyle.Primary);
     }
-    rows.push(row);
+    
+    if (value || winner) {
+      button.setDisabled(true);
+    }
+    
+    return button;
   }
   
   // Mettre à jour le message
