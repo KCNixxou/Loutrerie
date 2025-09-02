@@ -854,11 +854,28 @@ async function handleTicTacToeMove(interaction) {
 
 // Gestion des parties de Puissance 4
 async function handleConnectFour(interaction, opponent, bet = 0) {
+  console.log('[PUISSANCE4] handleConnectFour appelé avec :', { 
+    user: interaction.user.tag, 
+    opponent: opponent ? opponent.tag : 'aucun',
+    bet 
+  });
+  
   const player1 = interaction.user;
-  const player2 = opponent || interaction.user; // Si pas d'adversaire spécifié, jouer contre soi-même (pour test)
+  const player2 = opponent;
+  
+  // Vérifier si un adversaire a été fourni
+  if (!player2) {
+    console.log('[PUISSANCE4] Aucun adversaire fourni, utilisation du joueur 1 comme adversaire');
+    await interaction.reply({ 
+      content: '❌ Vous devez spécifier un adversaire avec la commande : `/puissance4 @joueur [mise]`', 
+      ephemeral: true 
+    });
+    return;
+  }
   
   // Vérifier si le joueur ne joue pas contre lui-même
   if (player1.id === player2.id) {
+    console.log('[PUISSANCE4] Tentative de jouer contre soi-même détectée');
     await interaction.reply({ 
       content: '❌ Tu ne peux pas jouer contre toi-même !', 
       ephemeral: true 

@@ -165,7 +165,9 @@ async function handleSlashCommand(interaction) {
       break;
       
     case 'puissance4':
-      await handleConnectFour(interaction);
+      const opponent = interaction.options.getUser('adversaire');
+      const bet = interaction.options.getInteger('mise') || 0;
+      await handleConnectFour(interaction, opponent, bet);
       break;
       
     case 'crash':
