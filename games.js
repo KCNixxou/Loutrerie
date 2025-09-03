@@ -804,10 +804,8 @@ async function handleTicTacToeMove(interaction) {
   // Mettre à jour le plateau
   game.board[index] = symbol;
   
-  // Changer de joueur pour le prochain tour
-  game.currentPlayer = game.currentPlayer === 0 ? 1 : 0;
-  game.currentPlayerId = game.players[game.currentPlayer];
-  console.log('[MORPION] Prochain joueur:', game.currentPlayerId, '(Index:', game.currentPlayer, ')');
+  // Le changement de joueur sera géré plus bas dans le code
+  // pour éviter les doublons
   
   // Vérifier s'il y a un gagnant ou un match nul
   const winner = checkTicTacToeWinner(game.board);
@@ -879,11 +877,7 @@ async function handleTicTacToeMove(interaction) {
           (game.board[idx] === 'X' ? ButtonStyle.Danger : ButtonStyle.Primary) : 
           ButtonStyle.Secondary
         )
-        .setDisabled(isGameOver); // Désactiver les boutons si la partie est terminée
-      
-      if (game.board[idx] || isGameOver) {
-        button.setDisabled(true);
-      }
+        .setDisabled(isGameOver || game.board[idx] !== null); // Désactiver si partie terminée ou case déjà prise
       
       row.addComponents(button);
     }
@@ -943,15 +937,17 @@ async function handleTicTacToeMove(interaction) {
     
     activeTicTacToeGames.delete(gameId);
   } else {
-    // Récupérer les informations du prochain joueur
-    const nextPlayer = game.currentPlayer === 0 ? game.player1 : game.player2;
+    // Récupérer les informations du prochain joueur de manière cohérente
+    const nextPlayer = interaction.client.users.cache.get(game.players[game.currentPlayer]);
     const currentSymbol = game.currentPlayer === 0 ? '❌' : '⭕';
+    const player1 = interaction.client.users.cache.get(game.players[0]);
+    const player2 = interaction.client.users.cache.get(game.players[1]);
     
     console.log('[MORPION] Tour suivant - Joueur:', nextPlayer.username, '(ID:', game.currentPlayerId, 'Index:', game.currentPlayer, ')');
     activeTicTacToeGames.set(gameId, game);
     
     embed.setDescription(
-      `**${game.player1}** (❌) vs **${game.player2}** (⭕)\n\n` +
+      `**${player1.username}** (❌) vs **${player2.username}** (⭕)\n\n` +
       `C'est au tour de ${nextPlayer} (${currentSymbol})`
     );
     
