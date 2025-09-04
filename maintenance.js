@@ -6,7 +6,7 @@ const MAINTENANCE_FILE = path.join(__dirname, 'maintenance.json');
 // État par défaut
 let maintenanceState = {
   enabled: false,
-  adminId: 'VOTRE_ID_DISCORD', // Remplacez par votre ID Discord
+  adminId: '314458846754111499', // Remplacez par votre ID Discord
   message: '⚠️ Le bot est actuellement en maintenance. Veuillez réessayer plus tard.'
 };
 
@@ -77,5 +77,6 @@ module.exports = {
   isAdmin,
   setMaintenance,
   maintenanceMiddleware,
-  getState: () => maintenanceState
+  getState: () => maintenanceState,
+  maintenance // Export pour l'utiliser dans d'autres fichiers si nécessaire
 };

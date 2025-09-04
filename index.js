@@ -1,7 +1,7 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, Partials, REST, Routes, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const express = require('express');
-const { isMaintenanceMode, isAdmin, maintenanceMiddleware } = require('./maintenance');
+const { isMaintenanceMode, isAdmin, maintenanceMiddleware, setMaintenance } = require('./maintenance');
 
 // Modules personnalisés
 const config = require('./config');
@@ -198,6 +198,15 @@ async function handleSlashCommand(interaction) {
       
     case 'classement-morpion':
       await handleTicTacToeLeaderboard(interaction);
+      break;
+      
+    case 'maintenance':
+      const status = interaction.options.getString('statut');
+      const result = setMaintenance(status === 'on', interaction.user.id);
+      await interaction.reply({
+        content: result.message,
+        ephemeral: true
+      });
       break;
     case 'profil':
       const userId = interaction.user.id;

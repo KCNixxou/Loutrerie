@@ -206,4 +206,20 @@ const commands = [
     .setDMPermission(false)
 ];
 
+// Ajout de la commande de maintenance
+commands.push(
+  new SlashCommandBuilder()
+    .setName('maintenance')
+    .setDescription('Activer/désactiver le mode maintenance (admin only)')
+    .addStringOption(option =>
+      option.setName('statut')
+        .setDescription('Activer ou désactiver le mode maintenance')
+        .setRequired(true)
+        .addChoices(
+          { name: 'Activer', value: 'on' },
+          { name: 'Désactiver', value: 'off' }
+        )
+    )
+);
+
 module.exports = commands.map(command => command.toJSON());
