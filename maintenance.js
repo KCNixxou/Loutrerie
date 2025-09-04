@@ -77,6 +77,5 @@ module.exports = {
   isAdmin,
   setMaintenance,
   maintenanceMiddleware,
-  getState: () => maintenanceState,
-  maintenance // Export pour l'utiliser dans d'autres fichiers si nécessaire
+  getState: () => maintenanceState
 };
