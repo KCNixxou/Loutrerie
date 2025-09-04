@@ -947,8 +947,9 @@ async function handleTicTacToeMove(interaction) {
   console.log('[MORPION] Joueurs - Player1:', player1?.username, 'Player2:', player2?.username);
   
   const embed = new EmbedBuilder()
-    .setTitle('O Morpion X')
-    .setColor(0x00ff00);
+    .setTitle('⭕ Morpion ❌')
+    .setColor(0x00ff00)
+    .setThumbnail('https://i.imgur.com/undefined');
     
   if (game.bet > 0) {
     embed.addFields({ name: 'Mise', value: `${game.bet} ${config.currency.emoji} par joueur` });
