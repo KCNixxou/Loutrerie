@@ -182,7 +182,7 @@ async function startCrashGame(interaction) {
       `**Chance de gain:** \`${calculateWinChance(1.0).toFixed(1)}%\``
     )
     .setColor(0x2b2d31)
-    .setThumbnail('https://i.imgur.com/8Km9tLL.png')
+    .setThumbnail('https://i.imgur.com/0KwJMBV.png')
     .addFields(
       {
         name: '📊 Statistiques',
@@ -320,7 +320,7 @@ async function updateGameInterface(message, userGame) {
         `**Chance de gain:** \`${calculateWinChance(userGame.currentMultiplier).toFixed(1)}%\``
       )
       .setColor(getMultiplierColor(userGame.currentMultiplier))
-      .setThumbnail('https://i.imgur.com/8Km9tLL.png')
+      .setThumbnail('https://i.imgur.com/0KwJMBV.png')
       .addFields(
         {
           name: '📊 Statistiques',
@@ -501,7 +501,7 @@ async function handleCashout(interaction) {
         `**Nouveau solde :** \`${formatNumber(user.balance + winAmount)} 🐚\``
       )
       .setColor(0x00ff00)
-      .setThumbnail('https://i.imgur.com/8Km9tLL.png');
+      .setThumbnail('https://i.imgur.com/0KwJMBV.png');
     
     await interaction.reply({ embeds: [embed] });
     

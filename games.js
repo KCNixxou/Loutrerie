@@ -374,7 +374,7 @@ async function handleCoinflipMulti(interaction) {
     
     const embed = new EmbedBuilder()
       .setTitle('🪙 Pile ou Face Multijoueurs - Résultat')
-      .setThumbnail('https://i.imgur.com/mpoaOLW.png')
+      .setThumbnail('https://i.imgur.com/wmGkfNQ.png')
       .addFields(
         { name: 'Créateur', value: `<@${existingGame.creatorId}> - ${existingGame.creatorChoice}`, inline: true },
         { name: 'Adversaire', value: `<@${interaction.user.id}> - ${choice}`, inline: true },
@@ -407,7 +407,7 @@ async function handleCoinflipMulti(interaction) {
     
     const embed = new EmbedBuilder()
       .setTitle('🪙 Pile ou Face Multijoueurs')
-      .setThumbnail('https://i.imgur.com/mpoaOLW.png')
+      .setThumbnail('https://i.imgur.com/wmGkfNQ.png')
       .setDescription(
         `<@${interaction.user.id}> a créé une partie !\n\n` +
         `**Mise:** ${bet} ${config.currency.emoji}\n` +
@@ -440,8 +440,8 @@ async function handleShop(interaction) {
   const embed = new EmbedBuilder()
     .setTitle('🛒 Boutique')
     .setDescription('Découvrez les avantages exclusifs de la boutique !')
-    .setThumbnail('https://i.imgur.com/your-image-url.png') // Remplacez par l'URL de votre image
-    .setImage('https://i.imgur.com/your-banner-url.png') // Bannière en bas de l'embed
+    .setThumbnail('https://i.imgur.com/YbdHZae.png')
+    .setImage('https://i.imgur.com/YbdHZae.png') // Bannière en bas de l'embed
     .addFields(
       { 
         name: '👑 Rôles VIP', 
