@@ -244,14 +244,30 @@ async function handleSlashCommand(interaction) {
       const dailyUserId = interaction.user.id;
       const dailyUser = ensureUser(dailyUserId);
       const lastClaim = dailyUser.last_daily_claim || 0;
-      const currentTime = Math.floor(Date.now() / 1000); // Timestamp en secondes
-      const oneDayInSeconds = 24 * 60 * 60;
+      const now = new Date();
       
-      if (currentTime - lastClaim < oneDayInSeconds) {
-        const timeLeft = oneDayInSeconds - (currentTime - lastClaim);
-        const hoursLeft = Math.ceil(timeLeft / 3600);
+      // Définir l'heure actuelle à minuit
+      const lastReset = new Date(now);
+      lastReset.setHours(0, 0, 0, 0);
+      
+      // Vérifier si l'utilisateur a déjà récupéré sa récompense aujourd'hui
+      if (lastClaim * 1000 > lastReset.getTime()) {
+        // Calculer le temps jusqu'à minuit prochain
+        const nextMidnight = new Date(lastReset);
+        nextMidnight.setDate(nextMidnight.getDate() + 1);
+        const timeLeftMs = nextMidnight - now;
+        
+        const hours = Math.floor(timeLeftMs / (1000 * 60 * 60));
+        const minutes = Math.ceil((timeLeftMs % (1000 * 60 * 60)) / (1000 * 60));
+        
+        let timeLeftText = '';
+        if (hours > 0) {
+          timeLeftText += `${hours} heure${hours > 1 ? 's' : ''} `;
+        }
+        timeLeftText += `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+        
         await interaction.reply({ 
-          content: `⏰ Tu as déjà récupéré ta récompense aujourd'hui ! Reviens dans ${hoursLeft}h.`,
+          content: `⏰ Tu as déjà récupéré ta récompense aujourd'hui ! La prochaine récompense sera disponible à minuit dans ${timeLeftText}.`,
           ephemeral: true 
         });
         return;
@@ -261,7 +277,7 @@ async function handleSlashCommand(interaction) {
       
       updateUser(dailyUserId, {
         balance: newBalance,
-        last_daily_claim: currentTime
+        last_daily_claim: Math.floor(now.getTime() / 1000)
       });
       
       await interaction.reply({
