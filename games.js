@@ -646,9 +646,10 @@ async function handleTicTacToe(interaction) {
   
   // Créer l'embed
   const embed = new EmbedBuilder()
-    .setTitle('O Morpion X')
-    .setDescription(`**${player1.username}** (X) vs **${player2.username}** (O)\n\nC'est au tour de ${player1}`)
-    .setColor(0x00ff00);
+    .setTitle('⭕ Morpion ❌')
+    .setDescription(`**${player1.username}** (❌) vs **${player2.username}** (⭕)\n\nC'est au tour de ${player1}`)
+    .setColor(0x00ff00)
+    .setThumbnail('https://i.imgur.com/undefined');
     
   if (bet > 0) {
     embed.addFields({ name: 'Mise', value: `${bet} ${config.currency.emoji} par joueur` });
