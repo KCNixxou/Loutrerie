@@ -1,6 +1,7 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, Partials, REST, Routes, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const express = require('express');
+const { isMaintenanceMode, isAdmin, maintenanceMiddleware } = require('./maintenance');
 
 // Modules personnalisés
 const config = require('./config');
@@ -126,6 +127,14 @@ client.on('messageCreate', async (message) => {
 // Gestion des interactions
 client.on('interactionCreate', async (interaction) => {
   try {
+    // Vérifier le mode maintenance pour toutes les interactions
+    if (isMaintenanceMode() && !isAdmin(interaction.user.id)) {
+      return interaction.reply({ 
+        content: '⚠️ Le bot est actuellement en maintenance. Veuillez réessayer plus tard.',
+        ephemeral: true 
+      });
+    }
+
     if (interaction.isChatInputCommand()) {
       await handleSlashCommand(interaction);
     } else if (interaction.isButton()) {
