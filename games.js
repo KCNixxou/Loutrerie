@@ -272,7 +272,7 @@ async function handleSlots(interaction) {
   
   const embed = new EmbedBuilder()
     .setTitle('🎰 Machine à Sous')
-    .setThumbnail('https://i.imgur.com/KJk22iD.png')
+    .setThumbnail('https://i.imgur.com/aZSIqq8.png')
     .addFields(
       { name: 'Résultat', value: result.join(' '), inline: false },
       { name: multiplier > 0 ? 'Gains' : 'Perte', value: multiplier > 0 ? `+${winnings} ${config.currency.emoji} (x${multiplier})` : `-${bet} ${config.currency.emoji}`, inline: true }
