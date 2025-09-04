@@ -49,18 +49,21 @@ const client = new Client({
 // Événement ready
 client.once('ready', async () => {
   console.log(`✅ ${client.user.tag} est connecté !`);
+  console.log('Commandes disponibles:', client.commands?.map(cmd => cmd.name).join(', ') || 'Aucune commande chargée');
   
   // Enregistrer les commandes
   const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
   
   try {
     console.log('🔄 Enregistrement des commandes...');
+    console.log('Commandes à enregistrer:', commands.map(cmd => cmd.name).join(', '));
     
     // Enregistrement global des commandes
-    await rest.put(
+    const result = await rest.put(
       Routes.applicationCommands(client.user.id),
       { body: commands }
     );
+    console.log('Commandes enregistrées avec succès:', result.map(cmd => cmd.name).join(', '));
     
     // Enregistrement pour chaque serveur (en cas de mise en cache)
     for (const guild of client.guilds.cache.values()) {
@@ -139,7 +142,21 @@ client.on('messageCreate', async (message) => {
 client.on('interactionCreate', async (interaction) => {
   try {
     // Vérifier le mode maintenance pour toutes les interactions
-    if (isMaintenanceMode() && !isAdmin(interaction.user.id)) {
+    const fs = require('fs');
+    const path = require('path');
+    const maintenancePath = path.join(__dirname, 'maintenance.json');
+    let maintenanceMode = false;
+    
+    try {
+      if (fs.existsSync(maintenancePath)) {
+        const data = fs.readFileSync(maintenancePath, 'utf8');
+        maintenanceMode = JSON.parse(data).enabled === true;
+      }
+    } catch (error) {
+      console.error('Erreur lors de la lecture du fichier maintenance.json:', error);
+    }
+    
+    if (maintenanceMode && interaction.user.id !== '314458846754111499') {
       return interaction.reply({ 
         content: '⚠️ Le bot est actuellement en maintenance. Veuillez réessayer plus tard.',
         ephemeral: true 
@@ -212,12 +229,36 @@ async function handleSlashCommand(interaction) {
       break;
       
     case 'maintenance':
+      // Vérifier si l'utilisateur est l'admin
+      if (interaction.user.id !== '314458846754111499') {
+        return interaction.reply({
+          content: '❌ Cette commande est réservée à l\'administrateur !',
+          ephemeral: true
+        });
+      }
+      
       const currentState = isMaintenanceMode();
-      const result = setMaintenance(!currentState, interaction.user.id);
-      await interaction.reply({
-        content: result.message,
-        ephemeral: true
-      });
+      const newState = !currentState;
+      
+      // Mettre à jour l'état de maintenance
+      const fs = require('fs');
+      const path = require('path');
+      const filePath = path.join(__dirname, 'maintenance.json');
+      
+      try {
+        fs.writeFileSync(filePath, JSON.stringify({ enabled: newState }, null, 2));
+        
+        await interaction.reply({
+          content: `✅ Mode maintenance ${newState ? 'activé' : 'désactivé'} avec succès !`,
+          ephemeral: true
+        });
+      } catch (error) {
+        console.error('Erreur lors de la mise à jour du mode maintenance:', error);
+        await interaction.reply({
+          content: '❌ Une erreur est survenue lors de la mise à jour du mode maintenance.',
+          ephemeral: true
+        });
+      }
       break;
     case 'profil':
       const userId = interaction.user.id;

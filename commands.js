@@ -205,11 +205,11 @@ const commands = [
     .setDefaultMemberPermissions(0) // Par défaut, personne n'a la permission
     .setDMPermission(false),
     
-  // Commande de maintenance simplifiée
+  // Commande de maintenance
   new SlashCommandBuilder()
     .setName('maintenance')
-    .setDescription('Activer/désactiver le mode maintenance (admin only)')
-    .setDefaultMemberPermissions('0')
+    .setDescription('[ADMIN] Activer/désactiver le mode maintenance')
+    .setDefaultMemberPermissions(0) // Par défaut, personne n'a la permission
     .setDMPermission(false)
 ];
 
