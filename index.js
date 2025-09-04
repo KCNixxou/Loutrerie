@@ -201,8 +201,8 @@ async function handleSlashCommand(interaction) {
       break;
       
     case 'maintenance':
-      const status = interaction.options.getString('statut');
-      const result = setMaintenance(status === 'on', interaction.user.id);
+      const currentState = isMaintenanceMode();
+      const result = setMaintenance(!currentState, interaction.user.id);
       await interaction.reply({
         content: result.message,
         ephemeral: true
