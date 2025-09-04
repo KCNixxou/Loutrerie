@@ -437,6 +437,7 @@ async function handleShop(interaction) {
     .setTitle('🛒 Boutique')
     .addFields(
       { name: '👑 Rôles VIP', value: `**VIP** - ${config.shop.vip.price} ${config.currency.emoji}\n• +50% XP sur les messages\n\n**Super VIP** - ${config.shop.superVip.price} ${config.currency.emoji}\n• +100% XP sur les messages`, inline: false },
+      { name: '🎨 Personnalisation', value: `**${config.shop.colorChange.name}** - ${config.shop.colorChange.price} ${config.currency.emoji}\n• Change la couleur de ton pseudo sur le serveur`, inline: false },
       { name: '🎁 Surprises', value: `**${config.shop.surprise1.name}** - ${config.shop.surprise1.price} ${config.currency.emoji}\n**${config.shop.surprise2.name}** - ${config.shop.surprise2.price} ${config.currency.emoji}`, inline: false }
     )
     .setColor(0xffd700)
@@ -464,6 +465,11 @@ async function handlePurchase(interaction) {
       itemName = config.shop.superVip.name;
       roleToAdd = 'Super VIP';
       break;
+    case 'color_change':
+      price = config.shop.colorChange.price;
+      itemName = config.shop.colorChange.name;
+      // L'administrateur changera manuellement la couleur
+      break;
     case 'surprise1':
       price = config.shop.surprise1.price;
       itemName = config.shop.surprise1.name;
@@ -482,25 +488,52 @@ async function handlePurchase(interaction) {
   updateUser(interaction.user.id, { balance: user.balance - price });
   
   if (roleToAdd) {
-    // Essayer d'ajouter le rôle
-    try {
-      let role = interaction.guild.roles.cache.find(r => r.name === roleToAdd);
-      if (!role) {
-        role = await interaction.guild.roles.create({
-          name: roleToAdd,
-          color: roleToAdd === 'VIP' ? 0xffd700 : 0xff6600,
-          reason: 'Rôle acheté dans la boutique'
+    // Gestion des rôles VIP uniquement
+    if (roleToAdd === 'VIP' || roleToAdd === 'Super VIP') {
+      try {
+        let role = interaction.guild.roles.cache.find(r => r.name === roleToAdd);
+        if (!role) {
+          const roleColor = roleToAdd === 'VIP' ? 0xffd700 : 0xff6600;
+          
+          role = await interaction.guild.roles.create({
+            name: roleToAdd,
+            color: roleColor,
+            reason: 'Rôle acheté dans la boutique',
+            mentionable: false,
+            hoist: false
+          });
+        }
+        
+        // Supprimer l'ancien rôle VIP si existant
+        const existingVipRoles = interaction.member.roles.cache.filter(r => 
+          ['VIP', 'Super VIP'].includes(r.name)
+        );
+        
+        if (existingVipRoles.size > 0) {
+          await interaction.member.roles.remove(existingVipRoles);
+        }
+        
+        await interaction.member.roles.add(role);
+      } catch (error) {
+        console.error('Erreur lors de l\'ajout du rôle:', error);
+        await interaction.followUp({ 
+          content: '❌ Une erreur est survenue lors de l\'attribution du rôle VIP. Contacte un administrateur.', 
+          ephemeral: true 
         });
+        return;
       }
-      await interaction.member.roles.add(role);
-    } catch (error) {
-      console.error('Erreur lors de l\'ajout du rôle:', error);
     }
+  }
+  
+  let description = `Tu as acheté **${itemName}** pour ${price} ${config.currency.emoji} !`;
+  
+  if (item === 'color_change') {
+    description += '\n\nUn administrateur te contactera bientôt pour personnaliser ta couleur !';
   }
   
   const embed = new EmbedBuilder()
     .setTitle('✅ Achat réussi !')
-    .setDescription(`Tu as acheté **${itemName}** pour ${price} ${config.currency.emoji} !`)
+    .setDescription(description)
     .setColor(0x00ff00);
   
   if (item === 'surprise1' || item === 'surprise2') {

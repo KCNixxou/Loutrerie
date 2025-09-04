@@ -24,6 +24,7 @@ module.exports = {
   shop: {
     vip: { price: 10000, name: 'VIP' },
     superVip: { price: 20000, name: 'Super VIP' },
+    colorChange: { price: 10000, name: 'Changement de couleurs' },
     surprise1: { price: 100000, name: 'Surprise Mystère #1' },
     surprise2: { price: 100000, name: 'Surprise Mystère #2' }
   },
