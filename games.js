@@ -272,6 +272,7 @@ async function handleSlots(interaction) {
   
   const embed = new EmbedBuilder()
     .setTitle('🎰 Machine à Sous')
+    .setThumbnail('https://i.imgur.com/KJk22iD.png')
     .addFields(
       { name: 'Résultat', value: result.join(' '), inline: false },
       { name: multiplier > 0 ? 'Gains' : 'Perte', value: multiplier > 0 ? `+${winnings} ${config.currency.emoji} (x${multiplier})` : `-${bet} ${config.currency.emoji}`, inline: true }
@@ -311,6 +312,7 @@ async function handleCoinflipSolo(interaction) {
   
   const embed = new EmbedBuilder()
     .setTitle('🪙 Pile ou Face')
+    .setThumbnail('https://i.imgur.com/mpoaOLW.png')
     .addFields(
       { name: 'Ton choix', value: choice.charAt(0).toUpperCase() + choice.slice(1), inline: true },
       { name: 'Résultat', value: result.charAt(0).toUpperCase() + result.slice(1), inline: true },
@@ -372,6 +374,7 @@ async function handleCoinflipMulti(interaction) {
     
     const embed = new EmbedBuilder()
       .setTitle('🪙 Pile ou Face Multijoueurs - Résultat')
+      .setThumbnail('https://i.imgur.com/mpoaOLW.png')
       .addFields(
         { name: 'Créateur', value: `<@${existingGame.creatorId}> - ${existingGame.creatorChoice}`, inline: true },
         { name: 'Adversaire', value: `<@${interaction.user.id}> - ${choice}`, inline: true },
@@ -404,6 +407,7 @@ async function handleCoinflipMulti(interaction) {
     
     const embed = new EmbedBuilder()
       .setTitle('🪙 Pile ou Face Multijoueurs')
+      .setThumbnail('https://i.imgur.com/mpoaOLW.png')
       .setDescription(
         `<@${interaction.user.id}> a créé une partie !\n\n` +
         `**Mise:** ${bet} ${config.currency.emoji}\n` +
@@ -435,13 +439,31 @@ async function handleCoinflipMulti(interaction) {
 async function handleShop(interaction) {
   const embed = new EmbedBuilder()
     .setTitle('🛒 Boutique')
+    .setDescription('Découvrez les avantages exclusifs de la boutique !')
+    .setThumbnail('https://i.imgur.com/your-image-url.png') // Remplacez par l'URL de votre image
+    .setImage('https://i.imgur.com/your-banner-url.png') // Bannière en bas de l'embed
     .addFields(
-      { name: '👑 Rôles VIP', value: `**VIP** - ${config.shop.vip.price} ${config.currency.emoji}\n• +25% XP sur les messages\n\n**Super VIP** - ${config.shop.superVip.price} ${config.currency.emoji}\n• +50% XP sur les messages`, inline: false },
-      { name: '🎨 Personnalisation', value: `**${config.shop.colorChange.name}** - ${config.shop.colorChange.price} ${config.currency.emoji}\n• Change la couleur de ton pseudo sur le serveur`, inline: false },
-      { name: '🎁 Surprises', value: `**${config.shop.surprise1.name}** - ${config.shop.surprise1.price} ${config.currency.emoji}\n**${config.shop.surprise2.name}** - ${config.shop.surprise2.price} ${config.currency.emoji}`, inline: false }
+      { 
+        name: '👑 Rôles VIP', 
+        value: `**VIP** - ${config.shop.vip.price} ${config.currency.emoji}\n• +25% XP sur les messages\n\n**Super VIP** - ${config.shop.superVip.price} ${config.currency.emoji}\n• +50% XP sur les messages`, 
+        inline: false 
+      },
+      { 
+        name: '🎨 Personnalisation', 
+        value: `**${config.shop.colorChange.name}** - ${config.shop.colorChange.price} ${config.currency.emoji}\n• Change la couleur de ton pseudo sur le serveur`, 
+        inline: false 
+      },
+      { 
+        name: '🎁 Surprises', 
+        value: `**${config.shop.surprise1.name}** - ${config.shop.surprise1.price} ${config.currency.emoji}\n**${config.shop.surprise2.name}** - ${config.shop.surprise2.price} ${config.currency.emoji}`, 
+        inline: false 
+      }
     )
     .setColor(0xffd700)
-    .setFooter({ text: 'Utilise /acheter pour acheter un item' });
+    .setFooter({ 
+      text: 'Utilise /acheter pour acheter un item',
+      iconURL: 'https://i.imgur.com/your-icon-url.png' // Petite icône dans le footer
+    });
   
   await interaction.reply({ embeds: [embed] });
 }
