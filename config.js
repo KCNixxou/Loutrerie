@@ -18,8 +18,8 @@ module.exports = {
     minPerMessage: 10,
     maxPerMessage: 25,
     cooldown: 60000, // 1 minute
-    vipMultiplier: 1.5,
-    superVipMultiplier: 2
+    vipMultiplier: 1.25,       // +25% d'XP pour les VIP
+    superVipMultiplier: 1.5    // +50% d'XP pour les Super VIP
   },
   shop: {
     vip: { price: 10000, name: 'VIP' },
