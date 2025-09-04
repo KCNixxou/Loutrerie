@@ -56,11 +56,22 @@ client.once('ready', async () => {
   try {
     console.log('🔄 Enregistrement des commandes...');
     
+    // Enregistrement global des commandes
+    await rest.put(
+      Routes.applicationCommands(client.user.id),
+      { body: commands }
+    );
+    
+    // Enregistrement pour chaque serveur (en cas de mise en cache)
     for (const guild of client.guilds.cache.values()) {
-      await rest.put(
-        Routes.applicationGuildCommands(client.user.id, guild.id),
-        { body: commands }
-      );
+      try {
+        await rest.put(
+          Routes.applicationGuildCommands(client.user.id, guild.id),
+          { body: commands }
+        );
+      } catch (error) {
+        console.error(`Erreur lors de l'enregistrement des commandes pour le serveur ${guild.name}:`, error);
+      }
     }
     
     console.log('✅ Commandes enregistrées !');

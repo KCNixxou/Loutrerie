@@ -203,15 +203,14 @@ const commands = [
     .setName('loutre-giveaway')
     .setDescription('[ADMIN] Lancer un giveaway de 500 🐚 pour la première loutre qui clique')
     .setDefaultMemberPermissions(0) // Par défaut, personne n'a la permission
-    .setDMPermission(false)
-];
-
-// Commande de maintenance simplifiée
-commands.push(
+    .setDMPermission(false),
+    
+  // Commande de maintenance simplifiée
   new SlashCommandBuilder()
     .setName('maintenance')
     .setDescription('Activer/désactiver le mode maintenance (admin only)')
-    .setDefaultMemberPermissions(0) // Seul l'admin peut voir/utiliser la commande
-);
+    .setDefaultMemberPermissions('0')
+    .setDMPermission(false)
+];
 
 module.exports = commands.map(command => command.toJSON());
