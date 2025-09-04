@@ -36,6 +36,10 @@ function updateDatabaseSchema() {
   addColumnIfNotExists('users', 'total_wagered', 'INTEGER DEFAULT 0');
   addColumnIfNotExists('users', 'last_win', 'INTEGER DEFAULT 0');
   addColumnIfNotExists('users', 'last_win_time', 'INTEGER DEFAULT 0');
+  
+  // Ajout des colonnes pour le système de dons
+  addColumnIfNotExists('users', 'daily_given', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('users', 'last_give_reset', 'INTEGER DEFAULT 0');
 }
 
 // Exécuter la mise à jour du schéma
