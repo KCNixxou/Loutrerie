@@ -436,7 +436,7 @@ async function handleShop(interaction) {
   const embed = new EmbedBuilder()
     .setTitle('🛒 Boutique')
     .addFields(
-      { name: '👑 Rôles VIP', value: `**VIP** - ${config.shop.vip.price} ${config.currency.emoji}\n• +50% XP sur les messages\n\n**Super VIP** - ${config.shop.superVip.price} ${config.currency.emoji}\n• +100% XP sur les messages`, inline: false },
+      { name: '👑 Rôles VIP', value: `**VIP** - ${config.shop.vip.price} ${config.currency.emoji}\n• +25% XP sur les messages\n\n**Super VIP** - ${config.shop.superVip.price} ${config.currency.emoji}\n• +50% XP sur les messages`, inline: false },
       { name: '🎨 Personnalisation', value: `**${config.shop.colorChange.name}** - ${config.shop.colorChange.price} ${config.currency.emoji}\n• Change la couleur de ton pseudo sur le serveur`, inline: false },
       { name: '🎁 Surprises', value: `**${config.shop.surprise1.name}** - ${config.shop.surprise1.price} ${config.currency.emoji}\n**${config.shop.surprise2.name}** - ${config.shop.surprise2.price} ${config.currency.emoji}`, inline: false }
     )
