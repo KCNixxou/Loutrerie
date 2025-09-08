@@ -1142,12 +1142,12 @@ async function handleHighLowAction(interaction) {
       // Multiplicateur spécial pour un pari sur "égal"
       multiplier = 13.0;
     } else {
-      // Augmenter progressivement le multiplicateur de 0.2 à chaque tour
-      multiplier = Math.round((game.currentMultiplier + 0.2) * 10) / 10; // Arrondi à 1 décimale
+      // Augmenter progressivement le multiplicateur de 0.4 à chaque tour
+      multiplier = Math.round((game.currentMultiplier + 0.4) * 10) / 10; // Arrondi à 1 décimale
       
-      // Pour le premier tour, on commence à 1.2
+      // Pour le premier tour, on commence à 1.4
       if (game.currentMultiplier === 1.0) {
-        multiplier = 1.2;
+        multiplier = 1.4;
       }
     }
     
