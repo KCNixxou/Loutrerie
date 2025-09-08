@@ -114,14 +114,66 @@ function scheduleMidnightReset(callback) {
   }, timeUntilMidnight);
 }
 
-// Fonction pour obtenir la valeur numérique d'une carte (1-13)
+// Fonction pour obtenir les valeurs numériques d'une carte (retourne un tableau de valeurs possibles)
 function getCardValue(card) {
-  if (!card || !card.value) return 0;
+  if (!card || !card.value) return [0];
   
   const value = card.value.toUpperCase();
-  if (value === 'A') return 1;
-  if (['J', 'Q', 'K'].includes(value)) return 10;
-  return parseInt(value) || 0;
+  if (value === 'A') return [1, 14]; // As peut valoir 1 ou 14
+  if (value === 'J') return [11];    // Valet = 11
+  if (value === 'Q') return [12];    // Dame = 12
+  if (value === 'K') return [13];    // Roi = 13
+  return [parseInt(value) || 0];     // 2-10 gardent leur valeur
+}
+
+// Fonction utilitaire pour comparer deux cartes dans le contexte du jeu High Low
+function compareCards(card1, card2, action) {
+  const values1 = getCardValue(card1);
+  const values2 = getCardValue(card2);
+  
+  console.log(`[compareCards] Card1: ${card1.value} (${values1}), Card2: ${card2.value} (${values2}), Action: ${action}`);
+  
+  // Si l'une des cartes n'a pas de valeur valide
+  if (values1.length === 0 || values2.length === 0) {
+    console.log('[compareCards] Invalid card values');
+    return { result: false, sameCard: false };
+  }
+  
+  // Vérifier d'abord l'égalité exacte
+  for (const v1 of values1) {
+    for (const v2 of values2) {
+      if (v1 === v2) {
+        if (action === 'same') {
+          console.log('[compareCards] Same value found:', v1);
+          return { result: true, sameCard: true };
+        }
+        // Si on a une égalité mais que ce n'est pas ce qui était parié
+        if (action !== 'same') {
+          console.log(`[compareCards] Cards have same value ${v1} but action was ${action}`);
+          return { result: false, sameCard: true };
+        }
+      }
+    }
+  }
+  
+  // Si on arrive ici, il n'y a pas d'égalité
+  // On utilise la valeur la plus élevée pour la comparaison
+  const max1 = Math.max(...values1);
+  const max2 = Math.max(...values2);
+  
+  console.log(`[compareCards] Comparing max values: ${max1} vs ${max2}`);
+  
+  if (action === 'higher') {
+    const result = max2 > max1;
+    console.log(`[compareCards] Higher check: ${max2} > ${max1} = ${result}`);
+    return { result, sameCard: false };
+  } else if (action === 'lower') {
+    const result = max2 < max1;
+    console.log(`[compareCards] Lower check: ${max2} < ${max1} = ${result}`);
+    return { result, sameCard: false };
+  }
+  
+  return { result: false, sameCard: false };
 }
 
 module.exports = {
@@ -129,6 +181,7 @@ module.exports = {
   now,
   calculateLevel,
   getCardValue,
+  compareCards,
   getXpMultiplier,
   createDeck,
   calculateHandValue,

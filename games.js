@@ -9,7 +9,7 @@ const {
   updateTicTacToeStats, 
   getTicTacToeLeaderboard 
 } = require('./database');
-const { random, createDeck, calculateHandValue, formatHand, getRouletteColor, playSlots, getCardValue } = require('./utils');
+const { random, createDeck, calculateHandValue, formatHand, getRouletteColor, playSlots, getCardValue, compareCards } = require('./utils');
 
 // Variables pour le jeu High Low
 const activeHighLowGames = new Map();
@@ -1099,20 +1099,25 @@ async function handleHighLowAction(interaction) {
   const newCard = game.deck.pop();
   console.log('[HighLow] New card drawn:', newCard);
   
-  const currentValue = getCardValue(game.currentCard);
-  const newValue = getCardValue(newCard);
-  console.log('[HighLow] Card values - Current:', currentValue, 'New:', newValue);
+  // Utiliser la fonction compareCards pour gérer les comparaisons
+  const { result: userWon, sameCard } = compareCards(game.currentCard, newCard, action);
   
-  // Déterminer le résultat
+  // Déterminer le résultat pour l'affichage
   let result;
-  if (newValue < currentValue) result = 'lower';
-  else if (newValue === currentValue) result = 'same';
-  else result = 'higher';
-  console.log('[HighLow] Result:', result, 'User bet:', action);
+  if (sameCard) {
+    result = 'same';
+  } else {
+    const currentValues = getCardValue(game.currentCard);
+    const newValues = getCardValue(newCard);
+    const maxCurrent = Math.max(...currentValues);
+    const maxNew = Math.max(...newValues);
+    
+    if (maxNew > maxCurrent) result = 'higher';
+    else if (maxNew < maxCurrent) result = 'lower';
+    else result = 'same';
+  }
   
-  // Vérifier si le joueur a gagné
-  const userWon = action === result;
-  const sameCard = result === 'same';
+  console.log(`[HighLow] Current: ${game.currentCard.value} (${getCardValue(game.currentCard)}), New: ${newCard.value} (${getCardValue(newCard)}), Action: ${action}, Result: ${result}, Same: ${sameCard}`);
   console.log('[HighLow] User won:', userWon, 'Same card:', sameCard);
   
   // Calculer les gains
