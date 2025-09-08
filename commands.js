@@ -195,21 +195,8 @@ const commands = [
         .setMaxValue(25)),
 
   new SlashCommandBuilder()
-    .setName('puissance4')
-    .setDescription('Jouer au Puissance 4 contre un autre joueur')
-    .addUserOption(option =>
-      option.setName('adversaire')
-        .setDescription('L\'adversaire contre qui tu veux jouer')
-        .setRequired(true))
-    .addIntegerOption(option =>
-      option.setName('mise')
-        .setDescription('Mise (optionnelle)')
-        .setMinValue(1)
-        .setRequired(false)),
-
-  new SlashCommandBuilder()
     .setName('loutre-giveaway')
-    .setDescription('[ADMIN] Lancer un giveaway de 500 🐚 pour la première loutre qui clique')
+    .setDescription('[ADMIN] Lancer un giveaway de 500  pour la première loutre qui clique')
     .setDefaultMemberPermissions(0) // Par défaut, personne n'a la permission
     .setDMPermission(false),
     

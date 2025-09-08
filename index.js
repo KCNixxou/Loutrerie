@@ -190,12 +190,6 @@ async function handleSlashCommand(interaction) {
       await handleTicTacToe(interaction);
       break;
       
-    case 'puissance4':
-      const opponent = interaction.options.getUser('adversaire');
-      const bet = interaction.options.getInteger('mise') || 0;
-      await handleConnectFour(interaction, opponent, bet);
-      break;
-      
     case 'crash':
       await startCrashGame(interaction);
       break;
