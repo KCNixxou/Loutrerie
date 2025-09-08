@@ -242,29 +242,48 @@ async function handleSlashCommand(interaction) {
       await interaction.reply({ embeds: [embed] });
       break;
 
+    case 'reset-daily':
+      // Commande admin pour réinitialiser la date de dernière récupération
+      if (interaction.user.id !== '314458846754111499') {
+        return interaction.reply({
+          content: '❌ Cette commande est réservée à l\'administrateur.',
+          flags: 'Ephemeral'
+        });
+      }
+      
+      const targetUserId = interaction.options.getUser('utilisateur').id;
+      updateUser(targetUserId, { last_daily_claim: 0 });
+      
+      await interaction.reply({
+        content: `✅ Date de dernière récupération réinitialisée pour <@${targetUserId}>`,
+        flags: 'Ephemeral'
+      });
+      break;
+      
     case 'daily':
       const dailyUserId = interaction.user.id;
       const dailyUser = ensureUser(dailyUserId);
       const now = new Date();
-      const lastClaim = dailyUser.last_daily_claim || 0;
-      const lastClaimDate = new Date(lastClaim * 1000);
-      
-      // Vérifier si l'utilisateur a déjà récupéré sa récompense aujourd'hui
-      const today = new Date();
+      let lastClaim = dailyUser.last_daily_claim || 0;
+      const today = new Date(now);
       today.setHours(0, 0, 0, 0);
       
-      // Convertir en timestamp pour une comparaison précise
-      const lastClaimTimestamp = lastClaimDate.getTime();
+      // Vérifier si le timestamp est valide (entre 2000 et 2100)
+      const lastClaimDate = new Date(lastClaim * 1000);
+      const currentYear = now.getFullYear();
+      
+      if (lastClaimDate.getFullYear() < 2000 || lastClaimDate.getFullYear() > 2100) {
+        // Timestamp invalide, on le réinitialise
+        console.log('Timestamp invalide détecté, réinitialisation...');
+        lastClaim = 0;
+      }
+      
+      const lastClaimTimestamp = lastClaim * 1000;
       const todayTimestamp = today.getTime();
       
-      // Logs de débogage
-      console.log('Debug - Daily Check:');
-      console.log('Last claim timestamp:', lastClaimTimestamp);
-      console.log('Today timestamp:', todayTimestamp);
-      console.log('Last claim date:', lastClaimDate);
-      console.log('Today date:', today);
-      
-      if (lastClaimTimestamp >= todayTimestamp) {
+      if (lastClaim > 0 && lastClaimTimestamp >= todayTimestamp) {
+        // Log pour débogage
+        console.log('Dernière récupération aujourd\'hui, calcul du temps restant...');
         // Calculer le temps jusqu'à minuit prochain
         const nextMidnight = new Date(today);
         nextMidnight.setDate(nextMidnight.getDate() + 1);

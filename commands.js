@@ -10,6 +10,14 @@ const commands = [
     .setDescription('Récupérer ta récompense journalière de 100 🐚'),
 
   new SlashCommandBuilder()
+    .setName('reset-daily')
+    .setDescription('[ADMIN] Réinitialiser la date de dernière récupération')
+    .addUserOption(option =>
+      option.setName('utilisateur')
+        .setDescription('L\'utilisateur à réinitialiser')
+        .setRequired(true)),
+
+  new SlashCommandBuilder()
     .setName('missions')
     .setDescription('Voir tes missions journalières'),
 
