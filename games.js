@@ -1056,8 +1056,14 @@ async function handleTicTacToeLeaderboard(interaction) {
 // Gestion du jeu High Low
 // Gérer les actions du jeu High Low
 async function handleHighLowAction(interaction) {
+  console.log('[HighLow] handleHighLowAction called');
+  console.log('[HighLow] Interaction customId:', interaction.customId);
+  
   const [_, action, gameId] = interaction.customId.split('_');
+  console.log('[HighLow] Action:', action, 'Game ID:', gameId);
+  
   const game = activeHighLowGames.get(gameId);
+  console.log('[HighLow] Game found:', !!game);
   
   if (!game) {
     return interaction.update({
@@ -1074,19 +1080,25 @@ async function handleHighLowAction(interaction) {
   }
   
   // Tirer une nouvelle carte
+  console.log('[HighLow] Current card:', game.currentCard);
   const newCard = game.deck.pop();
+  console.log('[HighLow] New card drawn:', newCard);
+  
   const currentValue = getCardValue(game.currentCard);
   const newValue = getCardValue(newCard);
+  console.log('[HighLow] Card values - Current:', currentValue, 'New:', newValue);
   
   // Déterminer le résultat
   let result;
   if (newValue < currentValue) result = 'lower';
   else if (newValue === currentValue) result = 'same';
   else result = 'higher';
+  console.log('[HighLow] Result:', result, 'User bet:', action);
   
   // Vérifier si le joueur a gagné
   const userWon = action === result;
   const sameCard = result === 'same';
+  console.log('[HighLow] User won:', userWon, 'Same card:', sameCard);
   
   // Calculer les gains
   let winnings = 0;
@@ -1110,6 +1122,7 @@ async function handleHighLowAction(interaction) {
     // Mettre à jour le jeu
     game.currentCard = newCard;
     game.currentMultiplier = multiplier;
+    console.log('[HighLow] Game updated - New multiplier:', multiplier, 'Total won:', game.totalWon);
     
     // Créer les boutons pour continuer ou s'arrêter
     const row = new ActionRowBuilder()
@@ -1138,6 +1151,7 @@ async function handleHighLowAction(interaction) {
     return interaction.update({ embeds: [embed], components: [row] });
   } else {
     // Le joueur a perdu
+    console.log('[HighLow] User lost. Deleting game.');
     activeHighLowGames.delete(gameId);
     
     const embed = new EmbedBuilder()
@@ -1151,8 +1165,14 @@ async function handleHighLowAction(interaction) {
 
 // Gérer la décision de continuer ou d'arrêter
 async function handleHighLowDecision(interaction) {
+  console.log('[HighLow] handleHighLowDecision called');
+  console.log('[HighLow] Interaction customId:', interaction.customId);
+  
   const [_, decision, gameId] = interaction.customId.split('_');
+  console.log('[HighLow] Decision:', decision, 'Game ID:', gameId);
+  
   const game = activeHighLowGames.get(gameId);
+  console.log('[HighLow] Game found:', !!game);
   
   if (!game) {
     return interaction.update({
@@ -1163,8 +1183,12 @@ async function handleHighLowDecision(interaction) {
   
   if (decision === 'stop') {
     // Le joueur choisit de s'arrêter
+    console.log('[HighLow] User chose to stop. Total won:', game.totalWon);
     const user = ensureUser(game.userId);
+    console.log('[HighLow] User balance before update:', user.balance);
+    
     updateUser(game.userId, { balance: user.balance + game.totalWon });
+    console.log('[HighLow] User balance after update:', user.balance + game.totalWon);
     
     const embed = new EmbedBuilder()
       .setTitle('🎴 High Low - Fin de partie')
@@ -1172,9 +1196,12 @@ async function handleHighLowDecision(interaction) {
       .setColor(0xf1c40f);
     
     activeHighLowGames.delete(gameId);
+    console.log('[HighLow] Game deleted after stop');
     return interaction.update({ embeds: [embed], components: [] });
   } else if (decision === 'continue') {
     // Le joueur choisit de continuer
+    console.log('[HighLow] User chose to continue. Current multiplier:', game.currentMultiplier);
+    console.log('[HighLow] Current card:', game.currentCard);
     // Créer les boutons pour le prochain tour
     const row = new ActionRowBuilder()
       .addComponents(
