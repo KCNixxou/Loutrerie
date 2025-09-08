@@ -1152,16 +1152,16 @@ async function handleHighLowAction(interaction) {
       // Multiplicateur spécial pour un pari sur "égal"
       multiplier = 13.0;
     } else {
-      // Définir les multiplicateurs pour les 6 premiers tours
-      const multipliers = [1.5, 2.0, 2.3, 2.6, 2.9, 3.2];
+      // Définir les multiplicateurs pour les premiers tours
+      const multipliers = [1.5, 2.0, 2.3, 2.6, 4.0]; // 5ème tour à x4.0
       const round = game.round || 1; // Commence à 1
       
-      // Si on est dans les 6 premiers tours, prendre la valeur du tableau
+      // Si on est dans les 5 premiers tours, prendre la valeur du tableau
       // Sinon, continuer à ajouter 0.3 au dernier multiplicateur
       if (round <= multipliers.length) {
         multiplier = multipliers[round - 1];
       } else {
-        const lastMultiplier = multipliers[multipliers.length - 1];
+        const lastMultiplier = 4.0; // Dernier multiplicateur fixé à 4.0
         multiplier = lastMultiplier + (0.3 * (round - multipliers.length));
       }
       
@@ -1325,6 +1325,14 @@ async function handleHighLow(interaction) {
   if (user.balance < bet) {
     return interaction.reply({
       content: `❌ Vous n'avez pas assez de coquillages pour miser ${bet} ${config.currency.emoji} !`,
+      ephemeral: true
+    });
+  }
+  
+  // Vérifier que la mise ne dépasse pas le maximum autorisé
+  if (bet > 10000) {
+    return interaction.reply({
+      content: `❌ La mise maximale est de 10 000 ${config.currency.emoji} !`,
       ephemeral: true
     });
   }
