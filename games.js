@@ -286,10 +286,20 @@ async function handleSlots(interaction) {
     .addFields(
       { name: 'Résultat', value: result.join(' '), inline: false },
       { 
-        name: multiplier > 0 ? 'Gains nets' : 'Perte', 
-        value: multiplier > 0 
-          ? `+${netWinnings} ${config.currency.emoji} (${bet} mise + ${winnings} gains)` 
-          : `-${bet} ${config.currency.emoji}`, 
+        name: 'Mise', 
+        value: `${bet} ${config.currency.emoji}`, 
+        inline: true 
+      },
+      { 
+        name: 'Gains bruts', 
+        value: winnings > 0 ? `${winnings} ${config.currency.emoji}` : '0', 
+        inline: true 
+      },
+      { 
+        name: 'Gains nets', 
+        value: netWinnings >= 0 
+          ? `+${netWinnings} ${config.currency.emoji} (${winnings} - ${bet})` 
+          : `${netWinnings} ${config.currency.emoji}`, 
         inline: true 
       }
     )
