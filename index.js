@@ -147,7 +147,7 @@ client.on('interactionCreate', async (interaction) => {
     if (isMaintenanceMode() && interaction.user.id !== '314458846754111499') {
       return interaction.reply({ 
         content: '⚠️ Le bot est actuellement en maintenance. Veuillez réessayer plus tard.',
-        ephemeral: true 
+        flags: 'Ephemeral'
       });
     }
 
@@ -176,7 +176,7 @@ client.on('interactionCreate', async (interaction) => {
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
         content: 'Une erreur est survenue lors du traitement de votre demande.',
-        ephemeral: true
+        flags: 'Ephemeral'
       });
     }
   }
@@ -223,7 +223,7 @@ async function handleSlashCommand(interaction) {
       
       await interaction.reply({
         content: result.message,
-        ephemeral: true
+        flags: 'Ephemeral'
       });
       break;
     case 'profil':
@@ -270,13 +270,14 @@ async function handleSlashCommand(interaction) {
         
         await interaction.reply({ 
           content: `⏰ Tu as déjà récupéré ta récompense aujourd'hui ! La prochaine récompense sera disponible à minuit dans ${timeLeftText}.`,
-          ephemeral: true 
+          ephemeral: true
         });
         return;
       }
       
       const newBalance = (dailyUser.balance || 0) + config.currency.dailyReward;
       
+{{ ... }}
       updateUser(dailyUserId, {
         balance: newBalance,
         last_daily_claim: Math.floor(now.getTime() / 1000)
