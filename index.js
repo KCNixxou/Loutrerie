@@ -245,17 +245,17 @@ async function handleSlashCommand(interaction) {
     case 'daily':
       const dailyUserId = interaction.user.id;
       const dailyUser = ensureUser(dailyUserId);
-      const lastClaim = dailyUser.last_daily_claim || 0;
       const now = new Date();
-      
-      // Définir l'heure actuelle à minuit
-      const lastReset = new Date(now);
-      lastReset.setHours(0, 0, 0, 0);
+      const lastClaim = dailyUser.last_daily_claim || 0;
+      const lastClaimDate = new Date(lastClaim * 1000);
       
       // Vérifier si l'utilisateur a déjà récupéré sa récompense aujourd'hui
-      if (lastClaim * 1000 > lastReset.getTime()) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (lastClaimDate >= today) {
         // Calculer le temps jusqu'à minuit prochain
-        const nextMidnight = new Date(lastReset);
+        const nextMidnight = new Date(today);
         nextMidnight.setDate(nextMidnight.getDate() + 1);
         const timeLeftMs = nextMidnight - now;
         
