@@ -139,18 +139,22 @@ async function resolveBlackjack(interaction, game) {
   activeBlackjackGames.delete(userId);
   console.log(`[BLACKJACK] Parties restantes:`, [...activeBlackjackGames.keys()]);
   
+  const netWinnings = winnings - game.bet;
   const embed = new EmbedBuilder()
     .setTitle('🃏 Blackjack - Résultat')
     .addFields(
       { name: 'Ta main', value: `${formatHand(game.playerHand)}\nValeur: **${playerValue}**`, inline: true },
       { name: 'Croupier', value: `${formatHand(game.dealerHand)}\nValeur: **${dealerValue}**`, inline: true },
-      { name: 'Résultat', value: result, inline: false }
+      { name: 'Résultat', value: result, inline: false },
+      { 
+        name: winnings > 0 ? 'Gains nets' : 'Perte', 
+        value: winnings > 0 
+          ? `+${netWinnings} ${config.currency.emoji} (${game.bet} mise + ${netWinnings} gain)` 
+          : `-${game.bet} ${config.currency.emoji}`, 
+        inline: true 
+      }
     )
     .setColor(winnings > 0 ? 0x00ff00 : 0xff0000);
-  
-  if (winnings > 0) {
-    embed.addFields({ name: 'Gains', value: `+${winnings} ${config.currency.emoji}`, inline: true });
-  }
   
   await interaction.update({ embeds: [embed], components: [] });
 }
@@ -208,8 +212,7 @@ async function handleRouletteChoice(interaction) {
   const betAmount = parseInt(bet);
   const user = ensureUser(interaction.user.id);
   
-  // Déduire la mise
-  updateUser(interaction.user.id, { balance: user.balance - betAmount });
+  // Ne pas déduire la mise ici, elle est déjà déduite dans handleRouletteStart
   
   const resultNumber = random(0, 36);
   const resultColor = getRouletteColor(resultNumber);
@@ -265,19 +268,30 @@ async function handleSlots(interaction) {
   // Déduire la mise
   updateUser(interaction.user.id, { balance: user.balance - bet });
   
+  // Mettre à jour l'utilisateur pour avoir le bon solde
+  const updatedUser = ensureUser(interaction.user.id);
+  
   const { result, multiplier } = playSlots();
   const winnings = Math.floor(bet * multiplier);
   
   if (winnings > 0) {
-    updateUser(interaction.user.id, { balance: user.balance + winnings });
+    // Ajouter les gains au nouveau solde (après déduction de la mise)
+    updateUser(interaction.user.id, { balance: updatedUser.balance + winnings });
   }
   
+  const netWinnings = winnings - bet;
   const embed = new EmbedBuilder()
     .setTitle('🎰 Machine à Sous')
     .setThumbnail('https://i.imgur.com/aZSIqq8.png')
     .addFields(
       { name: 'Résultat', value: result.join(' '), inline: false },
-      { name: multiplier > 0 ? 'Gains' : 'Perte', value: multiplier > 0 ? `+${winnings} ${config.currency.emoji} (x${multiplier})` : `-${bet} ${config.currency.emoji}`, inline: true }
+      { 
+        name: multiplier > 0 ? 'Gains nets' : 'Perte', 
+        value: multiplier > 0 
+          ? `+${netWinnings} ${config.currency.emoji} (${bet} mise + ${winnings} gains)` 
+          : `-${bet} ${config.currency.emoji}`, 
+        inline: true 
+      }
     )
     .setColor(multiplier > 0 ? 0x00ff00 : 0xff0000)
     .setDescription(multiplier > 0 ? '🎉 **GAGNÉ !**' : '😢 **PERDU !**');
@@ -1137,18 +1151,14 @@ async function handleHighLowAction(interaction) {
       }
     }
     
-    // Calculer uniquement le gain du tour actuel
-    const roundWinnings = Math.floor(game.currentBet * multiplier);
-    // Ajouter uniquement le gain du tour actuel au total
-    game.totalWon = game.currentBet * (multiplier - 1); // Soustrayez 1 car la mise initiale est déjà déduite
-    
-    // Mettre à jour le solde de l'utilisateur avec le gain du tour actuel
-    const user = ensureUser(game.userId);
-    updateUser(game.userId, { balance: user.balance + roundWinnings });
+    // Calculer le gain potentiel total (sans créditer encore)
+    const potentialWinnings = Math.floor(game.currentBet * multiplier);
+    game.totalWon = potentialWinnings; // Mettre à jour le total potentiel
     
     // Mettre à jour le jeu
     game.currentCard = newCard;
     game.currentMultiplier = multiplier;
+    game.potentialWinnings = potentialWinnings; // Stocker les gains potentiels
     console.log('[HighLow] Game updated - New multiplier:', multiplier, 'Total won:', game.totalWon);
     
     // Créer les boutons pour continuer ou s'arrêter
@@ -1175,19 +1185,19 @@ async function handleHighLowAction(interaction) {
         { name: 'Mise initiale', value: `${game.currentBet} ${config.currency.emoji}`, inline: true },
         { name: 'Multiplicateur actuel', value: `${game.currentMultiplier.toFixed(1)}x`, inline: true },
         { name: 'Gains potentiels', value: `${Math.floor(game.currentBet * game.currentMultiplier)} ${config.currency.emoji}`, inline: true },
-        { name: 'Gains actuels', value: `${game.totalWon} ${config.currency.emoji}`, inline: false }
+        { name: 'Gains nets actuels', value: `${game.totalWon} ${config.currency.emoji}`, inline: false }
       )
       .setColor(0x2ecc71);
     
     return interaction.update({ embeds: [embed], components: [row] });
   } else {
-    // Le joueur a perdu
-    console.log('[HighLow] User lost. Deleting game.');
+    // Le joueur a perdu - il perd tout
+    console.log('[HighLow] User lost everything. Deleting game.');
     activeHighLowGames.delete(gameId);
     
     const embed = new EmbedBuilder()
       .setTitle('🎴 High Low - Perdu !')
-      .setDescription(`**Dernière carte:** ${newCard.value}${newCard.suit}\n\nDommage, vous avez perdu votre mise.`)
+      .setDescription(`**Dernière carte:** ${newCard.value}${newCard.suit}\n\nDommage, vous avez tout perdu (mise + gains potentiels).`)
       .setColor(0xe74c3c);
     
     return interaction.update({ embeds: [embed], components: [] });
@@ -1229,17 +1239,18 @@ async function handleHighLowDecision(interaction) {
   }
   
   if (decision === 'stop') {
-    // Le joueur choisit de s'arrêter
+    // Le joueur choisit de s'arrêter - créditer les gains
     console.log('[HighLow] User chose to stop. Total won:', game.totalWon);
     const user = ensureUser(game.userId);
     console.log('[HighLow] User balance before update:', user.balance);
     
-    // Ne rien ajouter ici car les gains ont déjà été ajoutés à chaque tour
-    console.log('[HighLow] User keeps their winnings, no additional update needed');
+    // Créditer les gains totaux (mise initiale + gains)
+    updateUser(game.userId, { balance: user.balance + game.totalWon });
+    console.log('[HighLow] Credited total winnings:', game.totalWon);
     
     const embed = new EmbedBuilder()
       .setTitle('🎴 High Low - Fin de partie')
-      .setDescription(`Vous avez choisi de vous arrêter avec un gain total de **${game.totalWon} ${config.currency.emoji}** !`)
+      .setDescription(`Vous avez choisi de vous arrêter avec un gain total de **${game.totalWon - game.initialBet} ${config.currency.emoji}** !\n(Mise initiale: ${game.initialBet} + Gains: ${game.totalWon - game.initialBet})`)
       .setColor(0xf1c40f);
     
     activeHighLowGames.delete(gameId);
@@ -1277,7 +1288,7 @@ async function handleHighLowDecision(interaction) {
         { name: 'Mise initiale', value: `${game.currentBet} ${config.currency.emoji}`, inline: true },
         { name: 'Multiplicateur actuel', value: `${game.currentMultiplier.toFixed(1)}x`, inline: true },
         { name: 'Gains potentiels', value: `${Math.floor(game.currentBet * game.currentMultiplier)} ${config.currency.emoji}`, inline: true },
-        { name: 'Gains actuels', value: `${game.totalWon} ${config.currency.emoji}`, inline: false }
+        { name: 'Gains nets actuels', value: `${game.totalWon} ${config.currency.emoji}`, inline: false }
       )
       .setColor(0x3498db);
     
@@ -1315,7 +1326,10 @@ async function handleHighLow(interaction) {
     currentCard,
     currentBet: bet,
     currentMultiplier: 1.0, // Commence à 1.0, mais premier tour sera 1.2
-    totalWon: 0
+    totalWon: 0,
+    potentialWinnings: 0, // Gains potentiels actuels
+    initialBet: bet, // Sauvegarder la mise initiale séparément
+    hasWon: false // Pour suivre si le joueur a gagné le tour actuel
   });
   
   // Créer les boutons avec un ID de jeu encodé
