@@ -9,7 +9,10 @@ const {
   updateTicTacToeStats, 
   getTicTacToeLeaderboard 
 } = require('./database');
-const { random, createDeck, calculateHandValue, formatHand, getRouletteColor, playSlots } = require('./utils');
+const { random, createDeck, calculateHandValue, formatHand, getRouletteColor, playSlots, getCardValue } = require('./utils');
+
+// Variables pour le jeu High Low
+const activeHighLowGames = new Map();
 
 // Variables globales pour les jeux
 const activeBlackjackGames = new Map();
@@ -1050,12 +1053,232 @@ async function handleTicTacToeLeaderboard(interaction) {
   }
 }
 
+// Gestion du jeu High Low
+// Gérer les actions du jeu High Low
+async function handleHighLowAction(interaction) {
+  const [_, action, gameId] = interaction.customId.split('_');
+  const game = activeHighLowGames.get(gameId);
+  
+  if (!game) {
+    return interaction.update({
+      content: '❌ Partie introuvable ou expirée.',
+      components: []
+    });
+  }
+  
+  if (game.userId !== interaction.user.id) {
+    return interaction.reply({
+      content: '❌ Ce n\'est pas votre partie !',
+      ephemeral: true
+    });
+  }
+  
+  // Tirer une nouvelle carte
+  const newCard = game.deck.pop();
+  const currentValue = getCardValue(game.currentCard);
+  const newValue = getCardValue(newCard);
+  
+  // Déterminer le résultat
+  let result;
+  if (newValue < currentValue) result = 'lower';
+  else if (newValue === currentValue) result = 'same';
+  else result = 'higher';
+  
+  // Vérifier si le joueur a gagné
+  const userWon = action === result;
+  const sameCard = result === 'same';
+  
+  // Calculer les gains
+  let winnings = 0;
+  if (userWon) {
+    let multiplier = 1.0;
+    if (sameCard) {
+      // Multiplicateur plus élevé pour un pari sur "égal"
+      multiplier = 13.0;
+    } else {
+      // Augmenter progressivement le multiplicateur
+      multiplier = game.currentMultiplier + 0.5;
+    }
+    
+    winnings = Math.floor(game.currentBet * multiplier);
+    game.totalWon += winnings;
+    
+    // Mettre à jour le solde de l'utilisateur
+    const user = ensureUser(game.userId);
+    updateUser(game.userId, { balance: user.balance + winnings });
+    
+    // Mettre à jour le jeu
+    game.currentCard = newCard;
+    game.currentMultiplier = multiplier;
+    
+    // Créer les boutons pour continuer ou s'arrêter
+    const row = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(`highlow_stop_${gameId}`)
+          .setLabel('🏁 Arrêter')
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId(`highlow_continue_${gameId}`)
+          .setLabel('🎲 Continuer')
+          .setStyle(ButtonStyle.Success)
+      );
+    
+    // Mettre à jour le message
+    const embed = new EmbedBuilder()
+      .setTitle('🎴 High Low - Gagné !')
+      .setDescription(`**Nouvelle carte:** ${newCard.value}${newCard.suit}\n\nVoulez-vous continuer ou vous arrêter ?`)
+      .addFields(
+        { name: 'Mise initiale', value: `${game.currentBet} ${config.currency.emoji}`, inline: true },
+        { name: 'Multiplicateur actuel', value: `${game.currentMultiplier.toFixed(1)}x`, inline: true },
+        { name: 'Gains actuels', value: `${game.totalWon} ${config.currency.emoji}`, inline: true }
+      )
+      .setColor(0x2ecc71);
+    
+    return interaction.update({ embeds: [embed], components: [row] });
+  } else {
+    // Le joueur a perdu
+    activeHighLowGames.delete(gameId);
+    
+    const embed = new EmbedBuilder()
+      .setTitle('🎴 High Low - Perdu !')
+      .setDescription(`**Dernière carte:** ${newCard.value}${newCard.suit}\n\nDommage, vous avez perdu votre mise.`)
+      .setColor(0xe74c3c);
+    
+    return interaction.update({ embeds: [embed], components: [] });
+  }
+}
+
+// Gérer la décision de continuer ou d'arrêter
+async function handleHighLowDecision(interaction) {
+  const [_, decision, gameId] = interaction.customId.split('_');
+  const game = activeHighLowGames.get(gameId);
+  
+  if (!game) {
+    return interaction.update({
+      content: '❌ Partie introuvable ou expirée.',
+      components: []
+    });
+  }
+  
+  if (decision === 'stop') {
+    // Le joueur choisit de s'arrêter
+    const user = ensureUser(game.userId);
+    updateUser(game.userId, { balance: user.balance + game.totalWon });
+    
+    const embed = new EmbedBuilder()
+      .setTitle('🎴 High Low - Fin de partie')
+      .setDescription(`Vous avez choisi de vous arrêter avec un gain total de **${game.totalWon} ${config.currency.emoji}** !`)
+      .setColor(0xf1c40f);
+    
+    activeHighLowGames.delete(gameId);
+    return interaction.update({ embeds: [embed], components: [] });
+  } else if (decision === 'continue') {
+    // Le joueur choisit de continuer
+    // Créer les boutons pour le prochain tour
+    const row = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(`highlow_lower_${gameId}`)
+          .setLabel('⬇️ Plus bas')
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId(`highlow_same_${gameId}`)
+          .setLabel('🟰 Égal')
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId(`highlow_higher_${gameId}`)
+          .setLabel('⬆️ Plus haut')
+          .setStyle(ButtonStyle.Success)
+      );
+    
+    const embed = new EmbedBuilder()
+      .setTitle('🎴 High Low - Tour suivant')
+      .setDescription(`**Carte actuelle:** ${game.currentCard.value}${game.currentCard.suit}\n\nChoisissez si la prochaine carte sera plus haute, plus basse ou égale.`)
+      .addFields(
+        { name: 'Mise initiale', value: `${game.currentBet} ${config.currency.emoji}`, inline: true },
+        { name: 'Multiplicateur actuel', value: `${game.currentMultiplier.toFixed(1)}x`, inline: true },
+        { name: 'Gains actuels', value: `${game.totalWon} ${config.currency.emoji}`, inline: true }
+      )
+      .setColor(0x3498db);
+    
+    return interaction.update({ embeds: [embed], components: [row] });
+  }
+}
+
+// Démarrer une nouvelle partie de High Low
+async function handleHighLow(interaction) {
+  const userId = interaction.user.id;
+  const bet = interaction.options.getInteger('mise');
+  
+  // Vérifier que l'utilisateur a assez d'argent
+  const user = ensureUser(userId);
+  if (user.balance < bet) {
+    return interaction.reply({
+      content: `❌ Vous n'avez pas assez de coquillages pour miser ${bet} ${config.currency.emoji} !`,
+      ephemeral: true
+    });
+  }
+  
+  // Créer un nouveau jeu
+  const deck = createDeck();
+  const currentCard = deck.pop();
+  
+  // Retirer la mise du solde de l'utilisateur
+  updateUser(userId, { balance: user.balance - bet });
+  
+  // Enregistrer la partie
+  const gameId = `hl_${userId}_${Date.now()}`;
+  activeHighLowGames.set(gameId, {
+    userId,
+    deck,
+    currentCard,
+    currentBet: bet,
+    currentMultiplier: 1.0,
+    totalWon: 0
+  });
+  
+  // Créer les boutons
+  const row = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`highlow_lower_${gameId}`)
+        .setLabel('⬇️ Plus bas')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId(`highlow_same_${gameId}`)
+        .setLabel('🟰 Égal')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(`highlow_higher_${gameId}`)
+        .setLabel('⬆️ Plus haut')
+        .setStyle(ButtonStyle.Success)
+    );
+  
+  // Envoyer le message
+  const embed = new EmbedBuilder()
+    .setTitle('🎴 High Low')
+    .setDescription(`**Carte actuelle:** ${currentCard.value}${currentCard.suit}\n\nChoisissez si la prochaine carte sera plus haute, plus basse ou égale.`)
+    .addFields(
+      { name: 'Mise', value: `${bet} ${config.currency.emoji}`, inline: true },
+      { name: 'Multiplicateur actuel', value: '1.0x', inline: true },
+      { name: 'Gains potentiels', value: `${Math.floor(bet * 1.0)} ${config.currency.emoji}`, inline: true }
+    )
+    .setColor(0x3498db);
+  
+  await interaction.reply({ embeds: [embed], components: [row] });
+}
+
 module.exports = {
   handleBlackjack: handleBlackjackStart,
   handleTicTacToe,
   handleTicTacToeMove,
+  handleHighLow,
+  handleHighLowAction,
+  handleHighLowDecision,
   activeBlackjackGames,
   activeTicTacToeGames,
+  activeHighLowGames,
   handleSlots,
   handleCoinflipSolo,
   handleCoinflipMulti,

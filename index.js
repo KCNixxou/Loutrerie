@@ -25,7 +25,8 @@ const {
   handleTicTacToe,
   handleTicTacToeMove,
   handleConnectFourMove,
-  getTicTacToeLeaderboard
+  getTicTacToeLeaderboard,
+  handleHighLow
 } = require('./games');
 const { 
   startCrashGame, 
@@ -208,6 +209,10 @@ async function handleSlashCommand(interaction) {
       
     case 'classement-morpion':
       await handleTicTacToeLeaderboard(interaction);
+      break;
+      
+    case 'highlow':
+      await handleHighLow(interaction);
       break;
       
     case 'maintenance':

@@ -114,10 +114,21 @@ function scheduleMidnightReset(callback) {
   }, timeUntilMidnight);
 }
 
+// Fonction pour obtenir la valeur numérique d'une carte (1-13)
+function getCardValue(card) {
+  if (!card || !card.value) return 0;
+  
+  const value = card.value.toUpperCase();
+  if (value === 'A') return 1;
+  if (['J', 'Q', 'K'].includes(value)) return 10;
+  return parseInt(value) || 0;
+}
+
 module.exports = {
   random,
   now,
   calculateLevel,
+  getCardValue,
   getXpMultiplier,
   createDeck,
   calculateHandValue,

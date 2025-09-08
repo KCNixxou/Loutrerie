@@ -1,9 +1,29 @@
-const { activeBlackjackGames, activeCoinflipGames, resolveBlackjack, handleRouletteChoice } = require('./games');
+const { 
+  activeBlackjackGames, 
+  activeCoinflipGames, 
+  resolveBlackjack, 
+  handleRouletteChoice,
+  handleHighLowAction,
+  handleHighLowDecision
+} = require('./games');
 const { calculateHandValue, formatHand } = require('./utils');
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
 async function handleButtonInteraction(interaction) {
   const userId = interaction.user.id;
+  
+  // Gestion du High Low
+  if (interaction.customId.startsWith('highlow_lower_') || 
+      interaction.customId.startsWith('highlow_same_') || 
+      interaction.customId.startsWith('highlow_higher_')) {
+    return handleHighLowAction(interaction);
+  }
+  
+  // Gestion de la décision de continuer/arrêter
+  if (interaction.customId.startsWith('highlow_stop_') || 
+      interaction.customId.startsWith('highlow_continue_')) {
+    return handleHighLowDecision(interaction);
+  }
   
   if (interaction.customId.startsWith('blackjack_')) {
     // Vérifier si l'interaction a déjà été traitée

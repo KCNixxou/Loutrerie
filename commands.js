@@ -10,6 +10,15 @@ const commands = [
     .setDescription('Récupérer ta récompense journalière de 100 🐚'),
 
   new SlashCommandBuilder()
+    .setName('highlow')
+    .setDescription('Jouer au High Low (Plus haut/Plus bas/Égal)')
+    .addIntegerOption(option =>
+      option.setName('mise')
+        .setDescription('Montant à miser en coquillages')
+        .setRequired(true)
+        .setMinValue(1)),
+
+  new SlashCommandBuilder()
     .setName('reset-daily')
     .setDescription('[ADMIN] Réinitialiser la date de dernière récupération')
     .addUserOption(option =>
