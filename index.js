@@ -277,7 +277,6 @@ async function handleSlashCommand(interaction) {
       
       const newBalance = (dailyUser.balance || 0) + config.currency.dailyReward;
       
-{{ ... }}
       updateUser(dailyUserId, {
         balance: newBalance,
         last_daily_claim: Math.floor(now.getTime() / 1000)
