@@ -253,7 +253,18 @@ async function handleSlashCommand(interaction) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      if (lastClaimDate >= today) {
+      // Convertir en timestamp pour une comparaison précise
+      const lastClaimTimestamp = lastClaimDate.getTime();
+      const todayTimestamp = today.getTime();
+      
+      // Logs de débogage
+      console.log('Debug - Daily Check:');
+      console.log('Last claim timestamp:', lastClaimTimestamp);
+      console.log('Today timestamp:', todayTimestamp);
+      console.log('Last claim date:', lastClaimDate);
+      console.log('Today date:', today);
+      
+      if (lastClaimTimestamp >= todayTimestamp) {
         // Calculer le temps jusqu'à minuit prochain
         const nextMidnight = new Date(today);
         nextMidnight.setDate(nextMidnight.getDate() + 1);
