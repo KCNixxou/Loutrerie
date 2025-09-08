@@ -2,6 +2,10 @@ const { SlashCommandBuilder } = require('discord.js');
 
 const commands = [
   new SlashCommandBuilder()
+    .setName('de')
+    .setDescription('Lancer un dé à 6 faces 🎲'),
+
+  new SlashCommandBuilder()
     .setName('profil')
     .setDescription('Voir ton profil (niveau, XP, coquillages)'),
 

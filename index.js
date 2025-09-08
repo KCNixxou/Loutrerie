@@ -187,6 +187,11 @@ async function handleSlashCommand(interaction) {
   const { commandName } = interaction;
   
   switch (commandName) {
+    case 'de':
+      const diceResult = Math.floor(Math.random() * 6) + 1;
+      await interaction.reply(`🎲 Le dé affiche : **${diceResult}**`);
+      break;
+      
     case 'morpion':
       await handleTicTacToe(interaction);
       break;
