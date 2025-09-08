@@ -1059,11 +1059,26 @@ async function handleHighLowAction(interaction) {
   console.log('[HighLow] handleHighLowAction called');
   console.log('[HighLow] Interaction customId:', interaction.customId);
   
-  const [_, action, gameId] = interaction.customId.split('_');
+  // Extraire l'action (lower/same/higher) et l'ID de jeu complet
+  const actionMatch = interaction.customId.match(/^highlow_(lower|same|higher)_(.*)/);
+  if (!actionMatch) {
+    console.error('[HighLow] Invalid customId format:', interaction.customId);
+    return interaction.reply({ content: '❌ Format de commande invalide.', ephemeral: true });
+  }
+  
+  const action = actionMatch[1];
+  const gameId = actionMatch[2];
   console.log('[HighLow] Action:', action, 'Game ID:', gameId);
   
   const game = activeHighLowGames.get(gameId);
   console.log('[HighLow] Game found:', !!game);
+  if (game) {
+    console.log('[HighLow] Game details:', {
+      userId: game.userId,
+      currentCard: game.currentCard,
+      currentBet: game.currentBet
+    });
+  }
   
   if (!game) {
     return interaction.update({
@@ -1130,12 +1145,15 @@ async function handleHighLowAction(interaction) {
         new ButtonBuilder()
           .setCustomId(`highlow_stop_${gameId}`)
           .setLabel('🏁 Arrêter')
-          .setStyle(ButtonStyle.Danger),
+          .setStyle(ButtonStyle.Danger)
+          .setEmoji('🛑'),
         new ButtonBuilder()
           .setCustomId(`highlow_continue_${gameId}`)
-          .setLabel('🎲 Continuer')
+          .setLabel('Continuer')
           .setStyle(ButtonStyle.Success)
+          .setEmoji('🎲')
       );
+    console.log('[HighLow] Created decision buttons with gameId:', gameId);
     
     // Mettre à jour le message
     const embed = new EmbedBuilder()
@@ -1168,11 +1186,27 @@ async function handleHighLowDecision(interaction) {
   console.log('[HighLow] handleHighLowDecision called');
   console.log('[HighLow] Interaction customId:', interaction.customId);
   
-  const [_, decision, gameId] = interaction.customId.split('_');
+  // Extraire la décision (stop/continue) et l'ID de jeu complet
+  const decisionMatch = interaction.customId.match(/^highlow_(stop|continue)_(.*)/);
+  if (!decisionMatch) {
+    console.error('[HighLow] Invalid decision format:', interaction.customId);
+    return interaction.reply({ content: '❌ Format de décision invalide.', ephemeral: true });
+  }
+  
+  const decision = decisionMatch[1];
+  const gameId = decisionMatch[2];
   console.log('[HighLow] Decision:', decision, 'Game ID:', gameId);
   
   const game = activeHighLowGames.get(gameId);
   console.log('[HighLow] Game found:', !!game);
+  if (game) {
+    console.log('[HighLow] Game details:', {
+      userId: game.userId,
+      currentCard: game.currentCard,
+      currentBet: game.currentBet,
+      totalWon: game.totalWon
+    });
+  }
   
   if (!game) {
     return interaction.update({
@@ -1207,17 +1241,21 @@ async function handleHighLowDecision(interaction) {
       .addComponents(
         new ButtonBuilder()
           .setCustomId(`highlow_lower_${gameId}`)
-          .setLabel('⬇️ Plus bas')
-          .setStyle(ButtonStyle.Danger),
+          .setLabel('Plus bas')
+          .setStyle(ButtonStyle.Danger)
+          .setEmoji('⬇️'),
         new ButtonBuilder()
           .setCustomId(`highlow_same_${gameId}`)
-          .setLabel('🟰 Égal')
-          .setStyle(ButtonStyle.Primary),
+          .setLabel('Égal')
+          .setStyle(ButtonStyle.Primary)
+          .setEmoji('🟰'),
         new ButtonBuilder()
           .setCustomId(`highlow_higher_${gameId}`)
-          .setLabel('⬆️ Plus haut')
+          .setLabel('Plus haut')
           .setStyle(ButtonStyle.Success)
+          .setEmoji('⬆️')
       );
+    console.log('[HighLow] Created action buttons with gameId:', gameId);
     
     const embed = new EmbedBuilder()
       .setTitle('🎴 High Low - Tour suivant')
@@ -1254,8 +1292,9 @@ async function handleHighLow(interaction) {
   // Retirer la mise du solde de l'utilisateur
   updateUser(userId, { balance: user.balance - bet });
   
-  // Enregistrer la partie
-  const gameId = `hl_${userId}_${Date.now()}`;
+  // Enregistrer la partie avec un ID unique
+  const gameId = `hl_${Date.now()}_${userId}`;  // Format: hl_timestamp_userId
+  console.log('[HighLow] New game created with ID:', gameId);
   activeHighLowGames.set(gameId, {
     userId,
     deck,
@@ -1265,22 +1304,26 @@ async function handleHighLow(interaction) {
     totalWon: 0
   });
   
-  // Créer les boutons
+  // Créer les boutons avec un ID de jeu encodé
   const row = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
         .setCustomId(`highlow_lower_${gameId}`)
-        .setLabel('⬇️ Plus bas')
-        .setStyle(ButtonStyle.Danger),
+        .setLabel('Plus bas')
+        .setStyle(ButtonStyle.Danger)
+        .setEmoji('⬇️'),
       new ButtonBuilder()
         .setCustomId(`highlow_same_${gameId}`)
-        .setLabel('🟰 Égal')
-        .setStyle(ButtonStyle.Primary),
+        .setLabel('Égal')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('🟰'),
       new ButtonBuilder()
         .setCustomId(`highlow_higher_${gameId}`)
-        .setLabel('⬆️ Plus haut')
+        .setLabel('Plus haut')
         .setStyle(ButtonStyle.Success)
+        .setEmoji('⬆️')
     );
+  console.log('[HighLow] Created initial action buttons with gameId:', gameId);
   
   // Envoyer le message
   const embed = new EmbedBuilder()
