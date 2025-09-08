@@ -85,10 +85,12 @@ client.once('ready', async () => {
   // Démarrer le reset des missions à minuit
   scheduleMidnightReset(() => {
     console.log('🔄 Reset des missions journalières à minuit');
+    const { generateDailyMissions } = require('./database');
+    const missions = generateDailyMissions();
     const users = db.prepare('SELECT user_id FROM users').all();
     for (const user of users) {
       updateUser(user.user_id, {
-        daily_missions: JSON.stringify(require('./database').generateDailyMissions()),
+        daily_missions: JSON.stringify(missions),
         daily_messages: 0,
         last_mission_reset: now()
       });
