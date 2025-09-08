@@ -1152,13 +1152,21 @@ async function handleHighLowAction(interaction) {
       // Multiplicateur spécial pour un pari sur "égal"
       multiplier = 13.0;
     } else {
-      // Augmenter progressivement le multiplicateur de 0.4 à chaque tour
-      multiplier = Math.round((game.currentMultiplier + 0.4) * 10) / 10; // Arrondi à 1 décimale
+      // Définir les multiplicateurs pour les 6 premiers tours
+      const multipliers = [1.5, 2.0, 2.3, 2.6, 2.9, 3.2];
+      const round = game.round || 1; // Commence à 1
       
-      // Pour le premier tour, on commence à 1.4
-      if (game.currentMultiplier === 1.0) {
-        multiplier = 1.4;
+      // Si on est dans les 6 premiers tours, prendre la valeur du tableau
+      // Sinon, continuer à ajouter 0.3 au dernier multiplicateur
+      if (round <= multipliers.length) {
+        multiplier = multipliers[round - 1];
+      } else {
+        const lastMultiplier = multipliers[multipliers.length - 1];
+        multiplier = lastMultiplier + (0.3 * (round - multipliers.length));
       }
+      
+      // Arrondir à 1 décimale
+      multiplier = Math.round(multiplier * 10) / 10;
     }
     
     // Calculer le gain potentiel total (sans créditer encore)
@@ -1168,6 +1176,7 @@ async function handleHighLowAction(interaction) {
     // Mettre à jour le jeu
     game.currentCard = newCard;
     game.currentMultiplier = multiplier;
+    game.round = (game.round || 1) + 1; // Incrémenter le numéro du tour
     game.potentialWinnings = potentialWinnings; // Stocker les gains potentiels
     console.log('[HighLow] Game updated - New multiplier:', multiplier, 'Total won:', game.totalWon);
     
@@ -1335,11 +1344,12 @@ async function handleHighLow(interaction) {
     deck,
     currentCard,
     currentBet: bet,
-    currentMultiplier: 1.0, // Commence à 1.0, mais premier tour sera 1.2
+    currentMultiplier: 1.0, // Commence à 1.0, mais premier tour sera 1.5
     totalWon: 0,
     potentialWinnings: 0, // Gains potentiels actuels
     initialBet: bet, // Sauvegarder la mise initiale séparément
-    hasWon: false // Pour suivre si le joueur a gagné le tour actuel
+    hasWon: false, // Pour suivre si le joueur a gagné le tour actuel
+    round: 1 // Initialisation du compteur de tours
   });
   
   // Créer les boutons avec un ID de jeu encodé
