@@ -1123,13 +1123,18 @@ async function handleHighLowAction(interaction) {
   // Calculer les gains
   let winnings = 0;
   if (userWon) {
-    let multiplier = 1.0;
+    let multiplier;
     if (sameCard) {
-      // Multiplicateur plus élevé pour un pari sur "égal"
+      // Multiplicateur spécial pour un pari sur "égal"
       multiplier = 13.0;
     } else {
-      // Augmenter progressivement le multiplicateur
-      multiplier = game.currentMultiplier + 0.5;
+      // Augmenter progressivement le multiplicateur de 0.2 à chaque tour
+      multiplier = Math.round((game.currentMultiplier + 0.2) * 10) / 10; // Arrondi à 1 décimale
+      
+      // Pour le premier tour, on commence à 1.2
+      if (game.currentMultiplier === 1.0) {
+        multiplier = 1.2;
+      }
     }
     
     winnings = Math.floor(game.currentBet * multiplier);
@@ -1305,7 +1310,7 @@ async function handleHighLow(interaction) {
     deck,
     currentCard,
     currentBet: bet,
-    currentMultiplier: 1.0,
+    currentMultiplier: 1.0, // Commence à 1.0, mais premier tour sera 1.2
     totalWon: 0
   });
   

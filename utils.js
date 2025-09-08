@@ -114,12 +114,12 @@ function scheduleMidnightReset(callback) {
   }, timeUntilMidnight);
 }
 
-// Fonction pour obtenir les valeurs numériques d'une carte (retourne un tableau de valeurs possibles)
+// Fonction pour obtenir la valeur numérique d'une carte
 function getCardValue(card) {
   if (!card || !card.value) return [0];
   
   const value = card.value.toUpperCase();
-  if (value === 'A') return [1, 14]; // As peut valoir 1 ou 14
+  if (value === 'A') return [14];    // As = 14
   if (value === 'J') return [11];    // Valet = 11
   if (value === 'Q') return [12];    // Dame = 12
   if (value === 'K') return [13];    // Roi = 13
