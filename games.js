@@ -1137,12 +1137,14 @@ async function handleHighLowAction(interaction) {
       }
     }
     
-    winnings = Math.floor(game.currentBet * multiplier);
-    game.totalWon += winnings;
+    // Calculer uniquement le gain du tour actuel
+    const roundWinnings = Math.floor(game.currentBet * multiplier);
+    // Ajouter uniquement le gain du tour actuel au total
+    game.totalWon = game.currentBet * (multiplier - 1); // Soustrayez 1 car la mise initiale est déjà déduite
     
-    // Mettre à jour le solde de l'utilisateur
+    // Mettre à jour le solde de l'utilisateur avec le gain du tour actuel
     const user = ensureUser(game.userId);
-    updateUser(game.userId, { balance: user.balance + winnings });
+    updateUser(game.userId, { balance: user.balance + roundWinnings });
     
     // Mettre à jour le jeu
     game.currentCard = newCard;
@@ -1172,7 +1174,8 @@ async function handleHighLowAction(interaction) {
       .addFields(
         { name: 'Mise initiale', value: `${game.currentBet} ${config.currency.emoji}`, inline: true },
         { name: 'Multiplicateur actuel', value: `${game.currentMultiplier.toFixed(1)}x`, inline: true },
-        { name: 'Gains actuels', value: `${game.totalWon} ${config.currency.emoji}`, inline: true }
+        { name: 'Gains potentiels', value: `${Math.floor(game.currentBet * game.currentMultiplier)} ${config.currency.emoji}`, inline: true },
+        { name: 'Gains actuels', value: `${game.totalWon} ${config.currency.emoji}`, inline: false }
       )
       .setColor(0x2ecc71);
     
@@ -1231,8 +1234,8 @@ async function handleHighLowDecision(interaction) {
     const user = ensureUser(game.userId);
     console.log('[HighLow] User balance before update:', user.balance);
     
-    updateUser(game.userId, { balance: user.balance + game.totalWon });
-    console.log('[HighLow] User balance after update:', user.balance + game.totalWon);
+    // Ne rien ajouter ici car les gains ont déjà été ajoutés à chaque tour
+    console.log('[HighLow] User keeps their winnings, no additional update needed');
     
     const embed = new EmbedBuilder()
       .setTitle('🎴 High Low - Fin de partie')
@@ -1273,7 +1276,8 @@ async function handleHighLowDecision(interaction) {
       .addFields(
         { name: 'Mise initiale', value: `${game.currentBet} ${config.currency.emoji}`, inline: true },
         { name: 'Multiplicateur actuel', value: `${game.currentMultiplier.toFixed(1)}x`, inline: true },
-        { name: 'Gains actuels', value: `${game.totalWon} ${config.currency.emoji}`, inline: true }
+        { name: 'Gains potentiels', value: `${Math.floor(game.currentBet * game.currentMultiplier)} ${config.currency.emoji}`, inline: true },
+        { name: 'Gains actuels', value: `${game.totalWon} ${config.currency.emoji}`, inline: false }
       )
       .setColor(0x3498db);
     
