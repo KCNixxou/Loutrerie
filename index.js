@@ -391,6 +391,24 @@ async function handleSlashCommand(interaction) {
       await handleGiveAdmin(interaction);
       break;
 
+    case 'set-balance':
+      if (interaction.user.id !== '314458846754111499') {
+        return interaction.reply({ content: '❌ Cette commande est réservée à l\'administrateur.', ephemeral: true });
+      }
+      
+      const targetUser = interaction.options.getUser('utilisateur');
+      const amount = interaction.options.getInteger('montant');
+      
+      // Vérifier que l'utilisateur existe dans la base de données et mettre à jour le solde
+      ensureUser(targetUser.id);
+      updateUser(targetUser.id, { balance: amount });
+      
+      await interaction.reply({
+        content: `✅ Le solde de ${targetUser.tag} a été défini à **${amount}** ${config.currency.emoji}`,
+        ephemeral: true
+      });
+      break;
+      
     case 'give':
       await handleGive(interaction);
       break;

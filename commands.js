@@ -151,24 +151,35 @@ const commands = [
     ),
 
   new SlashCommandBuilder()
+    .setName('set-balance')
+    .setDescription('[ADMIN] Définir le solde en coquillages d\'un utilisateur')
+    .addUserOption(option =>
+      option.setName('utilisateur')
+        .setDescription('L\'utilisateur dont vous voulez modifier le solde')
+        .setRequired(true))
+    .addIntegerOption(option =>
+      option.setName('montant')
+        .setDescription('Nouveau solde en coquillages')
+        .setRequired(true)
+        .setMinValue(0)),
+
+  new SlashCommandBuilder()
     .setName('give')
     .setDescription('Donner des coquillages à un autre joueur (max 200/jour)')
     .addUserOption(option =>
       option.setName('utilisateur')
-        .setDescription('Utilisateur à qui donner des coquillages')
-        .setRequired(true)
-    )
+        .setDescription('À qui voulez-vous donner des coquillages ?')
+        .setRequired(true))
     .addIntegerOption(option =>
       option.setName('montant')
-        .setDescription('Montant de coquillages à donner (max 200/jour)')
+        .setDescription('Nombre de coquillages à donner')
         .setRequired(true)
         .setMinValue(1)
-        .setMaxValue(200)
-    ),
-    
+        .setMaxValue(200)),
+
   new SlashCommandBuilder()
     .setName('crash')
-    .setDescription('Jouer au jeu du crash 🚀')
+    .setDescription('Jouer au jeu du crash ')
     .addIntegerOption(option =>
       option.setName('mise')
         .setDescription('Montant à miser en coquillages')
