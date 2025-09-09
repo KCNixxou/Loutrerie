@@ -195,11 +195,7 @@ async function handleSlashCommand(interaction) {
   const { commandName } = interaction;
   
   switch (commandName) {
-    case 'de':
-      const diceResult = Math.floor(Math.random() * 6) + 1;
-      await interaction.reply(`🎲 Le dé affiche : **${diceResult}**`);
-      break;
-      
+    // Commandes de jeux
     case 'morpion':
       await handleTicTacToe(interaction);
       break;
@@ -247,7 +243,7 @@ async function handleSlashCommand(interaction) {
           resetTicTacToeStats();
           await interaction.reply({ 
             content: '✅ Toutes les statistiques du morpion ont été réinitialisées avec succès !', 
-            ephemeral: true 
+            ephemerant: true 
           });
         }
       } catch (error) {
@@ -263,8 +259,8 @@ async function handleSlashCommand(interaction) {
       await handleHighLow(interaction);
       break;
       
+    // Commandes d'administration
     case 'maintenance':
-      // Utiliser la fonction setMaintenance du module maintenance.js
       const currentState = isMaintenanceMode();
       const result = setMaintenance(!currentState, interaction.user.id);
       
@@ -273,24 +269,8 @@ async function handleSlashCommand(interaction) {
         flags: 'Ephemeral'
       });
       break;
-    case 'profil':
-      const userId = interaction.user.id;
-      const user = ensureUser(userId);
-      const embed = new EmbedBuilder()
-        .setTitle(`👥 Profil de ${interaction.user.username}`)
-        .setThumbnail(interaction.user.displayAvatarURL())
-        .addFields(
-          { name: 'Niveau', value: `${user.level}`, inline: true },
-          { name: 'XP', value: `${user.xp}`, inline: true },
-          { name: `${config.currency.emoji} Coquillages`, value: `${user.balance}`, inline: true }
-        )
-        .setColor(0x0099ff);
       
-      await interaction.reply({ embeds: [embed] });
-      break;
-
     case 'reset-daily':
-      // Commande admin pour réinitialiser la date de dernière récupération
       if (interaction.user.id !== '314458846754111499') {
         return interaction.reply({
           content: '❌ Cette commande est réservée à l\'administrateur.',
