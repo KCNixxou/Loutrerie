@@ -58,16 +58,6 @@ const commands = [
     ),
 
   new SlashCommandBuilder()
-    .setName('roulette')
-    .setDescription('Jouer à la roulette 🎡')
-    .addIntegerOption(option =>
-      option.setName('mise')
-        .setDescription('Montant à miser en coquillages')
-        .setRequired(true)
-        .setMinValue(1)
-    ),
-
-  new SlashCommandBuilder()
     .setName('slots')
     .setDescription('Jouer aux machines à sous 🎰')
     .addIntegerOption(option =>
@@ -80,25 +70,6 @@ const commands = [
   new SlashCommandBuilder()
     .setName('pileface')
     .setDescription('Jouer à pile ou face solo 🪙')
-    .addIntegerOption(option =>
-      option.setName('mise')
-        .setDescription('Montant à miser en coquillages')
-        .setRequired(true)
-        .setMinValue(1)
-    )
-    .addStringOption(option =>
-      option.setName('choix')
-        .setDescription('Pile ou face ?')
-        .setRequired(true)
-        .addChoices(
-          { name: 'Pile', value: 'pile' },
-          { name: 'Face', value: 'face' }
-        )
-    ),
-
-  new SlashCommandBuilder()
-    .setName('pileface-multi')
-    .setDescription('Créer ou rejoindre une partie de pile ou face multijoueurs 🪙')
     .addIntegerOption(option =>
       option.setName('mise')
         .setDescription('Montant à miser en coquillages')
@@ -177,24 +148,6 @@ const commands = [
         .setMinValue(1)
         .setMaxValue(200)),
 
-  new SlashCommandBuilder()
-    .setName('crash')
-    .setDescription('Jouer au jeu du crash ')
-    .addIntegerOption(option =>
-      option.setName('mise')
-        .setDescription('Montant à miser en coquillages')
-        .setRequired(true)
-        .setMinValue(1)
-    ),
-    
-  new SlashCommandBuilder()
-    .setName('cashout')
-    .setDescription('Récupérer tes gains dans le jeu du crash 💰'),
-    
-  new SlashCommandBuilder()
-    .setName('next')
-    .setDescription('Tenter d\'atteindre le prochain multiplicateur dans le jeu du crash 🚀'),
-    
   new SlashCommandBuilder()
     .setName('morpion')
     .setDescription('Jouer au morpion contre un autre joueur')
