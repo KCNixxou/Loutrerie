@@ -9,7 +9,7 @@ module.exports = {
     slots: {
       symbols: ['🦦', '🐳', '🪼', '🐚', '🪸', '🏝️'],
       multipliers: {
-        twoMatch: 1.9,  // x1.9 pour deux symboles identiques
+        twoMatch: 2.1,  // x2.1 pour deux symboles identiques
         threeMatch: 3   // x3 pour trois symboles identiques
       }
     }
