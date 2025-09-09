@@ -26,6 +26,7 @@ const {
   handleTicTacToeMove,
   handleConnectFourMove,
   getTicTacToeLeaderboard,
+  handleTicTacToeLeaderboard,
   handleHighLow
 } = require('./games');
 const { 
