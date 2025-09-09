@@ -1171,12 +1171,10 @@ async function handleHighLowAction(interaction) {
       // Multiplicateur spécial pour un pari sur "égal"
       multiplier = 13.0;
     } else {
-      // Si le multiplicateur actuel est 13.0 (suite à un "égal"), on repart du dernier multiplicateur normal
+      // Si le multiplicateur actuel est 13.0 (suite à un "égal"), on continue à partir de 13.0
       if (currentMultiplier === 13.0) {
-        // Trouver le dernier multiplicateur normal avant le 13.0
-        const multipliers = [1.5, 2.0, 2.3, 2.6, 4.0];
-        const lastNormalRound = Math.min(game.round - 1, multipliers.length);
-        multiplier = lastNormalRound > 0 ? multipliers[lastNormalRound - 1] : 1.0;
+        // Continuer à partir de 13.0 et ajouter 0.3 pour chaque tour supplémentaire
+        multiplier = 13.0 + (0.3 * (game.round - 1));
       } else {
         // Définir les multiplicateurs pour les premiers tours
         const multipliers = [1.5, 2.0, 2.3, 2.6, 4.0]; // 5ème tour à x4.0
