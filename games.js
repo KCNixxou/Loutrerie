@@ -1213,12 +1213,12 @@ async function handleHighLowAction(interaction) {
       .addComponents(
         new ButtonBuilder()
           .setCustomId(`highlow_stop_${gameId}`)
-          .setLabel('🏁 Arrêter')
+          .setLabel('🏁 Petite couille')
           .setStyle(ButtonStyle.Danger)
           .setEmoji('🛑'),
         new ButtonBuilder()
           .setCustomId(`highlow_continue_${gameId}`)
-          .setLabel('Continuer')
+          .setLabel('ENVOIE LA NEXT')
           .setStyle(ButtonStyle.Success)
           .setEmoji('🎲')
       );
