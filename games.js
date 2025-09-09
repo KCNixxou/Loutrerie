@@ -1172,9 +1172,9 @@ async function handleHighLowAction(interaction) {
       multiplier = 13.0;
     } else {
       // Si le multiplicateur actuel est 13.0 (suite à un "égal"), on continue à partir de 13.0
-      if (currentMultiplier === 13.0) {
-        // Continuer à partir de 13.0 et ajouter 0.3 pour chaque tour supplémentaire
-        multiplier = 13.0 + (0.3 * (game.round - 1));
+      if (currentMultiplier >= 13.0) {
+        // Continuer à partir du multiplicateur actuel et ajouter 0.3
+        multiplier = currentMultiplier + 0.3;
       } else {
         // Définir les multiplicateurs pour les premiers tours
         const multipliers = [1.5, 2.0, 2.3, 2.6, 4.0]; // 5ème tour à x4.0
@@ -1204,7 +1204,10 @@ async function handleHighLowAction(interaction) {
     // Mettre à jour le jeu
     game.currentCard = newCard;
     game.currentMultiplier = multiplier;
-    game.round = (game.round || 1) + 1; // Incrémenter le numéro du tour
+    // Ne pas incrémenter le round si on est déjà en mode multiplicateur élevé
+    if (currentMultiplier < 13.0) {
+      game.round = (game.round || 1) + 1;
+    }
     game.potentialWinnings = potentialWinnings; // Stocker les gains potentiels
     console.log('[HighLow] Game updated - New multiplier:', multiplier, 'Total won:', game.totalWon);
     
