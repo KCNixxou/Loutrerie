@@ -27,6 +27,7 @@ const {
   handleConnectFourMove,
   getTicTacToeLeaderboard,
   handleTicTacToeLeaderboard,
+  resetTicTacToeStats,
   handleHighLow
 } = require('./games');
 const { 
@@ -215,6 +216,41 @@ async function handleSlashCommand(interaction) {
       
     case 'classement-morpion':
       await handleTicTacToeLeaderboard(interaction);
+      break;
+      
+    case 'reset-morpion-stats':
+      if (interaction.user.id !== '314458846754111499') {
+        return interaction.reply({ 
+          content: '❌ Cette commande est réservée à l\'administrateur.', 
+          ephemeral: true 
+        });
+      }
+      
+      try {
+        const targetUser = interaction.options.getUser('utilisateur');
+        
+        if (targetUser) {
+          // Réinitialiser pour un utilisateur spécifique
+          resetTicTacToeStats(targetUser.id);
+          await interaction.reply({ 
+            content: `✅ Les statistiques du morpion de ${targetUser.tag} ont été réinitialisées avec succès !`, 
+            ephemeral: true 
+          });
+        } else {
+          // Réinitialiser pour tous les utilisateurs
+          resetTicTacToeStats();
+          await interaction.reply({ 
+            content: '✅ Toutes les statistiques du morpion ont été réinitialisées avec succès !', 
+            ephemeral: true 
+          });
+        }
+      } catch (error) {
+        console.error('Erreur lors de la réinitialisation des statistiques du morpion:', error);
+        await interaction.reply({ 
+          content: '❌ Une erreur est survenue lors de la réinitialisation des statistiques.', 
+          ephemeral: true 
+        });
+      }
       break;
       
     case 'highlow':

@@ -199,6 +199,20 @@ function getTicTacToeLeaderboard(limit = 10) {
   `).all(limit);
 }
 
+// Réinitialiser les statistiques du morpion pour un utilisateur spécifique ou pour tous les utilisateurs
+function resetTicTacToeStats(userId = null) {
+  if (userId) {
+    return db.prepare(`
+      DELETE FROM tic_tac_toe_stats
+      WHERE user_id = ?
+    `).run(userId);
+  } else {
+    return db.prepare(`
+      DELETE FROM tic_tac_toe_stats
+    `).run();
+  }
+}
+
 module.exports = {
   db,
   ensureUser,
@@ -206,5 +220,6 @@ module.exports = {
   updateMissionProgress,
   getTicTacToeStats,
   updateTicTacToeStats,
-  getTicTacToeLeaderboard
+  getTicTacToeLeaderboard,
+  resetTicTacToeStats
 };

@@ -220,6 +220,14 @@ const commands = [
         .setMaxValue(25)),
 
   new SlashCommandBuilder()
+    .setName('reset-morpion-stats')
+    .setDescription('[ADMIN] Réinitialiser les statistiques du morpion')
+    .addUserOption(option =>
+      option.setName('utilisateur')
+        .setDescription('Utilisateur dont les statistiques doivent être réinitialisées (laissez vide pour tous)')
+        .setRequired(false)),
+
+  new SlashCommandBuilder()
     .setName('loutre-giveaway')
     .setDescription('[ADMIN] Lancer un giveaway de 500  pour la première loutre qui clique')
     .setDefaultMemberPermissions(0) // Par défaut, personne n'a la permission
