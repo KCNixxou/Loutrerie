@@ -129,6 +129,7 @@ const commands = [
         .addChoices(
           { name: 'Rôle VIP (10,000 🐚)', value: 'vip' },
           { name: 'Rôle Super VIP (20,000 🐚)', value: 'super_vip' },
+          { name: 'Changement de couleurs (10,000 🐚)', value: 'color_change' },
           { name: 'Surprise Mystère #1 (100,000 🐚)', value: 'surprise1' },
           { name: 'Surprise Mystère #2 (100,000 🐚)', value: 'surprise2' }
         )
