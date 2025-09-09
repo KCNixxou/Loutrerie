@@ -536,9 +536,9 @@ async function handlePurchase(interaction) {
   updateUser(interaction.user.id, { balance: user.balance - price });
   
   if (roleToAdd) {
-    // Gestion des rôles VIP uniquement
-    if (roleToAdd === 'VIP' || roleToAdd === 'Super VIP') {
-      try {
+    try {
+      // Gestion des rôles VIP
+      if (roleToAdd === 'VIP' || roleToAdd === 'Super VIP') {
         let role = interaction.guild.roles.cache.find(r => r.name === roleToAdd);
         if (!role) {
           const roleColor = roleToAdd === 'VIP' ? 0xffd700 : 0xff6600;
@@ -562,22 +562,41 @@ async function handlePurchase(interaction) {
         }
         
         await interaction.member.roles.add(role);
-      } catch (error) {
-        console.error('Erreur lors de l\'ajout du rôle:', error);
-        await interaction.followUp({ 
-          content: '❌ Une erreur est survenue lors de l\'attribution du rôle VIP. Contacte un administrateur.', 
-          ephemeral: true 
-        });
-        return;
+      } 
+      // Gestion du changement de couleur
+      else if (item === 'color_change') {
+        // Créer le rôle "Changement de couleur" s'il n'existe pas
+        let colorRole = interaction.guild.roles.cache.find(r => r.name === 'Changement de couleur');
+        
+        if (!colorRole) {
+          colorRole = await interaction.guild.roles.create({
+            name: 'Changement de couleur',
+            color: 0x00ff00, // Vert par défaut
+            reason: 'Rôle pour changement de couleur personnalisée',
+            mentionable: false,
+            hoist: false
+          });
+        }
+        
+        // Ajouter le rôle à l'utilisateur
+        await interaction.member.roles.add(colorRole);
+        
+        // Mettre à jour la description
+        description += '\n\nUn administrateur te contactera bientôt pour personnaliser ta couleur !';
       }
+    } catch (error) {
+      console.error('Erreur lors de la gestion des rôles:', error);
+      await interaction.followUp({ 
+        content: '❌ Une erreur est survenue lors de la mise à jour de ton profil. Contacte un administrateur.', 
+        ephemeral: true 
+      });
+      return;
     }
   }
   
   let description = `Tu as acheté **${itemName}** pour ${price} ${config.currency.emoji} !`;
   
-  if (item === 'color_change') {
-    description += '\n\nUn administrateur te contactera bientôt pour personnaliser ta couleur !';
-  }
+  // La description est maintenant mise à jour dans la section de gestion des rôles
   
   const embed = new EmbedBuilder()
     .setTitle('✅ Achat réussi !')
