@@ -1163,21 +1163,33 @@ async function handleHighLowAction(interaction) {
   let winnings = 0;
   if (userWon) {
     let multiplier;
+    
+    // Utiliser le multiplicateur actuel s'il existe, sinon initialiser
+    const currentMultiplier = game.currentMultiplier || 1.0;
+    
     if (sameCard) {
       // Multiplicateur spécial pour un pari sur "égal"
       multiplier = 13.0;
     } else {
-      // Définir les multiplicateurs pour les premiers tours
-      const multipliers = [1.5, 2.0, 2.3, 2.6, 4.0]; // 5ème tour à x4.0
-      const round = game.round || 1; // Commence à 1
-      
-      // Si on est dans les 5 premiers tours, prendre la valeur du tableau
-      // Sinon, continuer à ajouter 0.3 au dernier multiplicateur
-      if (round <= multipliers.length) {
-        multiplier = multipliers[round - 1];
+      // Si le multiplicateur actuel est 13.0 (suite à un "égal"), on repart du dernier multiplicateur normal
+      if (currentMultiplier === 13.0) {
+        // Trouver le dernier multiplicateur normal avant le 13.0
+        const multipliers = [1.5, 2.0, 2.3, 2.6, 4.0];
+        const lastNormalRound = Math.min(game.round - 1, multipliers.length);
+        multiplier = lastNormalRound > 0 ? multipliers[lastNormalRound - 1] : 1.0;
       } else {
-        const lastMultiplier = 4.0; // Dernier multiplicateur fixé à 4.0
-        multiplier = lastMultiplier + (0.3 * (round - multipliers.length));
+        // Définir les multiplicateurs pour les premiers tours
+        const multipliers = [1.5, 2.0, 2.3, 2.6, 4.0]; // 5ème tour à x4.0
+        const round = game.round || 1; // Commence à 1
+        
+        // Si on est dans les 5 premiers tours, prendre la valeur du tableau
+        // Sinon, continuer à ajouter 0.3 au dernier multiplicateur
+        if (round <= multipliers.length) {
+          multiplier = multipliers[round - 1];
+        } else {
+          const lastMultiplier = 4.0; // Dernier multiplicateur fixé à 4.0
+          multiplier = lastMultiplier + (0.3 * (round - multipliers.length));
+        }
       }
       
       // Arrondir à 1 décimale
