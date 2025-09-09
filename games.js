@@ -1194,6 +1194,9 @@ async function handleHighLowAction(interaction) {
       multiplier = Math.round(multiplier * 10) / 10;
     }
     
+    // Mettre à jour le multiplicateur dans l'objet de jeu
+    game.currentMultiplier = multiplier;
+    
     // Calculer le gain potentiel total (sans créditer encore)
     const potentialWinnings = Math.floor(game.currentBet * multiplier);
     game.totalWon = potentialWinnings; // Mettre à jour le total potentiel
