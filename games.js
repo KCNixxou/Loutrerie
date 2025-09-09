@@ -1173,20 +1173,20 @@ async function handleHighLowAction(interaction) {
     } else {
       // Si le multiplicateur actuel est 13.0 (suite à un "égal"), on continue à partir de 13.0
       if (currentMultiplier >= 13.0) {
-        // Continuer à partir du multiplicateur actuel et ajouter 0.3
-        multiplier = currentMultiplier + 0.3;
+        // Continuer à partir du multiplicateur actuel et ajouter 3.0
+        multiplier = currentMultiplier + 3.0;
       } else {
         // Définir les multiplicateurs pour les premiers tours
-        const multipliers = [1.5, 2.0, 2.3, 2.6, 4.0]; // 5ème tour à x4.0
+        const multipliers = [1.5, 1.75, 2.0, 2.5, 4.0]; // Multiplicateurs pour les 5 premiers tours
         const round = game.round || 1; // Commence à 1
         
         // Si on est dans les 5 premiers tours, prendre la valeur du tableau
-        // Sinon, continuer à ajouter 0.3 au dernier multiplicateur
+        // Sinon, continuer à ajouter 0.5 au dernier multiplicateur
         if (round <= multipliers.length) {
           multiplier = multipliers[round - 1];
         } else {
           const lastMultiplier = 4.0; // Dernier multiplicateur fixé à 4.0
-          multiplier = lastMultiplier + (0.3 * (round - multipliers.length));
+          multiplier = lastMultiplier + (0.5 * (round - multipliers.length));
         }
       }
       
