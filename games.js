@@ -3,8 +3,8 @@ const config = require('./config');
 const { 
   ensureUser, 
   updateUser, 
+  db,
   updateMissionProgress, 
-  db, 
   getTicTacToeStats, 
   updateTicTacToeStats, 
   getTicTacToeLeaderboard 
@@ -1005,7 +1005,20 @@ async function handleTicTacToeMove(interaction) {
   }
 }
 
-// Exporter les fonctions
+// Fonction pour réinitialiser les statistiques du morpion
+function resetTicTacToeStats(userId = null) {
+  if (userId) {
+    return db.prepare(`
+      DELETE FROM tic_tac_toe_stats
+      WHERE user_id = ?
+    `).run(userId);
+  } else {
+    return db.prepare(`
+      DELETE FROM tic_tac_toe_stats
+    `).run();
+  }
+}
+
 // Afficher le classement du morpion
 async function handleTicTacToeLeaderboard(interaction) {
   try {
@@ -1443,5 +1456,6 @@ module.exports = {
   handlePurchase,
   addMoney,
   handleTicTacToeLeaderboard,
-  getTicTacToeLeaderboard
+  getTicTacToeLeaderboard,
+  resetTicTacToeStats
 };
