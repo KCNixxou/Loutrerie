@@ -85,17 +85,23 @@ client.once('ready', async () => {
     console.error('❌ Erreur lors de l\'enregistrement des commandes:', error);
   }
   
-  // Démarrer le reset des missions à minuit
+  // Démarrer le reset des missions et des limites quotidiennes à minuit
   scheduleMidnightReset(() => {
-    console.log('🔄 Reset des missions journalières à minuit');
+    console.log('🔄 Reset des missions et limites quotidiennes à minuit');
     const { generateDailyMissions } = require('./database');
     const missions = generateDailyMissions();
     const users = db.prepare('SELECT user_id FROM users').all();
+    const currentTime = Math.floor(Date.now() / 1000);
+    
     for (const user of users) {
+      // Réinitialiser les missions quotidiennes
       updateUser(user.user_id, {
         daily_missions: JSON.stringify(missions),
         daily_messages: 0,
-        last_mission_reset: now()
+        last_mission_reset: currentTime,
+        // Réinitialiser le compteur de dons quotidiens
+        daily_given: 0,
+        last_give_reset: currentTime
       });
     }
   });
