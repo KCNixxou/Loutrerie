@@ -1105,6 +1105,43 @@ async function handleTicTacToeLeaderboard(interaction) {
   }
 }
 
+// Fonction utilitaire pour clôturer une partie High Low
+function endHighLowGame(gameId, interaction, isAdmin = false) {
+  const game = activeHighLowGames.get(gameId);
+  if (!game) {
+    if (interaction) {
+      interaction.reply({ 
+        content: '❌ Partie introuvable ou déjà terminée.', 
+        ephemeral: true 
+      });
+    }
+    return false;
+  }
+
+  const user = ensureUser(game.userId);
+  const netWinnings = game.totalWon - game.initialBet;
+  
+  // Créditer les gains totaux
+  updateUser(game.userId, { balance: user.balance + game.totalWon });
+  
+  // Supprimer la partie
+  activeHighLowGames.delete(gameId);
+  
+  if (interaction) {
+    const embed = new EmbedBuilder()
+      .setTitle('🎴 High Low - Partie clôturée' + (isAdmin ? ' (par un administrateur)' : ''))
+      .setDescription(`La partie a été clôturée avec un gain net de **${netWinnings} ${config.currency.emoji}** !\n(Mise initiale: ${game.initialBet} + Gains: ${netWinnings})`)
+      .setColor(0xf1c40f);
+    
+    interaction.update({ 
+      embeds: [embed], 
+      components: [] 
+    });
+  }
+  
+  return true;
+}
+
 // Gestion du jeu High Low
 // Gérer les actions du jeu High Low
 async function handleHighLowAction(interaction) {
@@ -1140,6 +1177,18 @@ async function handleHighLowAction(interaction) {
   }
   
   if (game.userId !== interaction.user.id) {
+    // Vérifier si c'est un administrateur qui tente de clôturer la partie
+    if (interaction.customId && interaction.customId.startsWith('admin_close_')) {
+      if (interaction.user.id !== '314458846754111499') { // Remplacez par l'ID de l'admin
+        return interaction.reply({
+          content: '❌ Vous n\'avez pas la permission de clôturer cette partie.',
+          ephemeral: true
+        });
+      }
+      // L'admin peut clôturer la partie
+      return endHighLowGame(gameId, interaction, true);
+    }
+    
     return interaction.reply({
       content: '❌ Ce n\'est pas votre partie !',
       ephemeral: true
@@ -1238,6 +1287,15 @@ async function handleHighLowAction(interaction) {
           .setStyle(ButtonStyle.Success)
           .setEmoji('🎲')
       );
+      
+    // Ajouter un bouton d'administration pour clôturer la partie
+    const adminRow = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(`admin_close_${gameId}`)
+          .setLabel('🔒 Clôturer la partie (Admin)')
+          .setStyle(ButtonStyle.Secondary)
+      );
     console.log('[HighLow] Created decision buttons with gameId:', gameId);
     
     // Mettre à jour le message
@@ -1252,7 +1310,16 @@ async function handleHighLowAction(interaction) {
       )
       .setColor(0x2ecc71);
     
-    return interaction.update({ embeds: [embed], components: [row] });
+    // Vérifier si l'utilisateur est un administrateur
+    const isAdmin = interaction.user.id === '314458846754111499'; // Remplacez par l'ID de l'admin
+    
+    // Préparer les composants à afficher
+    const components = isAdmin ? [row, adminRow] : [row];
+    
+    return interaction.update({ 
+      embeds: [embed], 
+      components: components 
+    });
   } else {
     // Le joueur a perdu - il perd tout
     console.log('[HighLow] User lost everything. Deleting game.');
@@ -1298,6 +1365,14 @@ async function handleHighLowDecision(interaction) {
     return interaction.update({
       content: '❌ Partie introuvable ou expirée.',
       components: []
+    });
+  }
+  
+  // Vérifier que l'utilisateur est bien le propriétaire de la partie
+  if (game.userId !== interaction.user.id) {
+    return interaction.reply({
+      content: '❌ Ce n\'est pas votre partie !',
+      ephemeral: true
     });
   }
   

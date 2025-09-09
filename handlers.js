@@ -25,6 +25,23 @@ async function handleButtonInteraction(interaction) {
     return handleHighLowDecision(interaction);
   }
   
+  // Gestion de la clôture par un administrateur
+  if (interaction.customId.startsWith('admin_close_')) {
+    const gameId = interaction.customId.replace('admin_close_', '');
+    const { endHighLowGame } = require('./games');
+    
+    // Vérifier si l'utilisateur est un administrateur
+    if (interaction.user.id !== '314458846754111499') { // Remplacez par l'ID de l'admin
+      return interaction.reply({
+        content: '❌ Vous n\'avez pas la permission de clôturer cette partie.',
+        ephemeral: true
+      });
+    }
+    
+    // Clôturer la partie
+    return endHighLowGame(gameId, interaction, true);
+  }
+  
   if (interaction.customId.startsWith('blackjack_')) {
     // Vérifier si l'interaction a déjà été traitée
     if (interaction.replied || interaction.deferred) {
