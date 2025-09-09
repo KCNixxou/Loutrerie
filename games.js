@@ -863,12 +863,8 @@ async function handleTicTacToeMove(interaction) {
       updateMissionProgress(winnerId, 'win_games', 1);
       updateMissionProgress(loserId, 'play_games', 1);
       
-      // Distribuer les gains si une mise était en jeu
-      if (game.bet > 0) {
-        const winnerUser = ensureUser(winnerId);
-        const winnings = game.bet * 2;
-        updateUser(winnerId, { balance: winnerUser.balance + winnings });
-      }
+      // Ne pas distribuer les gains ici, cela sera fait plus bas dans le code
+      // pour éviter les doublons
     } else if (isDraw) {
       // Match nul
       updateTicTacToeStats(player1, 'draw');
@@ -955,9 +951,9 @@ async function handleTicTacToeMove(interaction) {
     
     embed.setDescription(`**${winnerUser.username} a gagné !** 🎉`);
     
-    // Distribuer les gains
+    // Distribuer les gains (remboursement de la mise + gain de la mise adverse)
     if (game.bet > 0) {
-      const winnings = game.bet * 2;
+      const winnings = game.bet * 2; // Le gagnant récupère sa mise + la mise de l'adversaire
       const winnerData = ensureUser(winnerUser.id);
       updateUser(winnerUser.id, { balance: winnerData.balance + winnings });
       embed.addFields({ name: 'Gains', value: `${winnerUser} remporte ${winnings} ${config.currency.emoji} !` });
