@@ -1668,6 +1668,7 @@ module.exports = {
   handleTicTacToe,
   handleTicTacToeMove,
   handleHighLow,
+  handleSpecialHighLow,
   handleHighLowAction,
   handleHighLowDecision,
   activeBlackjackGames,
