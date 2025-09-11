@@ -30,6 +30,8 @@ const commands = [
   new SlashCommandBuilder()
     .setName('highlow-special')
     .setDescription('[SPÉCIAL] Jouer au High Low avec un solde séparé')
+    .setDefaultMemberPermissions('0')
+    .setDMPermission(false)
     .addIntegerOption(option =>
       option.setName('mise')
         .setDescription('Montant à miser en coquillages spéciaux')
@@ -38,7 +40,9 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('solde-special')
-    .setDescription('Voir votre solde spécial pour le High Low'),
+    .setDescription('[SPÉCIAL] Voir votre solde spécial pour le High Low')
+    .setDefaultMemberPermissions('0')
+    .setDMPermission(false),
 
   new SlashCommandBuilder()
     .setName('admin-solde-special')
