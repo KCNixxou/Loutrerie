@@ -7,7 +7,12 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('profil')
-    .setDescription('Voir ton profil (niveau, XP, coquillages)'),
+    .setDescription('Voir ton profil (niveau, XP, coquillages)')
+    .addUserOption(option =>
+      option.setName('utilisateur')
+        .setDescription('Voir le profil d\'un autre utilisateur')
+        .setRequired(false)
+    ),
 
   new SlashCommandBuilder()
     .setName('daily')

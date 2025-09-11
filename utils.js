@@ -5,7 +5,18 @@ const random = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const now = () => Date.now();
 
 function calculateLevel(xp) {
-  return Math.floor(Math.sqrt(xp / 100)) + 1;
+  const level = Math.floor(Math.sqrt(xp / 100)) + 1;
+  const xpForCurrentLevel = Math.pow(level - 1, 2) * 100;
+  const xpForNextLevel = Math.pow(level, 2) * 100;
+  const currentXp = xp - xpForCurrentLevel;
+  const xpNeeded = xpForNextLevel - xpForCurrentLevel;
+  
+  return {
+    level,
+    currentXp,
+    xpForNextLevel: xpNeeded,
+    progress: (currentXp / xpNeeded) * 100
+  };
 }
 
 function getXpMultiplier(member) {

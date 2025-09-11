@@ -2,11 +2,12 @@ require('dotenv').config();
 const { Client, GatewayIntentBits, Partials, REST, Routes, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const express = require('express');
 const { isMaintenanceMode, isAdmin, maintenanceMiddleware, setMaintenance } = require('./maintenance');
+const { calculateLevel } = require('./utils');
 
 // Modules personnalisés
 const config = require('./config');
 const { ensureUser, updateUser, updateMissionProgress, db } = require('./database');
-const { random, now, calculateLevel, getXpMultiplier, scheduleMidnightReset } = require('./utils');
+const { random, now, getXpMultiplier, scheduleMidnightReset } = require('./utils');
 const commands = require('./commands');
 const { 
   activeBlackjackGames, 
@@ -61,7 +62,14 @@ const client = new Client({
 // Événement ready
 client.once('ready', async () => {
   console.log(`✅ ${client.user.tag} est connecté !`);
+  
+  // Afficher les commandes chargées
   console.log('Commandes disponibles:', client.commands?.map(cmd => cmd.name).join(', ') || 'Aucune commande chargée');
+  console.log('Commandes à enregistrer depuis commands.js:', commands.map(cmd => cmd.name).join(', '));
+  
+  // Vérifier la commande /profil
+  const profilCmd = commands.find(cmd => cmd.name === 'profil');
+  console.log('Commande /profil trouvée:', profilCmd ? 'Oui' : 'Non');
   
   // Enregistrer les commandes
   const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
@@ -210,23 +218,61 @@ async function handleSlashCommand(interaction) {
       break;
       
     case 'profil':
-      const user = ensureUser(interaction.user.id);
-      const { level, currentXp, xpForNextLevel } = calculateLevel(user.xp || 0);
-      
-      const profileEmbed = new EmbedBuilder()
-        .setTitle(`📊 Profil de ${interaction.user.username}`)
-        .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
-        .addFields(
-          { name: 'Niveau', value: `Niveau **${level}**`, inline: true },
-          { name: 'XP', value: `${currentXp}/${xpForNextLevel} XP`, inline: true },
-          { name: 'Solde', value: `**${user.balance || 0}** ${config.currency.emoji}`, inline: true },
-          { name: 'Missions', value: `**${user.completed_missions || 0}** missions complétées` }
-        )
-        .setColor(0x00bfff)
-        .setFooter({ text: 'Profil mis à jour' })
-        .setTimestamp();
-      
-      await interaction.reply({ embeds: [profileEmbed] });
+      try {
+        const targetUser = interaction.options.getUser('utilisateur') || interaction.user;
+        const isSelf = targetUser.id === interaction.user.id;
+        
+        console.log(`[Profil] Commande /profil reçue de ${interaction.user.id} pour l'utilisateur ${targetUser.id} (${isSelf ? 'soi-même' : 'autre utilisateur'})`);
+        
+        const user = ensureUser(targetUser.id);
+        console.log('[Profil] Données utilisateur récupérées:', user);
+        
+        const xp = user.xp || 0;
+        const levelInfo = calculateLevel(xp);
+        
+        const embed = new EmbedBuilder()
+          .setTitle(`📊 Profil de ${targetUser.username}`)
+          .setThumbnail(targetUser.displayAvatarURL({ dynamic: true, size: 256 }))
+          .setColor(0x00bfff)
+          .addFields(
+            { name: 'Niveau', value: `Niveau **${levelInfo.level}**`, inline: true },
+            { name: 'XP', value: `${levelInfo.currentXp}/${levelInfo.xpForNextLevel} XP`, inline: true },
+            { name: 'Progression', value: `${levelInfo.progress.toFixed(1)}%`, inline: true },
+            { name: 'Solde', value: `**${user.balance || 0}** ${config.currency.emoji}`, inline: true },
+            { name: 'Missions', value: `**${user.completed_missions || 0}** missions complétées`, inline: true },
+            { name: 'Inscrit le', value: `<t:${Math.floor((user.joined_at || Date.now()) / 1000)}:D>`, inline: true }
+          )
+          .setFooter({ 
+            text: isSelf ? 'Votre profil' : `Profil de ${targetUser.username}`,
+            iconURL: interaction.user.displayAvatarURL()
+          })
+          .setTimestamp();
+        
+        // Ajouter un champ supplémentaire si c'est le profil de l'utilisateur
+        if (isSelf) {
+          embed.addFields({
+            name: 'Prochain niveau',
+            value: `Encore **${levelInfo.xpForNextLevel - levelInfo.currentXp} XP** pour le niveau ${levelInfo.level + 1}`,
+            inline: false
+          });
+        }
+        
+        await interaction.reply({ 
+          embeds: [embed],
+          ephemeral: isSelf // Le message est éphémère uniquement si c'est le profil de l'utilisateur
+        });
+        
+      } catch (error) {
+        console.error('[Profil] Erreur:', error);
+        try {
+          await interaction.reply({
+            content: '❌ Une erreur est survenue lors de la récupération du profil. Veuillez réessayer plus tard.',
+            ephemeral: true
+          });
+        } catch (replyError) {
+          console.error('[Profil] Échec de l\'envoi du message d\'erreur:', replyError);
+        }
+      }
       break;
       
     // Commandes de jeux
