@@ -43,18 +43,34 @@ const commands = [
   new SlashCommandBuilder()
     .setName('admin-solde-special')
     .setDescription('[ADMIN] Gérer les soldes spéciaux')
+    .setDefaultMemberPermissions('0') // Par défaut, personne n'a accès
+    .setDMPermission(false) // Désactiver en MP
     .addSubcommand(subcommand =>
       subcommand
         .setName('ajouter')
         .setDescription('Ajouter un montant au solde spécial d\'un utilisateur')
         .addUserOption(option =>
           option.setName('utilisateur')
-            .setDescription('L\'utilisateur à créditer')
+            .setDescription('L\'utilisateur à qui ajouter le montant')
             .setRequired(true))
         .addIntegerOption(option =>
           option.setName('montant')
             .setDescription('Montant à ajouter')
-            .setRequired(true)))
+            .setRequired(true)
+            .setMinValue(1)))
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('retirer')
+        .setDescription('Retirer un montant du solde spécial d\'un utilisateur')
+        .addUserOption(option =>
+          option.setName('utilisateur')
+            .setDescription('L\'utilisateur à qui retirer le montant')
+            .setRequired(true))
+        .addIntegerOption(option =>
+          option.setName('montant')
+            .setDescription('Montant à retirer')
+            .setRequired(true)
+            .setMinValue(1)))
     .addSubcommand(subcommand =>
       subcommand
         .setName('definir')
@@ -65,20 +81,15 @@ const commands = [
             .setRequired(true))
         .addIntegerOption(option =>
           option.setName('montant')
-            .setDescription('Nouveau solde')
-            .setRequired(true)))
-    .addSubcommand(subcommand =>
-      subcommand
-        .setName('voir')
-        .setDescription('Voir le solde spécial d\'un utilisateur')
-        .addUserOption(option =>
-          option.setName('utilisateur')
-            .setDescription('L\'utilisateur dont vous voulez voir le solde')
-            .setRequired(true))),
+            .setDescription('Nouveau montant')
+            .setRequired(true)
+            .setMinValue(0))),
 
   new SlashCommandBuilder()
     .setName('reset-daily')
     .setDescription('[ADMIN] Réinitialiser la date de dernière récupération')
+    .setDefaultMemberPermissions('0')
+    .setDMPermission(false)
     .addUserOption(option =>
       option.setName('utilisateur')
         .setDescription('L\'utilisateur à réinitialiser')
@@ -178,6 +189,8 @@ const commands = [
   new SlashCommandBuilder()
     .setName('set-balance')
     .setDescription('[ADMIN] Définir le solde en coquillages d\'un utilisateur')
+    .setDefaultMemberPermissions('0')
+    .setDMPermission(false)
     .addUserOption(option =>
       option.setName('utilisateur')
         .setDescription('L\'utilisateur dont vous voulez modifier le solde')
@@ -229,6 +242,8 @@ const commands = [
   new SlashCommandBuilder()
     .setName('reset-morpion-stats')
     .setDescription('[ADMIN] Réinitialiser les statistiques du morpion')
+    .setDefaultMemberPermissions('0')
+    .setDMPermission(false)
     .addUserOption(option =>
       option.setName('utilisateur')
         .setDescription('Utilisateur dont les statistiques doivent être réinitialisées (laissez vide pour tous)')
@@ -236,15 +251,15 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('loutre-giveaway')
-    .setDescription('[ADMIN] Lancer un giveaway de 500  pour la première loutre qui clique')
-    .setDefaultMemberPermissions(0) // Par défaut, personne n'a la permission
+    .setDescription('[ADMIN] Lancer un giveaway de 500 pour la première loutre qui clique')
+    .setDefaultMemberPermissions('0')
     .setDMPermission(false),
     
   // Commande de maintenance
   new SlashCommandBuilder()
     .setName('maintenance')
     .setDescription('[ADMIN] Activer/désactiver le mode maintenance')
-    .setDefaultMemberPermissions(0) // Par défaut, personne n'a la permission
+    .setDefaultMemberPermissions('0')
     .setDMPermission(false)
 ];
 
