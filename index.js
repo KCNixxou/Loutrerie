@@ -32,17 +32,11 @@ const {
   handleHighLow,
   handleSpecialHighLow,
   handleHighLowAction,
-  handleHighLowDecision,
-  handleTicTacToeMove,
-  handleConnectFourMove,
-  getTicTacToeLeaderboard,
-  handleTicTacToeLeaderboard,
-  resetTicTacToeStats,
-  handleHighLow
+  handleHighLowDecision
 } = require('./games');
 const { 
   startCrashGame, 
-  handleCashout, 
+  handleButtonInteraction: handleCrashButton,
   handleNextMultiplier, 
   activeGames 
 } = require('./crash');
@@ -189,7 +183,6 @@ client.on('interactionCreate', async (interaction) => {
       } else if (interaction.customId.startsWith('cf_')) {
         await handleConnectFourMove(interaction);
       } else if (interaction.customId === 'cashout' || interaction.customId === 'next_multiplier') {
-        const { handleButtonInteraction: handleCrashButton } = require('./crash');
         await handleCrashButton(interaction);
       } else {
         await handleButtonInteraction(interaction);
@@ -231,18 +224,29 @@ async function handleSlashCommand(interaction) {
       break;
       
     case 'profil':
+      console.log('[DEBUG] Commande /profil déclenchée');
+      console.log('[DEBUG] Options:', interaction.options.data);
+      console.log('[DEBUG] Utilisateur:', interaction.user.tag, `(${interaction.user.id})`);
+      
       try {
+        console.log('[DEBUG] Récupération de l\'utilisateur cible...');
         const targetUser = interaction.options.getUser('utilisateur') || interaction.user;
         const isSelf = targetUser.id === interaction.user.id;
         
-        console.log(`[Profil] Commande /profil reçue de ${interaction.user.id} pour l'utilisateur ${targetUser.id} (${isSelf ? 'soi-même' : 'autre utilisateur'})`);
+        console.log(`[DEBUG] Cible: ${targetUser.tag} (${targetUser.id}) - ${isSelf ? 'soi-même' : 'autre utilisateur'}`);
         
+        console.log('[DEBUG] Vérification et récupération des données utilisateur...');
         const user = ensureUser(targetUser.id);
-        console.log('[Profil] Données utilisateur récupérées:', user);
+        console.log('[DEBUG] Données utilisateur récupérées:', JSON.stringify(user, null, 2));
         
         const xp = user.xp || 0;
-        const levelInfo = calculateLevel(xp);
+        console.log(`[DEBUG] XP de l'utilisateur: ${xp}`);
         
+        console.log('[DEBUG] Calcul du niveau...');
+        const levelInfo = calculateLevel(xp);
+        console.log('[DEBUG] Niveau calculé:', levelInfo);
+        
+        console.log('[DEBUG] Création de l\'embed...');
         const embed = new EmbedBuilder()
           .setTitle(`📊 Profil de ${targetUser.username}`)
           .setThumbnail(targetUser.displayAvatarURL({ dynamic: true, size: 256 }))
@@ -263,27 +267,43 @@ async function handleSlashCommand(interaction) {
         
         // Ajouter un champ supplémentaire si c'est le profil de l'utilisateur
         if (isSelf) {
+          const xpNeeded = levelInfo.xpForNextLevel - levelInfo.currentXp;
+          console.log(`[DEBUG] XP nécessaire pour le prochain niveau: ${xpNeeded}`);
+          
           embed.addFields({
             name: 'Prochain niveau',
-            value: `Encore **${levelInfo.xpForNextLevel - levelInfo.currentXp} XP** pour le niveau ${levelInfo.level + 1}`,
+            value: `Encore **${xpNeeded} XP** pour le niveau ${levelInfo.level + 1}`,
             inline: false
           });
         }
         
-        await interaction.reply({ 
+        console.log('[DEBUG] Envoi de la réponse...');
+        const replyOptions = { 
           embeds: [embed],
           ephemeral: isSelf // Le message est éphémère uniquement si c'est le profil de l'utilisateur
-        });
+        };
+        console.log('[DEBUG] Options de réponse:', JSON.stringify(replyOptions, null, 2));
+        
+        await interaction.reply(replyOptions);
+        console.log('[DEBUG] Réponse envoyée avec succès');
         
       } catch (error) {
-        console.error('[Profil] Erreur:', error);
+        console.error('[ERREUR] Erreur dans la commande /profil:', error);
+        console.error(error.stack);
+        
         try {
+          const errorMessage = '❌ Une erreur est survenue lors de la récupération du profil. Veuillez réessayer plus tard.';
+          console.log(`[DEBUG] Tentative d'envoi d'un message d'erreur: "${errorMessage}"`);
+          
           await interaction.reply({
-            content: '❌ Une erreur est survenue lors de la récupération du profil. Veuillez réessayer plus tard.',
+            content: errorMessage,
             ephemeral: true
           });
+          
+          console.log('[DEBUG] Message d\'erreur envoyé avec succès');
         } catch (replyError) {
-          console.error('[Profil] Échec de l\'envoi du message d\'erreur:', replyError);
+          console.error('[ERREUR CRITIQUE] Échec de l\'envoi du message d\'erreur:', replyError);
+          console.error(replyError.stack);
         }
       }
       break;
