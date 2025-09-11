@@ -3,6 +3,7 @@ const { Client, GatewayIntentBits, Partials, REST, Routes, EmbedBuilder, ActionR
 const express = require('express');
 const { isMaintenanceMode, isAdmin, maintenanceMiddleware, setMaintenance } = require('./maintenance');
 const { calculateLevel } = require('./utils');
+const { getSpecialBalance, updateSpecialBalance } = require('./database');
 
 // Modules personnalisés
 const config = require('./config');
@@ -377,7 +378,6 @@ async function handleSlashCommand(interaction) {
       break;
       
     case 'solde-special':
-      const { getSpecialBalance } = require('./database');
       const { specialHighLow } = require('./config');
       
       const isAdminOrSpecialUser = interaction.user.id === specialHighLow.adminId || 
@@ -430,7 +430,6 @@ async function handleSlashCommand(interaction) {
       
       const subcommand = interaction.options.getSubcommand();
       const adminTargetUser = interaction.options.getUser('utilisateur');
-      const { getSpecialBalance, updateSpecialBalance } = require('./database');
       
       try {
         switch (subcommand) {
