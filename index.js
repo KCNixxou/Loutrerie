@@ -256,7 +256,6 @@ async function handleSlashCommand(interaction) {
             { name: 'XP', value: `${levelInfo.currentXp}/${levelInfo.xpForNextLevel} XP`, inline: true },
             { name: 'Progression', value: `${levelInfo.progress.toFixed(1)}%`, inline: true },
             { name: 'Solde', value: `**${user.balance || 0}** ${config.currency.emoji}`, inline: true },
-            { name: 'Missions', value: `**${user.completed_missions || 0}** missions complétées`, inline: true },
             { name: 'Inscrit le', value: `<t:${Math.floor((user.joined_at || Date.now()) / 1000)}:D>`, inline: true }
           )
           .setFooter({ 
