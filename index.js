@@ -184,6 +184,20 @@ client.on('interactionCreate', async (interaction) => {
         await handleConnectFourMove(interaction);
       } else if (interaction.customId === 'cashout' || interaction.customId === 'next_multiplier') {
         await handleCrashButton(interaction);
+      } else if (interaction.customId.startsWith('highlow_')) {
+        // Gérer les actions du High Low normal
+        if (interaction.customId.startsWith('highlow_continue_') || interaction.customId.startsWith('highlow_stop_')) {
+          await handleHighLowDecision(interaction);
+        } else {
+          await handleHighLowAction(interaction);
+        }
+      } else if (interaction.customId.startsWith('special_highlow_')) {
+        // Gérer les actions du High Low spécial
+        if (interaction.customId.startsWith('special_highlow_continue_') || interaction.customId.startsWith('special_highlow_stop_')) {
+          await handleHighLowDecision(interaction);
+        } else {
+          await handleHighLowAction(interaction);
+        }
       } else {
         await handleButtonInteraction(interaction);
       }

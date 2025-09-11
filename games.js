@@ -1295,15 +1295,16 @@ async function handleHighLowAction(interaction) {
     console.log('[HighLow] Game updated - New multiplier:', multiplier, 'Total won:', game.totalWon);
     
     // Créer les boutons pour continuer ou s'arrêter
+    const buttonPrefix = game.isSpecial ? 'special_highlow_' : 'highlow_';
     const row = new ActionRowBuilder()
       .addComponents(
         new ButtonBuilder()
-          .setCustomId(`highlow_stop_${gameId}`)
+          .setCustomId(`${buttonPrefix}stop_${gameId}`)
           .setLabel('🏁 Petite couille')
           .setStyle(ButtonStyle.Danger)
           .setEmoji('🛑'),
         new ButtonBuilder()
-          .setCustomId(`highlow_continue_${gameId}`)
+          .setCustomId(`${buttonPrefix}continue_${gameId}`)
           .setLabel('ENVOIE LA NEXT')
           .setStyle(ButtonStyle.Success)
           .setEmoji('🎲')
@@ -1360,8 +1361,12 @@ async function handleHighLowDecision(interaction) {
   console.log('[HighLow] handleHighLowDecision called');
   console.log('[HighLow] Interaction customId:', interaction.customId);
   
+  // Vérifier si c'est une interaction spéciale
+  const isSpecial = interaction.customId.startsWith('special_highlow_');
+  const prefix = isSpecial ? 'special_highlow_' : 'highlow_';
+  
   // Extraire la décision (stop/continue) et l'ID de jeu complet
-  const decisionMatch = interaction.customId.match(/^highlow_(stop|continue)_(.*)/);
+  const decisionMatch = interaction.customId.match(new RegExp(`^${prefix}(stop|continue)_(.*)`));
   if (!decisionMatch) {
     console.error('[HighLow] Invalid decision format:', interaction.customId);
     return interaction.reply({ content: '❌ Format de décision invalide.', ephemeral: true });
@@ -1369,7 +1374,7 @@ async function handleHighLowDecision(interaction) {
   
   const decision = decisionMatch[1];
   const gameId = decisionMatch[2];
-  console.log('[HighLow] Decision:', decision, 'Game ID:', gameId);
+  console.log('[HighLow] Decision:', decision, 'Game ID:', gameId, 'Is special:', isSpecial);
   
   const game = activeHighLowGames.get(gameId);
   console.log('[HighLow] Game found:', !!game);
@@ -1437,26 +1442,30 @@ async function handleHighLowDecision(interaction) {
     // Le joueur choisit de continuer
     console.log('[HighLow] User chose to continue. Current multiplier:', game.currentMultiplier);
     console.log('[HighLow] Current card:', game.currentCard);
+    
+    // Déterminer le préfixe en fonction du type de partie
+    const buttonPrefix = game.isSpecial ? 'special_highlow_' : 'highlow_';
+    
     // Créer les boutons pour le prochain tour
     const row = new ActionRowBuilder()
       .addComponents(
         new ButtonBuilder()
-          .setCustomId(`highlow_lower_${gameId}`)
+          .setCustomId(`${buttonPrefix}lower_${gameId}`)
           .setLabel('Plus bas')
           .setStyle(ButtonStyle.Danger)
           .setEmoji('⬇️'),
         new ButtonBuilder()
-          .setCustomId(`highlow_same_${gameId}`)
+          .setCustomId(`${buttonPrefix}same_${gameId}`)
           .setLabel('Égal')
           .setStyle(ButtonStyle.Primary)
           .setEmoji('🟰'),
         new ButtonBuilder()
-          .setCustomId(`highlow_higher_${gameId}`)
+          .setCustomId(`${buttonPrefix}higher_${gameId}`)
           .setLabel('Plus haut')
           .setStyle(ButtonStyle.Success)
           .setEmoji('⬆️')
       );
-    console.log('[HighLow] Created action buttons with gameId:', gameId);
+    console.log('[HighLow] Created action buttons with gameId:', gameId, 'Prefix:', buttonPrefix);
     
     const embed = new EmbedBuilder()
       .setTitle('🎴 High Low - Tour suivant')
