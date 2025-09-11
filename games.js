@@ -1408,31 +1408,30 @@ async function handleHighLowDecision(interaction) {
     const user = ensureUser(game.userId);
     console.log('[HighLow] User balance before update:', user.balance);
     
-    // Si l'utilisateur a gagné, créditer les gains
-    if (game.hasWon) {
-      if (game.isSpecial) {
-        // Pour le High Low spécial, utiliser le solde spécial
-        const { addSpecialWinnings } = require('./database');
-        addSpecialWinnings(interaction.user.id, game.totalWon);
-      } else {
-        // Pour le High Low normal, utiliser le solde normal
-        updateUser(interaction.user.id, { balance: user.balance + game.totalWon });
-      }
+    // Toujours créditer les gains actuels, pas besoin de vérifier hasWon
+    // car le joueur a déjà gagné des tours pour arriver ici
+    if (game.isSpecial) {
+      // Pour le High Low spécial, utiliser le solde spécial
+      const { addSpecialWinnings } = require('./database');
+      // Le totalWon inclut déjà la mise initiale * multiplicateur
+      addSpecialWinnings(interaction.user.id, game.totalWon);
       
       const embed = new EmbedBuilder()
-        .setTitle('🎴 High Low - Fin de partie')
-        .setDescription(`Vous avez choisi de vous arrêter avec un gain total de **${game.totalWon - game.initialBet} ${config.currency.emoji}** !\n(Mise initiale: ${game.initialBet} + Gains: ${game.totalWon - game.initialBet})`)
-        .setColor(0xf1c40f);
+        .setTitle('🎴 High Low Spécial - Fin de partie')
+        .setDescription(`Vous avez choisi de vous arrêter avec un gain total de **${game.totalWon} ${config.currency.emoji}** !\n(Mise initiale: ${game.initialBet} + Gains: ${game.totalWon - game.initialBet})`)
+        .setColor(0x9b59b6);
       
       activeHighLowGames.delete(gameId);
-      console.log('[HighLow] Game deleted after stop');
+      console.log('[HighLow] Special game deleted after stop');
       return interaction.update({ embeds: [embed], components: [] });
     } else {
-      // Si l'utilisateur a perdu, ne rien créditer (la mise a déjà été déduite)
+      // Pour le High Low normal, utiliser le solde normal
+      updateUser(interaction.user.id, { balance: user.balance + game.totalWon });
+      
       const embed = new EmbedBuilder()
         .setTitle('🎴 High Low - Fin de partie')
-        .setDescription(`Vous avez perdu votre mise de **${game.currentBet}** ${config.currency.emoji}.`)
-        .setColor(0xe74c3c);
+        .setDescription(`Vous avez choisi de vous arrêter avec un gain total de **${game.totalWon} ${config.currency.emoji}** !\n(Mise initiale: ${game.initialBet} + Gains: ${game.totalWon - game.initialBet})`)
+        .setColor(0xf1c40f);
       
       activeHighLowGames.delete(gameId);
       console.log('[HighLow] Game deleted after stop');
