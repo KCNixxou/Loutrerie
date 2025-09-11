@@ -3,11 +3,10 @@ const { Client, GatewayIntentBits, Partials, REST, Routes, EmbedBuilder, ActionR
 const express = require('express');
 const { isMaintenanceMode, isAdmin, maintenanceMiddleware, setMaintenance } = require('./maintenance');
 const { calculateLevel } = require('./utils');
-const { getSpecialBalance, updateSpecialBalance } = require('./database');
 
 // Modules personnalisés
 const config = require('./config');
-const { ensureUser, updateUser, updateMissionProgress, db } = require('./database');
+const { ensureUser, updateUser, updateMissionProgress, db, getSpecialBalance, updateSpecialBalance } = require('./database');
 const { random, now, getXpMultiplier, scheduleMidnightReset } = require('./utils');
 const commands = require('./commands');
 const { 
