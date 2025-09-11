@@ -200,6 +200,26 @@ async function handleSlashCommand(interaction) {
       await interaction.reply(`🎲 Le dé affiche : **${diceResult}**`);
       break;
       
+    case 'profil':
+      const user = ensureUser(interaction.user.id);
+      const { level, currentXp, xpForNextLevel } = calculateLevel(user.xp || 0);
+      
+      const profileEmbed = new EmbedBuilder()
+        .setTitle(`📊 Profil de ${interaction.user.username}`)
+        .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
+        .addFields(
+          { name: 'Niveau', value: `Niveau **${level}**`, inline: true },
+          { name: 'XP', value: `${currentXp}/${xpForNextLevel} XP`, inline: true },
+          { name: 'Solde', value: `**${user.balance || 0}** ${config.currency.emoji}`, inline: true },
+          { name: 'Missions', value: `**${user.completed_missions || 0}** missions complétées` }
+        )
+        .setColor(0x00bfff)
+        .setFooter({ text: 'Profil mis à jour' })
+        .setTimestamp();
+      
+      await interaction.reply({ embeds: [profileEmbed] });
+      break;
+      
     // Commandes de jeux
     case 'morpion':
       await handleTicTacToe(interaction);
