@@ -209,7 +209,20 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 async function handleSlashCommand(interaction) {
+  console.log(`[COMMANDE] Commande reçue: ${interaction.commandName}`);
+  console.log(`[COMMANDE] Options:`, interaction.options.data);
+  
   const { commandName } = interaction;
+  
+  // Vérifier si la commande existe
+  const command = commands.find(cmd => cmd.name === commandName);
+  if (!command) {
+    console.error(`[ERREUR] Commande inconnue: ${commandName}`);
+    return interaction.reply({
+      content: '❌ Cette commande est inconnue ou n\'est pas encore implémentée.',
+      ephemeral: true
+    });
+  }
   
   switch (commandName) {
     case 'de':
