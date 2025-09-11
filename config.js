@@ -34,5 +34,13 @@ module.exports = {
       { id: 'coinflip_multi', description: 'Jouer une partie de pile ou face multijoueurs', goal: 1, reward: 100 },
       { id: 'messages_50', description: 'Envoyer 50 messages', goal: 50, reward: 150 }
     ]
+  },
+  // Configuration pour le salon spécial High Low
+  specialHighLow: {
+    channelId: '1378373298861248642', // ID du salon spécial
+    adminId: '314458846754111499',   // Votre ID d'admin
+    specialUserId: '678264841617670145', // ID de l'utilisateur spécial
+    maxBet: 50000, // Mise maximale pour le salon spécial
+    startingBalance: 1000 // Solde de départ pour le salon spécial
   }
 };

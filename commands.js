@@ -23,6 +23,55 @@ const commands = [
         .setMinValue(1)),
 
   new SlashCommandBuilder()
+    .setName('highlow-special')
+    .setDescription('[SPÉCIAL] Jouer au High Low avec un solde séparé')
+    .addIntegerOption(option =>
+      option.setName('mise')
+        .setDescription('Montant à miser en coquillages spéciaux')
+        .setRequired(true)
+        .setMinValue(1)),
+
+  new SlashCommandBuilder()
+    .setName('solde-special')
+    .setDescription('Voir votre solde spécial pour le High Low'),
+
+  new SlashCommandBuilder()
+    .setName('admin-solde-special')
+    .setDescription('[ADMIN] Gérer les soldes spéciaux')
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('ajouter')
+        .setDescription('Ajouter un montant au solde spécial d\'un utilisateur')
+        .addUserOption(option =>
+          option.setName('utilisateur')
+            .setDescription('L\'utilisateur à créditer')
+            .setRequired(true))
+        .addIntegerOption(option =>
+          option.setName('montant')
+            .setDescription('Montant à ajouter')
+            .setRequired(true)))
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('definir')
+        .setDescription('Définir le solde spécial d\'un utilisateur')
+        .addUserOption(option =>
+          option.setName('utilisateur')
+            .setDescription('L\'utilisateur dont vous voulez définir le solde')
+            .setRequired(true))
+        .addIntegerOption(option =>
+          option.setName('montant')
+            .setDescription('Nouveau solde')
+            .setRequired(true)))
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('voir')
+        .setDescription('Voir le solde spécial d\'un utilisateur')
+        .addUserOption(option =>
+          option.setName('utilisateur')
+            .setDescription('L\'utilisateur dont vous voulez voir le solde')
+            .setRequired(true))),
+
+  new SlashCommandBuilder()
     .setName('reset-daily')
     .setDescription('[ADMIN] Réinitialiser la date de dernière récupération')
     .addUserOption(option =>

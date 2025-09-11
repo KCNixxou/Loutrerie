@@ -28,6 +28,15 @@ const {
   getTicTacToeLeaderboard,
   handleTicTacToeLeaderboard,
   resetTicTacToeStats,
+  handleHighLow,
+  handleSpecialHighLow,
+  handleHighLowAction,
+  handleHighLowDecision,
+  handleTicTacToeMove,
+  handleConnectFourMove,
+  getTicTacToeLeaderboard,
+  handleTicTacToeLeaderboard,
+  resetTicTacToeStats,
   handleHighLow
 } = require('./games');
 const { 
@@ -282,6 +291,129 @@ async function handleSlashCommand(interaction) {
       
     case 'highlow':
       await handleHighLow(interaction);
+      break;
+      
+    case 'highlow-special':
+      await handleSpecialHighLow(interaction);
+      break;
+      
+    case 'solde-special':
+      const { getSpecialBalance } = require('./database');
+      const { specialHighLow } = require('./config');
+      
+      const isAdminOrSpecialUser = interaction.user.id === specialHighLow.adminId || 
+                                interaction.user.id === specialHighLow.specialUserId;
+      
+      // Vérification stricte : l'utilisateur doit être autorisé ET être dans le bon salon
+      if (!isAdminOrSpecialUser || interaction.channelId !== specialHighLow.channelId) {
+        console.log(`[Security] Tentative d'accès non autorisée à /solde-special par ${interaction.user.id} dans le salon ${interaction.channelId}`);
+        return interaction.reply({
+          content: '❌ Cette commande est réservée au salon spécial et aux utilisateurs autorisés.',
+          ephemeral: true
+        });
+      }
+      
+      const specialBalance = getSpecialBalance(interaction.user.id);
+      
+      const embed = new EmbedBuilder()
+        .setTitle('💰 Solde Spécial High Low')
+        .setDescription(`Votre solde spécial est de **${specialBalance}** ${config.currency.emoji}`)
+        .setColor(0x9b59b6);
+        
+      if (isAdminOrSpecialUser) {
+        embed.addFields(
+          { name: 'Statut', value: '🔹 Utilisateur spécial', inline: true }
+        );
+      }
+      
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+      break;
+      
+    case 'admin-solde-special':
+      // Vérifier si l'utilisateur est admin
+      const { specialHighLow: configHighLow } = require('./config');
+      if (interaction.user.id !== configHighLow.adminId) {
+        console.log(`[Security] Tentative d'accès non autorisée à /admin-solde-special par ${interaction.user.id}`);
+        return interaction.reply({
+          content: '❌ Cette commande est réservée à l\'administrateur.',
+          ephemeral: true
+        });
+      }
+      
+      // Vérifier que la commande est utilisée dans le bon salon
+      if (interaction.channelId !== configHighLow.channelId) {
+        console.log(`[Security] Tentative d'utilisation de /admin-solde-special dans le mauvais salon par ${interaction.user.id}`);
+        return interaction.reply({
+          content: `❌ Cette commande ne peut être utilisée que dans le salon dédié.`,
+          ephemeral: true
+        });
+      }
+      
+      const subcommand = interaction.options.getSubcommand();
+      const adminTargetUser = interaction.options.getUser('utilisateur');
+      const { getSpecialBalance, updateSpecialBalance } = require('./database');
+      
+      try {
+        switch (subcommand) {
+          case 'ajouter': {
+            const amount = interaction.options.getInteger('montant');
+            if (amount <= 0) {
+              return interaction.reply({
+                content: '❌ Le montant doit être supérieur à zéro.',
+                ephemeral: true
+              });
+            }
+            
+            const newBalance = updateSpecialBalance(adminTargetUser.id, amount);
+            await interaction.reply({
+              content: `✅ **${amount}** ${config.currency.emoji} ont été ajoutés au solde spécial de ${adminTargetUser.tag}.\nNouveau solde: **${newBalance}** ${config.currency.emoji}`,
+              ephemeral: true
+            });
+            break;
+          }
+          
+          case 'definir': {
+            const amount = interaction.options.getInteger('montant');
+            if (amount < 0) {
+              return interaction.reply({
+                content: '❌ Le montant ne peut pas être négatif.',
+                ephemeral: true
+              });
+            }
+            
+            // Pour définir un solde spécifique, on utilise updateSpecialBalance avec la différence
+            const currentBalance = getSpecialBalance(adminTargetUser.id);
+            const difference = amount - currentBalance;
+            const newBalance = updateSpecialBalance(adminTargetUser.id, difference);
+            
+            await interaction.reply({
+              content: `✅ Le solde spécial de ${adminTargetUser.tag} a été défini à **${newBalance}** ${config.currency.emoji}`,
+              ephemeral: true
+            });
+            break;
+          }
+          
+          case 'voir': {
+            const balance = getSpecialBalance(adminTargetUser.id);
+            const embed = new EmbedBuilder()
+              .setTitle(`💰 Solde Spécial de ${adminTargetUser.username}`)
+              .setDescription(`**${balance}** ${config.currency.emoji}`)
+              .setColor(0x9b59b6)
+              .setThumbnail(adminTargetUser.displayAvatarURL())
+              .setFooter({ text: `Demandé par ${interaction.user.username}`, iconURL: interaction.user.displayAvatarURL() })
+              .setTimestamp();
+              
+            await interaction.reply({ embeds: [embed], ephemeral: true });
+            break;
+          }
+        }
+      } catch (error) {
+        console.error('Erreur lors de la gestion de la commande admin-solde-special:', error);
+        await interaction.reply({
+          content: '❌ Une erreur est survenue lors du traitement de la commande.',
+          ephemeral: true
+        });
+      }
       break;
       
     // Commandes d'administration

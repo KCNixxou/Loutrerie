@@ -40,6 +40,11 @@ function updateDatabaseSchema() {
   // Ajout des colonnes pour le système de dons
   addColumnIfNotExists('users', 'daily_given', 'INTEGER DEFAULT 0');
   addColumnIfNotExists('users', 'last_give_reset', 'INTEGER DEFAULT 0');
+  
+  // Ajout des colonnes pour le High Low spécial
+  addColumnIfNotExists('users', 'special_balance', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('users', 'special_total_won', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('users', 'special_total_wagered', 'INTEGER DEFAULT 0');
 }
 
 // Exécuter la mise à jour du schéma
@@ -213,6 +218,32 @@ function resetTicTacToeStats(userId = null) {
   }
 }
 
+// Fonctions pour gérer le solde spécial High Low
+function getSpecialBalance(userId) {
+  ensureUser(userId);
+  const user = db.prepare('SELECT special_balance FROM users WHERE user_id = ?').get(userId);
+  return user ? user.special_balance : 0;
+}
+
+function updateSpecialBalance(userId, amount) {
+  ensureUser(userId);
+  db.prepare('UPDATE users SET special_balance = special_balance + ? WHERE user_id = ?').run(amount, userId);
+  return getSpecialBalance(userId);
+}
+
+function addSpecialWinnings(userId, amount) {
+  ensureUser(userId);
+  db.prepare('UPDATE users SET special_balance = special_balance + ?, special_total_won = special_total_won + ? WHERE user_id = ?')
+    .run(amount, amount > 0 ? amount : 0, userId);
+  return getSpecialBalance(userId);
+}
+
+function addSpecialWagered(userId, amount) {
+  ensureUser(userId);
+  db.prepare('UPDATE users SET special_total_wagered = special_total_wagered + ? WHERE user_id = ?')
+    .run(amount, userId);
+}
+
 module.exports = {
   db,
   ensureUser,
@@ -221,5 +252,10 @@ module.exports = {
   getTicTacToeStats,
   updateTicTacToeStats,
   getTicTacToeLeaderboard,
-  resetTicTacToeStats
+  resetTicTacToeStats,
+  // Fonctions pour le solde spécial High Low
+  getSpecialBalance,
+  updateSpecialBalance,
+  addSpecialWinnings,
+  addSpecialWagered
 };

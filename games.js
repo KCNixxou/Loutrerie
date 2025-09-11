@@ -1148,8 +1148,12 @@ async function handleHighLowAction(interaction) {
   console.log('[HighLow] handleHighLowAction called');
   console.log('[HighLow] Interaction customId:', interaction.customId);
   
+  // Vérifier si c'est une interaction spéciale
+  const isSpecial = interaction.customId.startsWith('special_highlow_');
+  const prefix = isSpecial ? 'special_highlow_' : 'highlow_';
+  
   // Extraire l'action (lower/same/higher) et l'ID de jeu complet
-  const actionMatch = interaction.customId.match(/^highlow_(lower|same|higher)_(.*)/);
+  const actionMatch = interaction.customId.match(new RegExp(`^${prefix}(lower|same|higher)_(.*)`));
   if (!actionMatch) {
     console.error('[HighLow] Invalid customId format:', interaction.customId);
     return interaction.reply({ content: '❌ Format de commande invalide.', ephemeral: true });
@@ -1179,7 +1183,9 @@ async function handleHighLowAction(interaction) {
   if (game.userId !== interaction.user.id) {
     // Vérifier si c'est un administrateur qui tente de clôturer la partie
     if (interaction.customId && interaction.customId.startsWith('admin_close_')) {
-      if (interaction.user.id !== '314458846754111499') { // Remplacez par l'ID de l'admin
+      const { specialHighLow } = require('./config');
+      if (interaction.user.id !== specialHighLow.adminId) {
+        console.log(`[Security] Tentative d'accès non autorisée à la commande admin par ${interaction.user.id}`);
         return interaction.reply({
           content: '❌ Vous n\'avez pas la permission de clôturer cette partie.',
           ephemeral: true
@@ -1187,6 +1193,21 @@ async function handleHighLowAction(interaction) {
       }
       // L'admin peut clôturer la partie
       return endHighLowGame(gameId, interaction, true);
+    }
+    
+    // Pour le High Low spécial, vérifier les permissions spéciales
+    if (game.isSpecial) {
+      const { specialHighLow } = require('./config');
+      const isAdminOrSpecialUser = interaction.user.id === specialHighLow.adminId || 
+                                 interaction.user.id === specialHighLow.specialUserId;
+      
+      if (!isAdminOrSpecialUser) {
+        console.log(`[Security] Tentative d'accès non autorisée au High Low spécial par ${interaction.user.id}`);
+        return interaction.reply({
+          content: '❌ Vous n\'avez pas la permission d\'interagir avec cette partie.',
+          ephemeral: true
+        });
+      }
     }
     
     return interaction.reply({
@@ -1382,18 +1403,36 @@ async function handleHighLowDecision(interaction) {
     const user = ensureUser(game.userId);
     console.log('[HighLow] User balance before update:', user.balance);
     
-    // Créditer les gains totaux (mise initiale + gains)
-    updateUser(game.userId, { balance: user.balance + game.totalWon });
-    console.log('[HighLow] Credited total winnings:', game.totalWon);
-    
-    const embed = new EmbedBuilder()
-      .setTitle('🎴 High Low - Fin de partie')
-      .setDescription(`Vous avez choisi de vous arrêter avec un gain total de **${game.totalWon - game.initialBet} ${config.currency.emoji}** !\n(Mise initiale: ${game.initialBet} + Gains: ${game.totalWon - game.initialBet})`)
-      .setColor(0xf1c40f);
-    
-    activeHighLowGames.delete(gameId);
-    console.log('[HighLow] Game deleted after stop');
-    return interaction.update({ embeds: [embed], components: [] });
+    // Si l'utilisateur a gagné, créditer les gains
+    if (game.hasWon) {
+      if (game.isSpecial) {
+        // Pour le High Low spécial, utiliser le solde spécial
+        const { addSpecialWinnings } = require('./database');
+        addSpecialWinnings(interaction.user.id, game.totalWon);
+      } else {
+        // Pour le High Low normal, utiliser le solde normal
+        updateUser(interaction.user.id, { balance: user.balance + game.totalWon });
+      }
+      
+      const embed = new EmbedBuilder()
+        .setTitle('🎴 High Low - Fin de partie')
+        .setDescription(`Vous avez choisi de vous arrêter avec un gain total de **${game.totalWon - game.initialBet} ${config.currency.emoji}** !\n(Mise initiale: ${game.initialBet} + Gains: ${game.totalWon - game.initialBet})`)
+        .setColor(0xf1c40f);
+      
+      activeHighLowGames.delete(gameId);
+      console.log('[HighLow] Game deleted after stop');
+      return interaction.update({ embeds: [embed], components: [] });
+    } else {
+      // Si l'utilisateur a perdu, ne rien créditer (la mise a déjà été déduite)
+      const embed = new EmbedBuilder()
+        .setTitle('🎴 High Low - Fin de partie')
+        .setDescription(`Vous avez perdu votre mise de **${game.currentBet}** ${config.currency.emoji}.`)
+        .setColor(0xe74c3c);
+      
+      activeHighLowGames.delete(gameId);
+      console.log('[HighLow] Game deleted after stop');
+      return interaction.update({ embeds: [embed], components: [] });
+    }
   } else if (decision === 'continue') {
     // Le joueur choisit de continuer
     console.log('[HighLow] User chose to continue. Current multiplier:', game.currentMultiplier);
@@ -1510,6 +1549,116 @@ async function handleHighLow(interaction) {
       { name: 'Gains potentiels', value: `${Math.floor(bet * 1.0)} ${config.currency.emoji}`, inline: true }
     )
     .setColor(0x3498db);
+  
+  await interaction.reply({ embeds: [embed], components: [row] });
+}
+
+// Fonction pour vérifier si l'utilisateur a accès au High Low spécial
+function hasSpecialAccess(userId, channelId) {
+  const { specialHighLow } = require('./config');
+  const isAllowedUser = userId === specialHighLow.adminId || userId === specialHighLow.specialUserId;
+  const isAllowedChannel = channelId === specialHighLow.channelId;
+  
+  // Seulement les utilisateurs autorisés peuvent accéder, même dans le bon salon
+  if (isAllowedUser && isAllowedChannel) {
+    return true;
+  }
+  
+  console.log(`[Security] Accès refusé - User: ${userId}, Salon: ${channelId}`);
+  return false;
+}
+
+// Gestion du High Low spécial
+async function handleSpecialHighLow(interaction) {
+  const { specialHighLow } = require('./config');
+  const { getSpecialBalance, updateSpecialBalance, addSpecialWagered, addSpecialWinnings } = require('./database');
+  
+  const userId = interaction.user.id;
+  const bet = interaction.options.getInteger('mise');
+  const channelId = interaction.channelId;
+  
+  // Vérifier les autorisations
+  if (!hasSpecialAccess(userId, channelId)) {
+    return interaction.reply({
+      content: '❌ Cette commande est réservée au salon spécial et aux utilisateurs autorisés.',
+      ephemeral: true
+    });
+  }
+  
+  // Vérifier le solde spécial
+  const specialBalance = getSpecialBalance(userId);
+  if (bet > specialBalance) {
+    return interaction.reply({
+      content: `❌ Solde spécial insuffisant ! Vous avez ${specialBalance} ${config.currency.emoji} de solde spécial.`,
+      ephemeral: true
+    });
+  }
+  
+  // Vérifier la mise maximale
+  if (bet > specialHighLow.maxBet) {
+    return interaction.reply({
+      content: `❌ La mise maximale est de ${specialHighLow.maxBet} ${config.currency.emoji} pour le salon spécial.`,
+      ephemeral: true
+    });
+  }
+  
+  // Créer un nouveau jeu
+  const deck = createDeck();
+  const currentCard = deck.pop();
+  
+  // Retirer la mise du solde spécial
+  updateSpecialBalance(userId, -bet);
+  addSpecialWagered(userId, bet);
+  
+  // Enregistrer la partie avec un ID unique
+  const gameId = `shl_${Date.now()}_${userId}`;  // Format: shl_timestamp_userId pour Special High Low
+  console.log('[SpecialHighLow] New game created with ID:', gameId);
+  
+  activeHighLowGames.set(gameId, {
+    userId,
+    deck,
+    currentCard,
+    currentBet: bet,
+    currentMultiplier: 1.0,
+    totalWon: 0,
+    potentialWinnings: 0,
+    initialBet: bet,
+    hasWon: false,
+    round: 1,
+    isSpecial: true // Marquer comme partie spéciale
+  });
+  
+  // Créer les boutons avec un ID de jeu encodé
+  const row = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`special_highlow_lower_${gameId}`)
+        .setLabel('Plus bas')
+        .setStyle(ButtonStyle.Danger)
+        .setEmoji('⬇️'),
+      new ButtonBuilder()
+        .setCustomId(`special_highlow_same_${gameId}`)
+        .setLabel('Égal')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('🟰'),
+      new ButtonBuilder()
+        .setCustomId(`special_highlow_higher_${gameId}`)
+        .setLabel('Plus haut')
+        .setStyle(ButtonStyle.Success)
+        .setEmoji('⬆️')
+    );
+  
+  // Envoyer le message
+  const embed = new EmbedBuilder()
+    .setTitle('🎴 High Low Spécial (Solde Séparé)')
+    .setDescription(`**Carte actuelle:** ${currentCard.value}${currentCard.suit}\n\nChoisissez si la prochaine carte sera plus haute, plus basse ou égale.`)
+    .addFields(
+      { name: 'Mise', value: `${bet} ${config.currency.emoji}`, inline: true },
+      { name: 'Multiplicateur actuel', value: '1.0x', inline: true },
+      { name: 'Gains potentiels', value: `${Math.floor(bet * 1.0)} ${config.currency.emoji}`, inline: true },
+      { name: 'Solde spécial', value: `${specialBalance - bet} ${config.currency.emoji}`, inline: true }
+    )
+    .setColor(0x9b59b6); // Couleur violette pour le distinguer du High Low normal
   
   await interaction.reply({ embeds: [embed], components: [row] });
 }
