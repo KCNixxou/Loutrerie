@@ -110,10 +110,30 @@ function ensureUser(userId) {
 }
 
 function updateUser(userId, data) {
-  const keys = Object.keys(data);
-  const values = Object.values(data);
-  const setClause = keys.map(k => `${k} = ?`).join(', ');
-  db.prepare(`UPDATE users SET ${setClause} WHERE user_id = ?`).run(...values, userId);
+  if (!data || Object.keys(data).length === 0) {
+    console.error('No data provided for update');
+    return;
+  }
+  
+  try {
+    const keys = Object.keys(data);
+    const setClause = keys.map(k => `${k} = ?`).join(', ');
+    const values = keys.map(k => data[k]);
+    
+    // Add userId as the last parameter for the WHERE clause
+    values.push(userId);
+    
+    const stmt = db.prepare(`UPDATE users SET ${setClause} WHERE user_id = ?`);
+    const result = stmt.run(...values);
+    
+    if (result.changes === 0) {
+      console.warn(`No user found with ID: ${userId}`);
+    }
+  } catch (error) {
+    console.error('Error updating user:', error);
+    console.error('Data being updated:', data);
+    throw error; // Re-throw the error to be caught by the caller
+  }
 }
 
 function generateDailyMissions() {
