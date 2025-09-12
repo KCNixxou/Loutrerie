@@ -1256,7 +1256,6 @@ async function handleHighLowAction(interaction) {
     } else {
       // Si le multiplicateur actuel est 13.0 (suite à un "égal"), on continue à partir de 13.0
       if (currentMultiplier >= 13.0) {
-        // Continuer à partir du multiplicateur actuel et ajouter 3.0
         multiplier = currentMultiplier + 3.0;
       } else {
         // Définir les multiplicateurs pour les premiers tours
@@ -1272,9 +1271,6 @@ async function handleHighLowAction(interaction) {
           multiplier = lastMultiplier + (0.5 * (round - multipliers.length));
         }
       }
-      
-      // Arrondir à 1 décimale
-      multiplier = Math.round(multiplier * 10) / 10;
     }
     
     // Mettre à jour le multiplicateur dans l'objet de jeu
