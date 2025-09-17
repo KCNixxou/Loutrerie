@@ -263,7 +263,17 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('loutre-giveaway')
-    .setDescription('[ADMIN] Lancer un giveaway de 500 pour la première loutre qui clique')
+    .setDescription('Gérer les giveaways')
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('start')
+        .setDescription('[ADMIN] Lancer un giveaway de 500 pour la première loutre qui clique')
+    )
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('next')
+        .setDescription('Voir quand est le prochain giveaway')
+    )
     .setDefaultMemberPermissions('0')
     .setDMPermission(false),
     

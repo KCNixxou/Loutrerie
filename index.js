@@ -1289,43 +1289,74 @@ function generateNextGiveawayTime() {
 
 // Gestion de la commande loutre-giveaway
 async function handleLoutreGiveaway(interaction) {
-  try {
-    // Vérifier si l'utilisateur est un administrateur
-    if (!ADMIN_IDS.has(interaction.user.id)) {
-      await interaction.reply({
-        content: '❌ Vous n\'avez pas la permission d\'utiliser cette commande.',
+  // Vérifier les permissions admin pour toutes les sous-commandes
+  if (!isAdmin(interaction.user.id)) {
+    return interaction.reply({ 
+      content: '❌ Vous n\'avez pas la permission d\'utiliser cette commande.', 
+      ephemeral: true 
+    });
+  }
+
+  const subcommand = interaction.options?.getSubcommand();
+  
+  if (subcommand === 'next') {
+    // Afficher l'heure du prochain giveaway
+    const nextTime = getNextScheduledGiveawayTime();
+    if (!nextTime) {
+      return interaction.reply({
+        content: '❌ Aucun giveaway n\'est actuellement programmé.',
         ephemeral: true
       });
-      return;
     }
-
-    // Vérifier s'il y a déjà un giveaway en cours dans ce salon
-    const existingGiveaway = getActiveGiveaway(interaction.channel.id);
-    if (existingGiveaway) {
-      await interaction.reply({
-        content: '❌ Un giveaway est déjà en cours dans ce salon.',
-        ephemeral: true
-      });
-      return;
-    }
-
-    // Démarrer un nouveau giveaway manuel
-    await startGiveaway(interaction.channel, false);
     
-    // Répondre à l'interaction
-    await interaction.reply({
-      content: '✅ Giveaway lancé avec succès !',
+    const nextDate = new Date(parseInt(nextTime));
+    const now = new Date();
+    const timeDiff = nextDate - now;
+    const hours = Math.floor(timeDiff / (1000 * 60 * 60));
+    const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    return interaction.reply({
+      content: `🎉 **Prochain giveaway** prévu à ${nextDate.toLocaleTimeString('fr-FR')} le ${nextDate.toLocaleDateString('fr-FR')} (dans environ ${hours}h${minutes}m)`,
       ephemeral: true
     });
+  }
+  
+  // Vérifier les permissions admin pour les autres sous-commandes
+  if (!isAdmin(interaction.user.id)) {
+    return interaction.reply({ 
+      content: '❌ Vous n\'avez pas la permission d\'utiliser cette commande.', 
+      ephemeral: true 
+    });
+  }
 
+  const channel = interaction.channel;
+  const now = new Date();
+  
+  // Vérifier si un giveaway est déjà en cours
+  const activeGiveaway = db.prepare('SELECT * FROM active_giveaways WHERE channel_id = ?').get(channel.id);
+  if (activeGiveaway) {
+    return interaction.reply({
+      content: '❌ Un giveaway est déjà en cours dans ce salon !',
+      ephemeral: true
+    });
+  }
+
+  try {
+    await startGiveaway(channel);
+    
+    // Planifier le prochain giveaway
+    await scheduleNextGiveaway();
+    
+    await interaction.reply({
+      content: '✅ Le giveaway a été lancé avec succès !',
+      ephemeral: true
+    });
   } catch (error) {
-    console.error('Erreur dans handleLoutreGiveaway:', error);
-    if (!interaction.replied) {
-      await interaction.reply({
-        content: '❌ Une erreur est survenue lors du lancement du giveaway.',
-        ephemeral: true
-      });
-    }
+    console.error('Erreur lors du lancement du giveaway:', error);
+    await interaction.reply({
+      content: '❌ Une erreur est survenue lors du lancement du giveaway.',
+      ephemeral: true
+    });
   }
 }
 
