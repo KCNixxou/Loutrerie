@@ -48,48 +48,10 @@ function updateDatabaseSchema() {
   
   // Ajout de la colonne pour le suivi des récompenses BDG quotidiennes
   addColumnIfNotExists('users', 'last_bdg_claim', 'INTEGER DEFAULT 0');
-  
-  // Création des tables pour la loterie si elles n'existent pas
-  try {
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS lottery_pot (
-        id INTEGER PRIMARY KEY DEFAULT 1,
-        current_amount INTEGER DEFAULT 0,
-        last_winner_id TEXT,
-        last_win_amount INTEGER DEFAULT 0,
-        last_win_time INTEGER DEFAULT 0
-      );
-      
-      CREATE TABLE IF NOT EXISTS lottery_participants (
-        user_id TEXT PRIMARY KEY,
-        amount_contributed INTEGER DEFAULT 0,
-        last_contribution_time INTEGER DEFAULT 0
-      );
-      
-      -- S'assurer qu'il y a une entrée dans la table lottery_pot
-      INSERT OR IGNORE INTO lottery_pot (id, current_amount) VALUES (1, 0);
-    `);
-    console.log('[Database] Tables de loterie vérifiées/créées avec succès');
-  } catch (error) {
-    console.error('Erreur lors de la création des tables de loterie:', error);
-  }
 }
-
-// Exécuter la mise à jour du schéma
-updateDatabaseSchema();
 
 // Création des tables
 db.exec(`
-  CREATE TABLE IF NOT EXISTS tic_tac_toe_stats (
-    user_id TEXT PRIMARY KEY,
-    wins INTEGER DEFAULT 0,
-    losses INTEGER DEFAULT 0,
-    draws INTEGER DEFAULT 0,
-    games_played INTEGER DEFAULT 0,
-    last_played INTEGER DEFAULT 0,
-    FOREIGN KEY (user_id) REFERENCES users(user_id)
-  );
-
   CREATE TABLE IF NOT EXISTS users (
     user_id TEXT PRIMARY KEY,
     balance INTEGER DEFAULT ${config.currency.startingBalance},
@@ -107,440 +69,156 @@ db.exec(`
     total_won INTEGER DEFAULT 0,
     total_wagered INTEGER DEFAULT 0,
     last_win INTEGER DEFAULT 0,
-    last_win_time INTEGER DEFAULT 0
-  )
-`);
+    last_win_time INTEGER DEFAULT 0,
+    special_balance INTEGER DEFAULT 0,
+    special_total_won INTEGER DEFAULT 0,
+    special_total_wagered INTEGER DEFAULT 0,
+    last_bdg_claim INTEGER DEFAULT 0
+  );
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS coinflip_games (
-    game_id TEXT PRIMARY KEY,
-    creator_id TEXT,
-    bet_amount INTEGER,
-    choice TEXT,
-    status TEXT DEFAULT 'waiting',
-    opponent_id TEXT,
-    winner_id TEXT,
-    created_at INTEGER
-  )
-`);
+  CREATE TABLE IF NOT EXISTS tic_tac_toe_stats (
+    user_id TEXT PRIMARY KEY,
+    wins INTEGER DEFAULT 0,
+    losses INTEGER DEFAULT 0,
+    draws INTEGER DEFAULT 0,
+    games_played INTEGER DEFAULT 0,
+    last_played INTEGER DEFAULT 0,
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+  );
 
-db.exec(`
   CREATE TABLE IF NOT EXISTS lottery_pot (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY DEFAULT 1,
     current_amount INTEGER DEFAULT 0,
     last_winner_id TEXT,
     last_win_amount INTEGER DEFAULT 0,
     last_win_time INTEGER DEFAULT 0
-  )
-`);
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS lottery_participants (
-    user_id TEXT,
-    amount_contributed INTEGER DEFAULT 0,
-    last_contribution_time INTEGER DEFAULT 0,
-    PRIMARY KEY (user_id)
-  )
-`);
-
-// Fonctions utilitaires
-function ensureUser(userId) {
-  let user = db.prepare('SELECT * FROM users WHERE user_id = ?').get(userId);
-  if (!user) {
-    db.prepare(`
-      INSERT INTO users (user_id, balance, daily_missions, last_mission_reset) 
-      VALUES (?, ?, ?, ?)
-    `).run(userId, config.currency.startingBalance, JSON.stringify(generateDailyMissions()), Date.now());
-    user = db.prepare('SELECT * FROM users WHERE user_id = ?').get(userId);
-  }
-  return user;
-}
-
-function updateUser(userId, data) {
-  if (!data || Object.keys(data).length === 0) {
-    console.error('[DB DEBUG] No data provided for update');
-    return;
-  }
-  
-  console.log(`[DB DEBUG] Mise à jour de l'utilisateur ${userId} avec les données:`, JSON.stringify(data, null, 2));
-  
-  try {
-    const keys = Object.keys(data);
-    const setClause = keys.map(k => `${k} = ?`).join(', ');
-    const values = keys.map(k => data[k]);
-    
-    // Add userId as the last parameter for the WHERE clause
-    values.push(userId);
-    
-    const query = `UPDATE users SET ${setClause} WHERE user_id = ?`;
-    console.log(`[DB DEBUG] Exécution de la requête: ${query}`, values);
-    
-    const stmt = db.prepare(query);
-    const result = stmt.run(...values);
-    
-    console.log(`[DB DEBUG] Résultat de la mise à jour:`, result);
-    
-    if (result.changes === 0) {
-      console.warn(`[DB DEBUG] Aucun utilisateur trouvé avec l'ID: ${userId}, tentative de création...`);
-      // Essayer de créer l'utilisateur s'il n'existe pas
-      ensureUser(userId);
-      // Réessayer la mise à jour
-      const retryResult = stmt.run(...values);
-      console.log(`[DB DEBUG] Résultat de la tentative de réessai:`, retryResult);
-      return retryResult;
-    }
-    
-    return result;
-  } catch (error) {
-    console.error('[DB DEBUG] Erreur lors de la mise à jour de l\'utilisateur:', error);
-    console.error('[DB DEBUG] Données en cours de mise à jour:', data);
-    throw error; // Re-throw the error to be caught by the caller
-  }
-}
-
-function generateDailyMissions() {
-  return config.missions.daily.map(mission => ({
-    ...mission,
-    progress: 0,
-    completed: false
-  }));
-}
-
-function updateMissionProgress(userId, missionType, amount = 1) {
-  const user = ensureUser(userId);
-  let missions = JSON.parse(user.daily_missions || '[]');
-  let updated = false;
-  let rewardEarned = 0;
-
-  missions.forEach(mission => {
-    if (mission.id === missionType && !mission.completed) {
-      mission.progress = Math.min(mission.progress + amount, mission.goal);
-      if (mission.progress >= mission.goal) {
-        mission.completed = true;
-        rewardEarned += mission.reward;
-        updated = true;
-      }
-    }
-  });
-
-  if (updated) {
-    updateUser(userId, {
-      daily_missions: JSON.stringify(missions),
-      balance: user.balance + rewardEarned
-    });
-  }
-
-  return rewardEarned;
-}
-
-// Fonctions pour les statistiques du morpion
-function getTicTacToeStats(userId) {
-  const stats = db.prepare('SELECT * FROM tic_tac_toe_stats WHERE user_id = ?').get(userId);
-  if (!stats) {
-    // Créer une entrée si elle n'existe pas
-    db.prepare('INSERT INTO tic_tac_toe_stats (user_id) VALUES (?)').run(userId);
-    return { user_id: userId, wins: 0, losses: 0, draws: 0, games_played: 0, last_played: 0 };
-  }
-  return stats;
-}
-
-function updateTicTacToeStats(userId, result) {
-  // result peut être 'win', 'loss' ou 'draw'
-  const stats = getTicTacToeStats(userId);
-  const now = Date.now();
-  
-  const updateData = {
-    ...stats,
-    games_played: stats.games_played + 1,
-    last_played: now
-  };
-  
-  if (result === 'win') updateData.wins = (stats.wins || 0) + 1;
-  else if (result === 'loss') updateData.losses = (stats.losses || 0) + 1;
-  else if (result === 'draw') updateData.draws = (stats.draws || 0) + 1;
-  
-  db.prepare(`
-    INSERT OR REPLACE INTO tic_tac_toe_stats 
-    (user_id, wins, losses, draws, games_played, last_played)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(
-    userId,
-    updateData.wins,
-    updateData.losses,
-    updateData.draws,
-    updateData.games_played,
-    updateData.last_played
   );
   
-  return updateData;
-}
-
-function getTicTacToeLeaderboard(limit = 10) {
-  return db.prepare(`
-    SELECT user_id, wins, losses, draws, games_played, 
-           (wins * 1.0 / NULLIF(games_played, 0)) as win_rate
-    FROM tic_tac_toe_stats
-    WHERE games_played > 0
-    ORDER BY wins DESC, win_rate DESC, games_played DESC
-    LIMIT ?
-  `).all(limit);
-}
-
-// Réinitialiser les statistiques du morpion pour un utilisateur spécifique ou pour tous les utilisateurs
-function resetTicTacToeStats(userId = null) {
-  if (userId) {
-    return db.prepare(`
-      DELETE FROM tic_tac_toe_stats
-      WHERE user_id = ?
-    `).run(userId);
-  } else {
-    return db.prepare(`
-      DELETE FROM tic_tac_toe_stats
-    `).run();
-  }
-}
-
-// Créer la table pour les giveaways si elle n'existe pas
-db.exec(`
-  CREATE TABLE IF NOT EXISTS giveaways (
-    channel_id TEXT PRIMARY KEY,
+  CREATE TABLE IF NOT EXISTS lottery_participants (
+    user_id TEXT PRIMARY KEY,
+    amount_contributed INTEGER DEFAULT 0,
+    last_contribution_time INTEGER DEFAULT 0
+  );
+  
+  CREATE TABLE IF NOT EXISTS daily_contests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    channel_id TEXT NOT NULL,
     message_id TEXT NOT NULL,
     prize INTEGER NOT NULL,
     start_time INTEGER NOT NULL,
     end_time INTEGER NOT NULL,
+    is_active INTEGER DEFAULT 1,
     has_winner INTEGER DEFAULT 0,
     winner_id TEXT
-  )
+  );
+  
+  -- S'assurer qu'il y a une entrée dans la table lottery_pot
+  INSERT OR IGNORE INTO lottery_pot (id, current_amount) VALUES (1, 0);
 `);
 
-// Fonctions pour gérer les giveaways
-function saveGiveaway(channelId, messageId, prize, startTime, endTime) {
-  db.prepare(`
-    INSERT INTO giveaways (channel_id, message_id, prize, start_time, end_time, has_winner)
-    VALUES (?, ?, ?, ?, ?, 0)
-    ON CONFLICT(channel_id) DO UPDATE SET
-      message_id = excluded.message_id,
-      prize = excluded.prize,
-      start_time = excluded.start_time,
-      end_time = excluded.end_time,
-      has_winner = 0,
-      winner_id = NULL
-  `).run(channelId, messageId, prize, startTime, endTime);
+// Fonctions utilitaires
+function ensureUser(userId) {
+  const stmt = db.prepare('INSERT OR IGNORE INTO users (user_id) VALUES (?)');
+  stmt.run(userId);
+  return db.prepare('SELECT * FROM users WHERE user_id = ?').get(userId);
 }
 
-function getActiveGiveaway(channelId) {
-  return db.prepare(`
-    SELECT * FROM giveaways 
-    WHERE channel_id = ? AND has_winner = 0 AND end_time > ?
-  `).get(channelId, Date.now());
-}
-
-function getAllActiveGiveaways() {
-  return db.prepare(`
-    SELECT * FROM giveaways 
-    WHERE has_winner = 0 AND end_time > ?
-  `).all(Date.now());
-}
-
-function setGiveawayWinner(channelId, winnerId) {
-  db.prepare(`
-    UPDATE giveaways 
-    SET has_winner = 1, winner_id = ? 
-    WHERE channel_id = ?
-  `).run(winnerId, channelId);
-}
-
-function removeGiveaway(channelId) {
-  db.prepare('DELETE FROM giveaways WHERE channel_id = ?').run(channelId);
-}
-
-// Fonctions pour gérer le solde spécial High Low
-function getSpecialBalance(userId) {
-  ensureUser(userId);
-  const user = db.prepare('SELECT special_balance FROM users WHERE user_id = ?').get(userId);
-  return user ? user.special_balance : 0;
-}
-
-function updateSpecialBalance(userId, amount) {
-  ensureUser(userId);
-  db.prepare('UPDATE users SET special_balance = special_balance + ? WHERE user_id = ?').run(amount, userId);
-  return getSpecialBalance(userId);
-}
-
-function addSpecialWinnings(userId, amount) {
-  ensureUser(userId);
-  db.prepare('UPDATE users SET special_balance = special_balance + ?, special_total_won = special_total_won + ? WHERE user_id = ?')
-    .run(amount, amount > 0 ? amount : 0, userId);
-  return getSpecialBalance(userId);
-}
-
-function addSpecialWagered(userId, amount) {
-  ensureUser(userId);
-  db.prepare('UPDATE users SET special_total_wagered = special_total_wagered + ? WHERE user_id = ?')
-    .run(amount, userId);
-}
-
-// Lottery Pot Functions
-function addToPot(amount) {
-  try {
-    console.log(`[Lottery] Adding ${amount} to pot`);
-    const pot = db.prepare('SELECT * FROM lottery_pot WHERE id = 1').get() || { current_amount: 0 };
-    const newAmount = (pot.current_amount || 0) + amount;
+function updateUser(userId, data) {
+  const entries = Object.entries(data);
+  if (entries.length === 0) return;
+  
+  const setClause = entries.map(([key]) => `${key} = ?`).join(', ');
+  const values = [...entries.map(([, value]) => value), userId];
+  
+  db.prepare(`UPDATE users SET ${setClause} WHERE user_id = ?`).run(...values);
+  
+  // Mettre à jour le niveau si nécessaire
+  if (data.xp !== undefined) {
+    const user = db.prepare('SELECT xp, level FROM users WHERE user_id = ?').get(userId);
+    const newLevel = Math.floor(Math.sqrt(user.xp) / 10) + 1;
     
-    db.prepare(`
-      INSERT OR REPLACE INTO lottery_pot (id, current_amount) 
-      VALUES (?, ?)
-    `).run(1, newAmount);
-    
-    console.log(`[Lottery] New pot amount: ${newAmount}`);
-    return newAmount;
-  } catch (error) {
-    console.error('Error in addToPot:', error);
-    throw error;
+    if (newLevel > user.level) {
+      db.prepare('UPDATE users SET level = ? WHERE user_id = ?').run(newLevel, userId);
+    }
   }
 }
 
-function addLotteryParticipant(userId, amount) {
+// Fonctions pour les concours quotidiens
+function saveDailyContest(channelId, messageId, prize, startTime, endTime) {
   try {
-    console.log(`[Lottery] Adding participant ${userId} with amount ${amount}`);
-    const now = Date.now();
-    
-    db.prepare(`
-      INSERT INTO lottery_participants (user_id, amount_contributed, last_contribution_time)
-      VALUES (?, ?, ?)
-      ON CONFLICT(user_id) 
-      DO UPDATE SET 
-        amount_contributed = amount_contributed + ?,
-        last_contribution_time = ?
-    `).run(userId, amount, now, amount, now);
-    
-    // Vérifier que le participant a bien été ajouté/mis à jour
-    const participant = db.prepare('SELECT * FROM lottery_participants WHERE user_id = ?').get(userId);
-    console.log(`[Lottery] Participant ${userId} updated. New contribution: ${participant?.amount_contributed}`);
+    const stmt = db.prepare(`
+      INSERT INTO daily_contests (channel_id, message_id, prize, start_time, end_time, is_active, has_winner)
+      VALUES (?, ?, ?, ?, ?, 1, 0)
+    `);
+    const result = stmt.run(channelId, messageId, prize, startTime, endTime);
+    return result.lastInsertRowid;
   } catch (error) {
-    console.error('Error in addLotteryParticipant:', error);
-    throw error;
-  }
-}
-
-function getCurrentPot() {
-  try {
-    const pot = db.prepare('SELECT * FROM lottery_pot WHERE id = 1').get();
-    const amount = pot ? pot.current_amount : 0;
-    console.log(`[Lottery] Current pot amount: ${amount}`);
-    return amount;
-  } catch (error) {
-    console.error('Error in getCurrentPot:', error);
-    return 0;
-  }
-}
-
-function getLotteryParticipants() {
-  try {
-    const participants = db.prepare('SELECT * FROM lottery_participants WHERE amount_contributed > 0').all();
-    console.log(`[Lottery] Found ${participants.length} participants`);
-    return participants;
-  } catch (error) {
-    console.error('Error in getLotteryParticipants:', error);
-    return [];
-  }
-}
-
-function drawLotteryWinner() {
-  try {
-    console.log('[Lottery] Drawing a winner...');
-    const participants = getLotteryParticipants();
-    
-    if (participants.length === 0) {
-      console.log('[Lottery] No participants found');
-      return null;
-    }
-
-    console.log(`[Lottery] Participants: ${participants.map(p => `${p.user_id}:${p.amount_contributed}`).join(', ')}`);
-    
-    const totalContributions = participants.reduce((sum, p) => sum + p.amount_contributed, 0);
-    const pot = getCurrentPot();
-    
-    if (pot <= 0) {
-      console.log('[Lottery] Pot is empty');
-      return null;
-    }
-    
-    console.log(`[Lottery] Total contributions: ${totalContributions}, Pot: ${pot}`);
-    
-    let random = Math.random() * totalContributions;
-    let winner = null;
-    
-    console.log(`[Lottery] Random value: ${random}`);
-    
-    for (const p of participants) {
-      random -= p.amount_contributed;
-      console.log(`[Lottery] Testing participant ${p.user_id} (${p.amount_contributed}), remaining: ${random}`);
-      if (random <= 0) {
-        winner = p;
-        console.log(`[Lottery] Winner selected: ${winner.user_id}`);
-        break;
-      }
-    }
-
-    if (!winner) {
-      console.log('[Lottery] No winner could be determined');
-      return null;
-    }
-
-    const now = Date.now();
-    console.log(`[Lottery] Updating lottery pot with winner ${winner.user_id} and amount ${pot}`);
-    
-    db.prepare(`
-      UPDATE lottery_pot 
-      SET 
-        current_amount = 0,
-        last_winner_id = ?,
-        last_win_amount = ?,
-        last_win_time = ?
-      WHERE id = 1
-    `).run(winner.user_id, pot, now);
-
-    console.log('[Lottery] Clearing participants table');
-    db.prepare('DELETE FROM lottery_participants').run();
-
-    const result = {
-      userId: winner.user_id,
-      amount: pot
-    };
-    
-    console.log('[Lottery] Draw complete. Winner:', result);
-    return result;
-    
-  } catch (error) {
-    console.error('Error in drawLotteryWinner:', error);
+    console.error('Erreur lors de la sauvegarde du concours:', error);
     return null;
   }
 }
 
+function getActiveDailyContest() {
+  try {
+    const stmt = db.prepare('SELECT * FROM daily_contests WHERE is_active = 1 AND has_winner = 0 LIMIT 1');
+    return stmt.get();
+  } catch (error) {
+    console.error('Erreur lors de la récupération du concours actif:', error);
+    return null;
+  }
+}
+
+function getDailyContestById(contestId) {
+  try {
+    const stmt = db.prepare('SELECT * FROM daily_contests WHERE id = ?');
+    return stmt.get(contestId);
+  } catch (error) {
+    console.error('Erreur lors de la récupération du concours par ID:', error);
+    return null;
+  }
+}
+
+function getAllActiveDailyContests() {
+  try {
+    const stmt = db.prepare('SELECT * FROM daily_contests WHERE is_active = 1 AND has_winner = 0');
+    return stmt.all();
+  } catch (error) {
+    console.error('Erreur lors de la récupération des concours actifs:', error);
+    return [];
+  }
+}
+
+function setDailyContestWinner(contestId, winnerId) {
+  try {
+    const stmt = db.prepare('UPDATE daily_contests SET has_winner = 1, winner_id = ? WHERE id = ?');
+    return stmt.run(winnerId || null, contestId).changes > 0;
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour du gagnant du concours:', error);
+    return false;
+  }
+}
+
+function removeDailyContest(contestId) {
+  try {
+    const stmt = db.prepare('DELETE FROM daily_contests WHERE id = ?');
+    return stmt.run(contestId).changes > 0;
+  } catch (error) {
+    console.error('Erreur lors de la suppression du concours:', error);
+    return false;
+  }
+}
+
+// Exporter les fonctions et la connexion à la base de données
 module.exports = {
   db,
   ensureUser,
   updateUser,
-  addToPot,
-  addLotteryParticipant,
-  getCurrentPot,
-  getLotteryParticipants,
-  drawLotteryWinner,
-  // Giveaway functions
-  saveGiveaway,
-  getActiveGiveaway,
-  getAllActiveGiveaways,
-  setGiveawayWinner,
-  removeGiveaway,
-  updateMissionProgress,
-  getTicTacToeStats,
-  updateTicTacToeStats,
-  getTicTacToeLeaderboard,
-  resetTicTacToeStats,
-  // Fonctions pour le solde spécial High Low
-  getSpecialBalance,
-  updateSpecialBalance,
-  addSpecialWinnings,
-  addSpecialWagered
+  saveDailyContest,
+  getActiveDailyContest,
+  getDailyContestById,
+  getAllActiveDailyContests,
+  setDailyContestWinner,
+  removeDailyContest,
+  // Autres fonctions exportées...
+  ...require('./database-functions') // Si vous avez d'autres fonctions dans un fichier séparé
 };
