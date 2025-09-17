@@ -48,19 +48,30 @@ async function checkActiveGame(interaction, activeGames, gameName) {
 
 // Add to lottery pot and track participant
 function contributeToLotteryPot(userId, betAmount) {
+  console.log(`[Lottery] Contributing to pot - User: ${userId}, Bet: ${betAmount}`);
   const potContribution = Math.ceil(betAmount * 0.01); // 1% of bet
-  if (potContribution > 0) {
-    try {
-      const database = require('../database');
-      database.addToPot(potContribution);
-      database.addLotteryParticipant(userId, potContribution);
-      return potContribution;
-    } catch (error) {
-      console.error('Error contributing to lottery pot:', error);
-      return 0;
-    }
+  
+  if (potContribution <= 0) {
+    console.log('[Lottery] Contribution amount is 0 or negative, skipping');
+    return 0;
   }
-  return 0;
+  
+  console.log(`[Lottery] Calculated contribution: ${potContribution} (1% of ${betAmount})`);
+  
+  try {
+    const database = require('../database');
+    console.log('[Lottery] Adding to pot...');
+    database.addToPot(potContribution);
+    
+    console.log(`[Lottery] Adding participant ${userId} with contribution ${potContribution}`);
+    database.addLotteryParticipant(userId, potContribution);
+    
+    console.log('[Lottery] Contribution successful');
+    return potContribution;
+  } catch (error) {
+    console.error('[Lottery] Error contributing to lottery pot:', error);
+    return 0;
+  }
 }
 
 module.exports = {

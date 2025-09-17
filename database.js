@@ -48,6 +48,31 @@ function updateDatabaseSchema() {
   
   // Ajout de la colonne pour le suivi des récompenses BDG quotidiennes
   addColumnIfNotExists('users', 'last_bdg_claim', 'INTEGER DEFAULT 0');
+  
+  // Création des tables pour la loterie si elles n'existent pas
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS lottery_pot (
+        id INTEGER PRIMARY KEY DEFAULT 1,
+        current_amount INTEGER DEFAULT 0,
+        last_winner_id TEXT,
+        last_win_amount INTEGER DEFAULT 0,
+        last_win_time INTEGER DEFAULT 0
+      );
+      
+      CREATE TABLE IF NOT EXISTS lottery_participants (
+        user_id TEXT PRIMARY KEY,
+        amount_contributed INTEGER DEFAULT 0,
+        last_contribution_time INTEGER DEFAULT 0
+      );
+      
+      -- S'assurer qu'il y a une entrée dans la table lottery_pot
+      INSERT OR IGNORE INTO lottery_pot (id, current_amount) VALUES (1, 0);
+    `);
+    console.log('[Database] Tables de loterie vérifiées/créées avec succès');
+  } catch (error) {
+    console.error('Erreur lors de la création des tables de loterie:', error);
+  }
 }
 
 // Exécuter la mise à jour du schéma
@@ -303,72 +328,140 @@ function addSpecialWagered(userId, amount) {
 
 // Lottery Pot Functions
 function addToPot(amount) {
-  const pot = db.prepare('SELECT * FROM lottery_pot WHERE id = 1').get() || { current_amount: 0 };
-  const newAmount = (pot.current_amount || 0) + amount;
-  db.prepare(`
-    INSERT OR REPLACE INTO lottery_pot (id, current_amount) 
-    VALUES (1, ?)
-  `).run(newAmount);
-  return newAmount;
+  try {
+    console.log(`[Lottery] Adding ${amount} to pot`);
+    const pot = db.prepare('SELECT * FROM lottery_pot WHERE id = 1').get() || { current_amount: 0 };
+    const newAmount = (pot.current_amount || 0) + amount;
+    
+    db.prepare(`
+      INSERT OR REPLACE INTO lottery_pot (id, current_amount) 
+      VALUES (?, ?)
+    `).run(1, newAmount);
+    
+    console.log(`[Lottery] New pot amount: ${newAmount}`);
+    return newAmount;
+  } catch (error) {
+    console.error('Error in addToPot:', error);
+    throw error;
+  }
 }
 
 function addLotteryParticipant(userId, amount) {
-  const now = Date.now();
-  db.prepare(`
-    INSERT INTO lottery_participants (user_id, amount_contributed, last_contribution_time)
-    VALUES (?, ?, ?)
-    ON CONFLICT(user_id) 
-    DO UPDATE SET 
-      amount_contributed = amount_contributed + ?,
-      last_contribution_time = ?
-  `).run(userId, amount, now, amount, now);
+  try {
+    console.log(`[Lottery] Adding participant ${userId} with amount ${amount}`);
+    const now = Date.now();
+    
+    db.prepare(`
+      INSERT INTO lottery_participants (user_id, amount_contributed, last_contribution_time)
+      VALUES (?, ?, ?)
+      ON CONFLICT(user_id) 
+      DO UPDATE SET 
+        amount_contributed = amount_contributed + ?,
+        last_contribution_time = ?
+    `).run(userId, amount, now, amount, now);
+    
+    // Vérifier que le participant a bien été ajouté/mis à jour
+    const participant = db.prepare('SELECT * FROM lottery_participants WHERE user_id = ?').get(userId);
+    console.log(`[Lottery] Participant ${userId} updated. New contribution: ${participant?.amount_contributed}`);
+  } catch (error) {
+    console.error('Error in addLotteryParticipant:', error);
+    throw error;
+  }
 }
 
 function getCurrentPot() {
-  const pot = db.prepare('SELECT * FROM lottery_pot WHERE id = 1').get();
-  return pot ? pot.current_amount : 0;
+  try {
+    const pot = db.prepare('SELECT * FROM lottery_pot WHERE id = 1').get();
+    const amount = pot ? pot.current_amount : 0;
+    console.log(`[Lottery] Current pot amount: ${amount}`);
+    return amount;
+  } catch (error) {
+    console.error('Error in getCurrentPot:', error);
+    return 0;
+  }
 }
 
 function getLotteryParticipants() {
-  return db.prepare('SELECT * FROM lottery_participants WHERE amount_contributed > 0').all();
+  try {
+    const participants = db.prepare('SELECT * FROM lottery_participants WHERE amount_contributed > 0').all();
+    console.log(`[Lottery] Found ${participants.length} participants`);
+    return participants;
+  } catch (error) {
+    console.error('Error in getLotteryParticipants:', error);
+    return [];
+  }
 }
 
 function drawLotteryWinner() {
-  const participants = getLotteryParticipants();
-  if (participants.length === 0) return null;
-
-  const totalContributions = participants.reduce((sum, p) => sum + p.amount_contributed, 0);
-  const pot = getCurrentPot();
-  let random = Math.random() * totalContributions;
-  let winner = null;
-  
-  for (const p of participants) {
-    random -= p.amount_contributed;
-    if (random <= 0) {
-      winner = p;
-      break;
+  try {
+    console.log('[Lottery] Drawing a winner...');
+    const participants = getLotteryParticipants();
+    
+    if (participants.length === 0) {
+      console.log('[Lottery] No participants found');
+      return null;
     }
+
+    console.log(`[Lottery] Participants: ${participants.map(p => `${p.user_id}:${p.amount_contributed}`).join(', ')}`);
+    
+    const totalContributions = participants.reduce((sum, p) => sum + p.amount_contributed, 0);
+    const pot = getCurrentPot();
+    
+    if (pot <= 0) {
+      console.log('[Lottery] Pot is empty');
+      return null;
+    }
+    
+    console.log(`[Lottery] Total contributions: ${totalContributions}, Pot: ${pot}`);
+    
+    let random = Math.random() * totalContributions;
+    let winner = null;
+    
+    console.log(`[Lottery] Random value: ${random}`);
+    
+    for (const p of participants) {
+      random -= p.amount_contributed;
+      console.log(`[Lottery] Testing participant ${p.user_id} (${p.amount_contributed}), remaining: ${random}`);
+      if (random <= 0) {
+        winner = p;
+        console.log(`[Lottery] Winner selected: ${winner.user_id}`);
+        break;
+      }
+    }
+
+    if (!winner) {
+      console.log('[Lottery] No winner could be determined');
+      return null;
+    }
+
+    const now = Date.now();
+    console.log(`[Lottery] Updating lottery pot with winner ${winner.user_id} and amount ${pot}`);
+    
+    db.prepare(`
+      UPDATE lottery_pot 
+      SET 
+        current_amount = 0,
+        last_winner_id = ?,
+        last_win_amount = ?,
+        last_win_time = ?
+      WHERE id = 1
+    `).run(winner.user_id, pot, now);
+
+    console.log('[Lottery] Clearing participants table');
+    db.prepare('DELETE FROM lottery_participants').run();
+
+    const result = {
+      userId: winner.user_id,
+      amount: pot
+    };
+    
+    console.log('[Lottery] Draw complete. Winner:', result);
+    return result;
+    
+  } catch (error) {
+    console.error('Error in drawLotteryWinner:', error);
+    return null;
   }
-
-  if (!winner) return null;
-
-  const now = Date.now();
-  db.prepare(`
-    UPDATE lottery_pot 
-    SET 
-      current_amount = 0,
-      last_winner_id = ?,
-      last_win_amount = ?,
-      last_win_time = ?
-    WHERE id = 1
-  `).run(winner.user_id, pot, now);
-
-  db.prepare('DELETE FROM lottery_participants').run();
-
-  return {
-    userId: winner.user_id,
-    amount: pot
-  };
 }
 
 module.exports = {

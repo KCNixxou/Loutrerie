@@ -354,58 +354,106 @@ async function handleSlashCommand(interaction) {
       break;
       
     case 'tas':
-      if (!isAdmin(interaction.user.id)) {
-        return interaction.reply({ 
-          content: '❌ Seuls les administrateurs peuvent utiliser cette commande.', 
-          ephemeral: true 
-        });
-      }
-      
-      const lotterySubcommand = interaction.options.getSubcommand();
-      const { getCurrentPot, drawLotteryWinner } = require('./database');
-      
-      if (lotterySubcommand === 'tirer') {
-        const winner = drawLotteryWinner();
+      try {
+        console.log(`[Lottery] Command /tas received from ${interaction.user.id}`);
         
-        if (!winner) {
-          return interaction.reply({
-            content: '❌ Aucun participant dans le pot commun pour le moment.',
-            ephemeral: true
+        if (!isAdmin(interaction.user.id)) {
+          console.log(`[Lottery] Access denied for user ${interaction.user.id}`);
+          return interaction.reply({ 
+            content: '❌ Seuls les administrateurs peuvent utiliser cette commande.', 
+            ephemeral: true 
           });
         }
         
-        // Update winner's balance
-        const user = ensureUser(winner.userId);
-        updateUser(winner.userId, { balance: user.balance + winner.amount });
+        const lotterySubcommand = interaction.options.getSubcommand();
+        console.log(`[Lottery] Subcommand: ${lotterySubcommand}`);
         
-        // Get the winner's username
-        let winnerName;
-        try {
-          const winnerMember = await interaction.guild.members.fetch(winner.userId);
-          winnerName = winnerMember.user.tag;
-        } catch (e) {
-          winnerName = `Utilisateur (${winner.userId})`;
-        }
+        const { getCurrentPot, drawLotteryWinner, getLotteryParticipants } = require('./database');
         
-        await interaction.reply({
-          content: `🎉 **TIRAGE AU SORT** 🎉\n` +
-                  `Le gagnant du pot commun est **${winnerName}** !\n` +
-                  `Il remporte **${winner.amount}** ${config.currency.emoji} !`,
-          allowedMentions: { users: [winner.userId] }
-        });
-        
-      } else if (lotterySubcommand === 'statut') {
-        const potAmount = getCurrentPot();
-        const participants = require('./database').getLotteryParticipants();
-        
-        const embed = new EmbedBuilder()
-          .setTitle('💰 Pot Commun de la Loterie')
-          .setDescription(`Montant actuel du pot : **${potAmount}** ${config.currency.emoji}\n` +
-                        `Nombre de participants : **${participants.length}**`)
-          .setColor(0x00ff00)
-          .setFooter({ text: '1% de chaque mise est ajouté au pot commun' });
+        if (lotterySubcommand === 'tirer') {
+          console.log('[Lottery] Drawing a winner...');
+          const winner = drawLotteryWinner();
           
-        await interaction.reply({ embeds: [embed] });
+          if (!winner) {
+            console.log('[Lottery] No winner could be determined');
+            return interaction.reply({
+              content: '❌ Aucun participant dans le pot commun pour le moment ou erreur lors du tirage.',
+              ephemeral: true
+            });
+          }
+          
+          console.log(`[Lottery] Winner found: ${JSON.stringify(winner)}`);
+          
+          // Update winner's balance
+          console.log(`[Lottery] Updating balance for winner ${winner.userId}`);
+          const user = ensureUser(winner.userId);
+          updateUser(winner.userId, { balance: user.balance + winner.amount });
+          
+          // Get the winner's username
+          let winnerName;
+          try {
+            console.log(`[Lottery] Fetching user info for ${winner.userId}`);
+            const winnerMember = await interaction.guild.members.fetch(winner.userId);
+            winnerName = winnerMember.user.tag;
+            console.log(`[Lottery] Winner username: ${winnerName}`);
+          } catch (e) {
+            console.warn(`[Lottery] Could not fetch user info for ${winner.userId}:`, e);
+            winnerName = `Utilisateur (${winner.userId})`;
+          }
+          
+          const winMessage = `🎉 **TIRAGE AU SORT** 🎉\n` +
+                          `Le gagnant du pot commun est **${winnerName}** !\n` +
+                          `Il remporte **${winner.amount}** ${config.currency.emoji} !`;
+          
+          console.log(`[Lottery] Sending win message: ${winMessage}`);
+          
+          await interaction.reply({
+            content: winMessage,
+            allowedMentions: { users: [winner.userId] }
+          });
+          
+        } else if (lotterySubcommand === 'statut') {
+          console.log('[Lottery] Getting pot status...');
+          const potAmount = getCurrentPot();
+          const participants = getLotteryParticipants();
+          
+          console.log(`[Lottery] Pot amount: ${potAmount}, Participants: ${participants.length}`);
+          
+          const embed = new EmbedBuilder()
+            .setTitle('💰 Pot Commun de la Loterie')
+            .setDescription(
+              `Montant actuel du pot : **${potAmount}** ${config.currency.emoji}\n` +
+              `Nombre de participants : **${participants.length}**`
+            )
+            .setColor(0x00ff00)
+            .setFooter({ text: '1% de chaque mise est ajouté au pot commun' });
+          
+          if (participants.length > 0) {
+            // Afficher le top 5 des contributeurs
+            const topContributors = [...participants]
+              .sort((a, b) => b.amount_contributed - a.amount_contributed)
+              .slice(0, 5);
+            
+            embed.addFields({
+              name: 'Top contributeurs',
+              value: topContributors
+                .map((p, i) => 
+                  `${i + 1}. <@${p.user_id}>: ${p.amount_contributed} ${config.currency.emoji}`
+                )
+                .join('\n') || 'Aucun participant',
+              inline: true
+            });
+          }
+          
+          console.log('[Lottery] Sending status embed');
+          await interaction.reply({ embeds: [embed] });
+        }
+      } catch (error) {
+        console.error('[Lottery] Error in /tas command:', error);
+        await interaction.reply({
+          content: '❌ Une erreur est survenue lors du traitement de la commande.',
+          ephemeral: true
+        });
       }
       break;
       

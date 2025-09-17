@@ -56,13 +56,19 @@ async function handleBlackjackStart(interaction) {
     return;
   }
   
-  // Déduire la mise et ajouter 1% au pot commun
-  updateUser(interaction.user.id, { balance: user.balance - bet });
+  const userId = interaction.user.id;
+  console.log(`[Blackjack] User ${userId} is starting a game with bet: ${bet}`);
+  
+  // Déduire la mise
+  updateUser(userId, { balance: user.balance - bet });
+  console.log(`[Blackjack] Deducted ${bet} from user ${userId}`);
   
   // Ajouter au pot commun
   const { contributeToLotteryPot } = require('./utils/gameUtils');
-  contributeToLotteryPot(interaction.user.id, bet);
+  const contribution = contributeToLotteryPot(userId, bet);
+  console.log(`[Blackjack] Added ${contribution} to lottery pot from user ${userId}`);
   
+  // Initialiser le jeu
   const deck = createDeck();
   const playerHand = [deck.pop(), deck.pop()];
   const dealerHand = [deck.pop()];
@@ -72,7 +78,8 @@ async function handleBlackjackStart(interaction) {
     playerHand, 
     dealerHand, 
     bet, 
-    userId: interaction.user.id,
+    userId,
+    lotteryContribution: contribution,
     createdAt: Date.now()
   };
   
@@ -166,7 +173,8 @@ async function resolveBlackjack(interaction, game) {
 // ROULETTE
 async function handleRouletteStart(interaction) {
   const bet = interaction.options.getInteger('mise');
-  const user = ensureUser(interaction.user.id);
+  const userId = interaction.user.id;
+  const user = ensureUser(userId);
   
   if (bet > user.balance) {
     await interaction.reply({ content: `❌ Solde insuffisant ! Tu as ${user.balance} ${config.currency.emoji}`, ephemeral: true });
@@ -177,6 +185,14 @@ async function handleRouletteStart(interaction) {
     await interaction.reply({ content: `❌ Mise maximum: ${config.casino.maxBet} ${config.currency.emoji}`, ephemeral: true });
     return;
   }
+  
+  // Déduire la mise du solde de l'utilisateur
+  updateUser(userId, { balance: user.balance - bet });
+  
+  // Ajouter au pot commun
+  const { contributeToLotteryPot } = require('./utils/gameUtils');
+  const contribution = contributeToLotteryPot(userId, bet);
+  console.log(`[Roulette] User ${userId} bet ${bet}, contributed ${contribution} to lottery pot`);
   
   const embed = new EmbedBuilder()
     .setTitle('🎡 Roulette')
@@ -214,13 +230,11 @@ async function handleRouletteStart(interaction) {
 async function handleRouletteChoice(interaction) {
   const [type, value, bet] = interaction.customId.split('_');
   const betAmount = parseInt(bet);
-  const user = ensureUser(interaction.user.id);
+  const userId = interaction.user.id;
+  const user = ensureUser(userId);
   
-  // Add to lottery pot
-  const { contributeToLotteryPot } = require('./utils/gameUtils');
-  contributeToLotteryPot(interaction.user.id, betAmount);
-  
-  // Ne pas déduire la mise ici, elle est déjà déduite dans handleRouletteStart
+  // La mise a déjà été déduite et la contribution au pot commun a déjà été faite dans handleRouletteStart
+  console.log(`[Roulette] Processing choice for user ${userId}, bet: ${betAmount}`);
   
   const resultNumber = random(0, 36);
   const resultColor = getRouletteColor(resultNumber);
@@ -273,22 +287,30 @@ async function handleSlots(interaction) {
     return;
   }
   
-  // Déduire la mise et ajouter 1% au pot commun
-  updateUser(interaction.user.id, { balance: user.balance - bet });
+  const userId = interaction.user.id;
+  console.log(`[Slots] User ${userId} is playing slots with bet: ${bet}`);
+  
+  // Déduire la mise
+  updateUser(userId, { balance: user.balance - bet });
+  console.log(`[Slots] Deducted ${bet} from user ${userId}`);
   
   // Ajouter au pot commun
   const { contributeToLotteryPot } = require('./utils/gameUtils');
-  contributeToLotteryPot(interaction.user.id, bet);
+  const contribution = contributeToLotteryPot(userId, bet);
+  console.log(`[Slots] Added ${contribution} to lottery pot from user ${userId}`);
   
   // Mettre à jour l'utilisateur pour avoir le bon solde
-  const updatedUser = ensureUser(interaction.user.id);
+  const updatedUser = ensureUser(userId);
   
+  // Jouer aux machines à sous
   const { result, multiplier } = playSlots();
   const winnings = Math.floor(bet * multiplier);
+  console.log(`[Slots] Multiplier: ${multiplier}, Winnings: ${winnings}`);
   
   if (winnings > 0) {
     // Ajouter les gains au nouveau solde (après déduction de la mise)
-    updateUser(interaction.user.id, { balance: updatedUser.balance + winnings });
+    updateUser(userId, { balance: updatedUser.balance + winnings });
+    console.log(`[Slots] Added winnings ${winnings} to user ${userId}`);
   }
   
   const netWinnings = winnings - bet;
@@ -337,14 +359,19 @@ async function handleCoinflipSolo(interaction) {
     return;
   }
   
-  // Déduire la mise et ajouter 1% au pot commun
-  const potContribution = Math.ceil(bet * 0.01);
-  updateUser(interaction.user.id, { balance: user.balance - bet });
+  const userId = interaction.user.id;
+  console.log(`[Coinflip] User ${userId} is playing ${choice} with bet: ${bet}`);
+  
+  // Déduire la mise
+  updateUser(userId, { balance: user.balance - bet });
+  console.log(`[Coinflip] Deducted ${bet} from user ${userId}`);
   
   // Ajouter au pot commun
   const { contributeToLotteryPot } = require('./utils/gameUtils');
-  contributeToLotteryPot(interaction.user.id, bet);
+  const contribution = contributeToLotteryPot(userId, bet);
+  console.log(`[Coinflip] Added ${contribution} to lottery pot from user ${userId}`);
   
+  // Déterminer le résultat
   const result = random(0, 1) === 0 ? 'pile' : 'face';
   const won = choice === result;
   const winnings = won ? bet * 2 : 0;
@@ -1603,20 +1630,31 @@ async function handleHighLow(interaction) {
   const deck = createDeck();
   const currentCard = deck.pop();
   
+  console.log(`[HighLow] User ${userId} is starting a new game with bet: ${bet}`);
+  
   // Retirer la mise du solde de l'utilisateur
   updateUser(userId, { balance: user.balance - bet });
+  console.log(`[HighLow] Deducted ${bet} from user ${userId}`);
+  
+  // Ajouter 1% de la mise au pot commun
+  const { contributeToLotteryPot } = require('./utils/gameUtils');
+  const contribution = contributeToLotteryPot(userId, bet);
+  console.log(`[HighLow] Added ${contribution} to lottery pot from user ${userId}`);
   
   // Enregistrer la partie avec un ID unique
   const gameId = `hl_${Date.now()}_${userId}`;  // Format: hl_timestamp_userId
   console.log('[HighLow] New game created with ID:', gameId);
+  
   activeHighLowGames.set(gameId, {
     userId,
     deck,
     currentCard,
     currentBet: bet,
+    lotteryContribution: contribution,
     currentMultiplier: 1.0, // Commence à 1.0, mais premier tour sera 1.5
     totalWon: 0,
     potentialWinnings: 0, // Gains potentiels actuels
+    createdAt: Date.now(),
     initialBet: bet, // Sauvegarder la mise initiale séparément
     hasWon: false, // Pour suivre si le joueur a gagné le tour actuel
     round: 1 // Initialisation du compteur de tours
