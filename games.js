@@ -1246,22 +1246,6 @@ async function handleTicTacToeMove(interaction) {
   }
 }
 
-// Fonction pour obtenir le classement du morpion
-function getTicTacToeLeaderboard(limit = 10) {
-  return db.prepare(`
-    SELECT 
-      user_id,
-      wins,
-      losses,
-      draws,
-      (wins * 1.0 / (wins + losses + draws)) as win_rate
-    FROM tic_tac_toe_stats
-    WHERE wins + losses + draws > 0
-    ORDER BY win_rate DESC, wins DESC
-    LIMIT ?
-  `).all(limit);
-}
-
 // Fonction pour réinitialiser les statistiques du morpion
 function resetTicTacToeStats(userId = null) {
   if (userId) {
