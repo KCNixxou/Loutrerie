@@ -2,12 +2,10 @@ require('dotenv').config();
 const { Client, GatewayIntentBits, Partials, REST, Routes, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const express = require('express');
 const { isMaintenanceMode, isAdmin, maintenanceMiddleware, setMaintenance } = require('./maintenance');
-const { calculateLevel } = require('./utils');
-
 // Modules personnalisés
 const config = require('./config');
 const { ensureUser, updateUser, updateMissionProgress, db, getSpecialBalance, updateSpecialBalance } = require('./database');
-const { random, now, getXpMultiplier, scheduleMidnightReset } = require('./utils');
+const { random, now, getXpMultiplier, scheduleMidnightReset, calculateLevel, getLevelInfo } = require('./utils');
 const commands = require('./commands');
 const { 
   activeBlackjackGames, 
@@ -144,6 +142,7 @@ client.on('messageCreate', async (message) => {
   const newXp = (user.xp || 0) + xpGain;
   const newLevel = calculateLevel(newXp);
   const levelUp = newLevel > (user.level || 1);
+  const levelInfo = getLevelInfo(newXp);
   
   console.log(`[XP DEBUG] Gain d'XP: +${xpGain} (x${multiplier} multiplicateur)`);
   console.log(`[XP DEBUG] Nouvel XP: ${newXp}, Nouveau niveau: ${newLevel} (${levelUp ? 'NIVEAU SUPÉRIEUR!' : 'Pas de changement de niveau'})`);
@@ -155,7 +154,7 @@ client.on('messageCreate', async (message) => {
   
   const updateData = {
     xp: newXp,
-    level: newLevel,
+    level: newLevel,  // Déjà une valeur numérique
     last_xp_gain: currentTime,
     daily_messages: newDailyMessages,
     balance: (user.balance || 0) + (levelUp ? 50 : 0) + (missionReward || 0)
@@ -170,9 +169,10 @@ client.on('messageCreate', async (message) => {
   }
   
   if (levelUp) {
+    const levelInfo = getLevelInfo(newXp);
     const embed = new EmbedBuilder()
       .setTitle('🎉 Niveau supérieur !')
-      .setDescription(`Félicitations <@${message.author.id}> ! Tu es maintenant niveau **${newLevel}** !\n+50 ${config.currency.emoji} de bonus !`)
+      .setDescription(`Félicitations <@${message.author.id}> ! Tu es maintenant niveau **${newLevel}** !\n+50 ${config.currency.emoji} de bonus !\nProgression: ${levelInfo.currentXp}/${levelInfo.xpForNextLevel} XP (${levelInfo.progress.toFixed(1)}%)`)
       .setColor(0x00ff00);
     
     message.channel.send({ embeds: [embed] });
@@ -276,7 +276,7 @@ async function handleSlashCommand(interaction) {
         console.log(`[DEBUG] XP de l'utilisateur: ${xp}`);
         
         console.log('[DEBUG] Calcul du niveau...');
-        const levelInfo = calculateLevel(xp);
+        const levelInfo = getLevelInfo(xp);
         console.log('[DEBUG] Niveau calculé:', levelInfo);
         
         console.log('[DEBUG] Création de l\'embed...');
