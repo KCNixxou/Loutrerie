@@ -1358,6 +1358,45 @@ async function handleTicTacToeLeaderboard(interaction) {
   }
 }
 
+// Fonction pour comparer deux cartes
+function compareCards(card1, card2, action) {
+  // Valeurs possibles des cartes (de la plus faible à la plus forte)
+  const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+  
+  // Obtenir les indices des valeurs
+  const index1 = values.indexOf(card1.value);
+  const index2 = values.indexOf(card2.value);
+  
+  // Vérifier si les cartes sont identiques
+  if (card1.value === card2.value) {
+    return { result: action === 'same', sameCard: true };
+  }
+  
+  // Comparer les cartes
+  const isHigher = index2 > index1;
+  const isLower = index2 < index1;
+  
+  // Déterminer si le pari est gagnant
+  let result = false;
+  if (action === 'higher') {
+    result = isHigher;
+  } else if (action === 'lower') {
+    result = isLower;
+  }
+  
+  return { result, sameCard: false };
+}
+
+// Fonction utilitaire pour obtenir la valeur numérique d'une carte
+function getCardValue(card) {
+  const values = {
+    '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10,
+    'J': 11, 'Q': 12, 'K': 13, 'A': 14
+  };
+  // Retourne un tableau pour gérer les cas où une carte peut avoir plusieurs valeurs (comme l'As)
+  return [values[card.value] || 0];
+}
+
 // Fonction utilitaire pour clôturer une partie High Low
 function endHighLowGame(gameId, interaction, isAdmin = false) {
   const game = activeHighLowGames.get(gameId);
