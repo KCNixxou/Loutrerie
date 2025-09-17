@@ -1271,15 +1271,20 @@ function scheduleNextGiveaway() {
 
 // Générer une heure aléatoire pour le prochain giveaway
 function generateNextGiveawayTime() {
+  // Créer une date dans le fuseau horaire de Paris
+  const now = new Date();
+  const parisTime = new Date(now.toLocaleString('fr-FR', { timeZone: 'Europe/Paris' }));
+  
   // Heure aléatoire entre MIN_HOUR et MAX_HOUR
   const hours = Math.floor(Math.random() * (MAX_HOUR - MIN_HOUR + 1)) + MIN_HOUR;
   const minutes = Math.floor(Math.random() * 60);
   
-  const targetTime = new Date();
+  // Créer la date cible dans le fuseau horaire de Paris
+  const targetTime = new Date(parisTime);
   targetTime.setHours(hours, minutes, 0, 0);
   
   // Si l'heure est déjà passée aujourd'hui, programmer pour demain
-  if (targetTime <= new Date()) {
+  if (targetTime <= parisTime) {
     targetTime.setDate(targetTime.getDate() + 1);
   }
   

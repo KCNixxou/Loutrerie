@@ -737,11 +737,180 @@ async function handlePurchase(interaction) {
   await interaction.reply({ embeds: [embed] });
 }
 
+// Fonction pour le coup de l'IA
+function getAIMove(board, aiSymbol) {
+  // Vérifier si l'IA peut gagner au prochain coup
+  for (let i = 0; i < 25; i++) {
+    if (board[i] === null) {
+      board[i] = aiSymbol;
+      if (checkTicTacToeWinner(board) === aiSymbol) {
+        board[i] = null;
+        return i;
+      }
+      board[i] = null;
+    }
+  }
+
+  // Vérifier si le joueur peut gagner au prochain coup et le bloquer
+  const playerSymbol = aiSymbol === 'X' ? 'O' : 'X';
+  for (let i = 0; i < 25; i++) {
+    if (board[i] === null) {
+      board[i] = playerSymbol;
+      if (checkTicTacToeWinner(board) === playerSymbol) {
+        board[i] = null;
+        return i;
+      }
+      board[i] = null;
+    }
+  }
+
+  // Choisir une case vide au hasard
+  const emptyIndices = [];
+  for (let i = 0; i < 25; i++) {
+    if (board[i] === null) {
+      emptyIndices.push(i);
+    }
+  }
+  return emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
+}
+
+// Fonction pour créer une nouvelle partie de morpion
+async function createTicTacToeGame(interaction, player1, player2, bet = 0, isSoloMode = false) {
+  // Créer la grille de jeu 5x5
+  const board = Array(25).fill(null);
+  const gameId = `${player1.id}-${player2.id}-${Date.now()}`;
+  
+  console.log(`[MORPION] Création d'une nouvelle partie: ${gameId}`);
+  console.log(`[MORPION] Joueurs: ${player1.username} vs ${player2.username}`);
+  
+  // Créer les boutons pour la grille 5x5
+  const rows = [];
+  for (let i = 0; i < 5; i++) {
+    const row = new ActionRowBuilder();
+    for (let j = 0; j < 5; j++) {
+      const index = i * 5 + j;
+      const button = new ButtonBuilder()
+        .setCustomId(`ttt_${gameId}_${index}`)
+        .setLabel('·') // Point médian comme marqueur visuel
+        .setStyle(ButtonStyle.Secondary);
+      
+      // Désactiver les boutons si c'est au tour de l'IA
+      if (isSoloMode) {
+        button.setDisabled(true);
+      }
+      
+      row.addComponents(button);
+    }
+    rows.push(row);
+  }
+  
+  // Enregistrer la partie
+  const game = {
+    board,
+    players: [player1.id, player2.id],
+    player1,
+    player2,
+    currentPlayer: 0, // 0 pour le joueur 1, 1 pour le joueur 2/IA
+    bet,
+    isSoloMode,
+    message: null
+  };
+  
+  activeTicTacToeGames.set(gameId, game);
+  
+  // Créer l'embed
+  const embed = new EmbedBuilder()
+    .setTitle('⭕ Morpion ❌')
+    .setDescription(`**${player1.username}** (❌) vs **${player2.username}** (⭕)\n\nC'est au tour de ${player1}`)
+    .setColor(0x00ff00);
+  
+  if (bet > 0) {
+    embed.addFields({ name: 'Mise', value: `${bet} ${config.currency.emoji}`, inline: true });
+  }
+  
+  // Envoyer le message avec les boutons
+  try {
+    const message = await interaction.reply({ 
+      content: isSoloMode ? 
+        `${player1}, affronte l'IA Loutre au morpion !` : 
+        `${player1} vs ${player2} - C'est parti pour une partie de morpion !`,
+      embeds: [embed],
+      components: rows,
+      fetchReply: true
+    });
+    
+    // Sauvegarder la référence du message
+    game.message = message;
+    activeTicTacToeGames.set(gameId, game);
+    
+    // Si c'est au tour de l'IA, jouer automatiquement
+    if (isSoloMode) {
+      await playAIMove(gameId);
+    }
+    
+  } catch (error) {
+    console.error('[MORPION] Erreur lors de l\'envoi du message:', error);
+    throw error;
+  }
+}
+
+// Fonction pour faire jouer l'IA
+async function playAIMove(gameId) {
+  const game = activeTicTacToeGames.get(gameId);
+  if (!game || !game.isSoloMode || game.currentPlayer !== 1) return;
+  
+  // Attendre un peu pour simuler la réflexion de l'IA
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  const aiSymbol = 'O';
+  const moveIndex = getAIMove(game.board, aiSymbol);
+  
+  if (moveIndex !== undefined && moveIndex !== null) {
+    // Simuler un clic sur le bouton
+    const interaction = {
+      customId: `ttt_${gameId}_${moveIndex}`,
+      user: { id: '0' },
+      reply: async () => {},
+      update: game.message.edit.bind(game.message),
+      channelId: game.message.channelId
+    };
+    
+    await handleTicTacToeMove(interaction);
+  }
+}
+
 // MORPION (TIC-TAC-TOE)
 async function handleTicTacToe(interaction) {
-  const opponent = interaction.options.getUser('adversaire');
-  const bet = interaction.options.getInteger('mise') || 0;
+  const opponent = interaction.options?.getUser('adversaire');
+  const bet = interaction.options?.getInteger('mise') || 0;
   const player1 = interaction.user;
+  const isSoloMode = !opponent;
+  
+  // Mode solo - vérifier si on est dans le salon spécial
+  if (isSoloMode) {
+    const SPECIAL_CHANNEL_ID = '1378373298861248642'; // ID du salon spécial High Low
+    if (interaction.channelId !== SPECIAL_CHANNEL_ID) {
+      await interaction.reply({ 
+        content: '❌ Le mode solo contre l\'IA est uniquement disponible dans le salon <#1378373298861248642> !', 
+        ephemeral: true 
+      });
+      return;
+    }
+    
+    // Créer un objet utilisateur pour l'IA
+    const player2 = {
+      id: '0',
+      username: 'IA Loutre',
+      bot: true,
+      toString: () => '<@0>'
+    };
+    
+    // Créer la partie contre l'IA
+    await createTicTacToeGame(interaction, player1, player2, bet, true);
+    return;
+  }
+  
+  // Mode multijoueur normal
   const player2 = opponent;
   
   // Vérifications initiales
@@ -781,6 +950,8 @@ async function handleTicTacToe(interaction) {
     updateUser(player2.id, { balance: user2.balance - bet });
   }
   
+  // Fonction pour créer une nouvelle partie de morpion
+async function createTicTacToeGame(interaction, player1, player2, bet = 0, isSoloMode = false) {
   // Créer la grille de jeu 5x5
   const board = Array(25).fill(null);
   const gameId = `${player1.id}-${player2.id}-${Date.now()}`;
@@ -921,118 +1092,57 @@ async function handleTicTacToeMove(interaction) {
   console.log('[MORPION] Partie trouvée:', game ? 'Oui' : 'Non');
   
   if (!game) {
-    await interaction.update({ components: [] });
-    return;
+    await interaction.update?.({ components: [] });
+    return interaction.followUp?.({ content: '❌ Cette partie de morpion est terminée ou introuvable !', ephemeral: true });
   }
   
-  // Utiliser directement l'index du joueur actuel pour plus de fiabilité
+  // Vérifier si c'est bien le tour du joueur qui interagit
   const currentPlayerId = game.players[game.currentPlayer];
-  
-  console.log('[MORPION] Joueur actuel:', currentPlayerId, 'Joueur qui interagit:', interaction.user.id);
-  console.log('[MORPION] Détails du jeu:', {
-    players: game.players,
-    currentPlayer: game.currentPlayer,
-    currentPlayerId: game.currentPlayerId,
-    player1: game.player1?.id,
-    player2: game.player2?.id
-  });
-  
-  // Vérifier si c'est bien le tour du joueur
-  if (interaction.user.id !== currentPlayerId) {
+  if (interaction.user && interaction.user.id !== currentPlayerId) {
     console.log('[MORPION] Mauvais tour: ce n\'est pas au tour de ce joueur');
-    await interaction.reply({ 
+    return interaction.reply?.({ 
       content: '❌ Ce n\'est pas à ton tour de jouer !', 
       ephemeral: true 
     });
-    return;
   }
+  
+  const playerIndex = game.currentPlayer;
+  const symbol = playerIndex === 0 ? 'X' : 'O';
   
   // Vérifier si la case est déjà prise
   if (game.board[index] !== null) {
-    await interaction.reply({ 
-      content: '❌ Cette case est déjà prise !', 
-      ephemeral: true 
-    });
+    console.log('[MORPION] Case déjà prise:', index);
+    if (interaction.reply) {
+      return interaction.reply({ 
+        content: '❌ Cette case est déjà prise !', 
+        ephemeral: true 
+      });
+    }
     return;
   }
   
-  // Déterminer le symbole du joueur actuel et mettre à jour le plateau
-  const symbol = game.currentPlayer === 0 ? 'X' : 'O';
-  console.log('[MORPION] Mise à jour du plateau - Index:', index, 'Symbole:', symbol, 'Joueur:', game.currentPlayer);
-  
   // Mettre à jour le plateau
   game.board[index] = symbol;
+  console.log('[MORPION] Plateau mis à jour:', game.board);
   
-  // Le changement de joueur sera géré plus bas dans le code
-  // pour éviter les doublons
-  
-  // Vérifier s'il y a un gagnant ou un match nul
+  // Vérifier s'il y a un gagnant
   const winner = checkTicTacToeWinner(game.board);
   const isDraw = !winner && game.board.every(cell => cell !== null);
-  const isGameOver = !!winner || isDraw;
   
-  console.log('[MORPION] État de la partie - Gagnant:', winner || 'Aucun', 'Match nul:', isDraw, 'Partie terminée:', isGameOver);
-
-  // Mettre à jour les statistiques si la partie est terminée
-  if (isGameOver) {
-    const player1 = game.players[0];
-    const player2 = game.players[1];
-    
-    if (winner) {
-      const winnerId = winner === 'X' ? player1 : player2;
-      const loserId = winner === 'X' ? player2 : player1;
-      
-      // Mettre à jour les statistiques du gagnant et du perdant
-      updateTicTacToeStats(winnerId, 'win');
-      updateTicTacToeStats(loserId, 'loss');
-      
-      // Mettre à jour les missions pour les joueurs
-      updateMissionProgress(winnerId, 'win_games', 1);
-      updateMissionProgress(loserId, 'play_games', 1);
-      
-      // Ne pas distribuer les gains ici, cela sera fait plus bas dans le code
-      // pour éviter les doublons
-    } else if (isDraw) {
-      // Match nul
-      updateTicTacToeStats(player1, 'draw');
-      updateTicTacToeStats(player2, 'draw');
-      updateMissionProgress(player1, 'play_games', 1);
-      updateMissionProgress(player2, 'play_games', 1);
-      
-      // Rembourser les mises en cas de match nul
-      if (game.bet > 0) {
-        const user1 = ensureUser(player1);
-        const user2 = ensureUser(player2);
-        updateUser(player1, { balance: user1.balance + game.bet });
-        updateUser(player2, { balance: user2.balance + game.bet });
-      }
-    }
-    
-    // Supprimer la partie de la mémoire
-    activeTicTacToeGames.delete(gameId);
-  } else {
-    // Passer au joueur suivant
-    game.currentPlayer = game.currentPlayer === 0 ? 1 : 0;
-    // Mettre à jour l'ID du joueur actuel
-    game.currentPlayerId = game.players[game.currentPlayer];
-    console.log('[MORPION] Passage au joueur suivant:', game.currentPlayerId, '(Index:', game.currentPlayer, ')');
-    activeTicTacToeGames.set(gameId, game);
-  }
-  
-  // Mettre à jour l'affichage pour la grille 5x5
+  // Mettre à jour l'interface
   const rows = [];
   for (let i = 0; i < 5; i++) {
     const row = new ActionRowBuilder();
     for (let j = 0; j < 5; j++) {
-      const idx = i * 5 + j;
+      const cellIndex = i * 5 + j;
       const button = new ButtonBuilder()
-        .setCustomId(`ttt_${gameId}_${idx}`)
-        .setLabel(game.board[idx] || '·') // Point médian comme marqueur visuel
-        .setStyle(game.board[idx] ? 
-          (game.board[idx] === 'X' ? ButtonStyle.Danger : ButtonStyle.Primary) : 
+        .setCustomId(`ttt_${gameId}_${cellIndex}`)
+        .setLabel(game.board[cellIndex] || '·')
+        .setStyle(game.board[cellIndex] ? 
+          (game.board[cellIndex] === 'X' ? ButtonStyle.Danger : ButtonStyle.Primary) : 
           ButtonStyle.Secondary
         )
-        .setDisabled(isGameOver || game.board[idx] !== null); // Désactiver si partie terminée ou case déjà prise
+        .setDisabled(winner || isDraw || game.board[cellIndex] !== null); // Désactiver si partie terminée ou case déjà prise
       
       row.addComponents(button);
     }
@@ -1130,6 +1240,22 @@ async function handleTicTacToeMove(interaction) {
   } catch (error) {
     console.error('Erreur lors de la mise à jour du message:', error);
   }
+}
+
+// Fonction pour obtenir le classement du morpion
+function getTicTacToeLeaderboard(limit = 10) {
+  return db.prepare(`
+    SELECT 
+      user_id,
+      wins,
+      losses,
+      draws,
+      (wins * 1.0 / (wins + losses + draws)) as win_rate
+    FROM tic_tac_toe_stats
+    WHERE wins + losses + draws > 0
+    ORDER BY win_rate DESC, wins DESC
+    LIMIT ?
+  `).all(limit);
 }
 
 // Fonction pour réinitialiser les statistiques du morpion
@@ -1693,6 +1819,27 @@ async function handleHighLow(interaction) {
     .setColor(0x3498db);
   
   await interaction.reply({ embeds: [embed], components: [row] });
+}
+
+// Fonction pour créer un jeu de cartes
+function createDeck() {
+  const suits = ['♥', '♦', '♣', '♠'];
+  const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+  const deck = [];
+  
+  for (const suit of suits) {
+    for (const value of values) {
+      deck.push({ suit, value });
+    }
+  }
+  
+  // Mélanger le jeu
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  
+  return deck;
 }
 
 // Fonction pour vérifier si l'utilisateur a accès au High Low spécial
