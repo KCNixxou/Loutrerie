@@ -1299,53 +1299,81 @@ function updateNextScheduledGiveawayTime(timestamp) {
 
 // Planifier le prochain giveaway
 function scheduleNextGiveaway() {
-  // Vérifier s'il y a déjà une heure planifiée
-  const nextScheduledTime = getNextScheduledGiveawayTime();
-  let targetTime;
-  
-  if (nextScheduledTime) {
-    targetTime = new Date(nextScheduledTime);
-    // Si l'heure planifiée est dans le passé, en générer une nouvelle
-    if (targetTime <= new Date()) {
+  try {
+    // Vérifier s'il y a déjà une heure planifiée
+    const nextScheduledTime = getNextScheduledGiveawayTime();
+    let targetTime;
+    
+    if (nextScheduledTime) {
+      targetTime = new Date(nextScheduledTime);
+      const now = new Date();
+      
+      // Journalisation pour le débogage
+      console.log(`[Giveaway Debug] Heure actuelle: ${now.toISOString()}`);
+      console.log(`[Giveaway Debug] Heure planifiée: ${targetTime.toISOString()}`);
+      
+      // Si l'heure planifiée est dans le passé, en générer une nouvelle
+      if (targetTime <= now) {
+        console.log('[Giveaway] L\'heure planifiée est dans le passé, génération d\'une nouvelle date');
+        targetTime = generateNextGiveawayTime();
+        updateNextScheduledGiveawayTime(targetTime.getTime());
+      }
+    } else {
+      // Aucune heure planifiée, en générer une nouvelle
+      console.log('[Giveaway] Aucune heure planifiée, génération d\'une nouvelle date');
       targetTime = generateNextGiveawayTime();
       updateNextScheduledGiveawayTime(targetTime.getTime());
     }
-  } else {
-    // Aucune heure planifiée, en générer une nouvelle
-    targetTime = generateNextGiveawayTime();
-    updateNextScheduledGiveawayTime(targetTime.getTime());
-  }
-  
-  const timeUntil = targetTime - Date.now();
-  
-  console.log(`[Giveaway] Prochain giveaway programmé pour ${targetTime.toLocaleString('fr-FR')}`);
-  
-  setTimeout(async () => {
-    try {
-      const channel = await client.channels.fetch(GIVEAWAY_CHANNEL_ID);
-      if (channel) {
-        await startGiveaway(channel, true);
-      }
-    } catch (error) {
-      console.error('Erreur lors du démarrage du giveaway automatique:', error);
+    
+    const timeUntil = targetTime - Date.now();
+    
+    // Vérifier que le temps d'attente est valide
+    if (timeUntil < 0) {
+      console.error('[Giveaway ERREUR] Temps d\'attente négatif, régénération de la date');
+      targetTime = generateNextGiveawayTime();
+      updateNextScheduledGiveawayTime(targetTime.getTime());
+      return scheduleNextGiveaway();
     }
     
-    // Programmer le prochain giveaway
-    scheduleNextGiveaway();
-  }, timeUntil);
+    console.log(`[Giveaway] Prochain giveaway programmé pour ${targetTime.toLocaleString('fr-FR', { timeZone: 'Europe/Paris' })}`);
+    console.log(`[Giveaway] Démarrage dans ${Math.floor(timeUntil / 1000 / 60)} minutes`);
+    
+    setTimeout(async () => {
+      try {
+        console.log('[Giveaway] Démarrage du giveaway automatique...');
+        const channel = await client.channels.fetch(GIVEAWAY_CHANNEL_ID);
+        if (channel) {
+          await startGiveaway(channel, true);
+        }
+      } catch (error) {
+        console.error('Erreur lors du démarrage du giveaway automatique:', error);
+      }
+      
+      // Programmer le prochain giveaway
+      scheduleNextGiveaway();
+    }, timeUntil);
+    
+  } catch (error) {
+    console.error('Erreur critique dans scheduleNextGiveaway:', error);
+    // En cas d'erreur, réessayer après 1 minute
+    setTimeout(scheduleNextGiveaway, 60000);
+  }
 }
 
 // Générer une heure aléatoire pour le prochain giveaway
 function generateNextGiveawayTime() {
-  // Créer une date dans le fuseau horaire de Paris
+  // Créer une date dans le fuseau horaire local
   const now = new Date();
-  const parisTime = new Date(now.toLocaleString('fr-FR', { timeZone: 'Europe/Paris' }));
+  
+  // Obtenir l'heure actuelle en heure de Paris
+  const parisTimeStr = now.toLocaleString('fr-FR', { timeZone: 'Europe/Paris' });
+  const parisTime = new Date(parisTimeStr);
   
   // Heure aléatoire entre MIN_HOUR et MAX_HOUR
   const hours = Math.floor(Math.random() * (MAX_HOUR - MIN_HOUR + 1)) + MIN_HOUR;
   const minutes = Math.floor(Math.random() * 60);
   
-  // Créer la date cible dans le fuseau horaire de Paris
+  // Créer la date cible pour aujourd'hui
   const targetTime = new Date(parisTime);
   targetTime.setHours(hours, minutes, 0, 0);
   
@@ -1354,7 +1382,8 @@ function generateNextGiveawayTime() {
     targetTime.setDate(targetTime.getDate() + 1);
   }
   
-  return targetTime;
+  // Convertir en timestamp pour éviter les problèmes de fuseau horaire
+  return new Date(targetTime.getTime());
 }
 
 // Gestion de la commande loutre-giveaway
