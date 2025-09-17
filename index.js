@@ -800,10 +800,11 @@ async function handleGive(interaction) {
     }
 
     // Vérifier la limite quotidienne
-    if (dailyGiven + amount > 200) {
-      const remaining = 200 - dailyGiven;
+    const dailyGiveLimit = 500;  // Augmenté de 200 à 500
+    if (dailyGiven + amount > dailyGiveLimit) {
+      const remaining = dailyGiveLimit - dailyGiven;
       await interaction.reply({ 
-        content: `❌ Tu ne peux donner que ${remaining} ${config.currency.emoji} de plus aujourd'hui ! (Limite: 200/jour)`, 
+        content: `❌ Tu ne peux donner que ${remaining} ${config.currency.emoji} de plus aujourd'hui ! (Limite: ${dailyGiveLimit}/jour)`, 
         ephemeral: true 
       });
       return;
@@ -852,7 +853,7 @@ async function handleGive(interaction) {
         },
         { 
           name: 'Limite quotidienne', 
-          value: `${dailyGiven + amount}/200 ${config.currency.emoji}`, 
+          value: `${dailyGiven + amount}/500 ${config.currency.emoji}`, 
           inline: true 
         }
       )
