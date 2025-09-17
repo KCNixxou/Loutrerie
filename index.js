@@ -1283,18 +1283,76 @@ db.exec(`
   )
 `);
 
+// S'assurer que la table a bien une entrée initiale
+try {
+  const hasEntry = db.prepare('SELECT 1 FROM giveaway_schedule WHERE id = 1').get();
+  if (!hasEntry) {
+    console.log('[Giveaway] Création de l\'entrée initiale dans giveaway_schedule');
+    const initialTime = Date.now() + 3600000; // 1 heure dans le futur par défaut
+    db.prepare('INSERT INTO giveaway_schedule (id, next_giveaway_time) VALUES (1, ?)').run(initialTime);
+  }
+} catch (error) {
+  console.error('Erreur lors de l\'initialisation de la table giveaway_schedule:', error);
+  // Recréer la table en cas d'erreur
+  db.exec('DROP TABLE IF EXISTS giveaway_schedule');
+  db.exec(`
+    CREATE TABLE giveaway_schedule (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      next_giveaway_time INTEGER NOT NULL
+    )
+  `);
+  const initialTime = Date.now() + 3600000; // 1 heure dans le futur par défaut
+  db.prepare('INSERT INTO giveaway_schedule (id, next_giveaway_time) VALUES (1, ?)').run(initialTime);
+}
+
 // Fonction pour obtenir l'heure du prochain giveaway
 function getNextScheduledGiveawayTime() {
-  const result = db.prepare('SELECT next_giveaway_time FROM giveaway_schedule WHERE id = 1').get();
-  return result ? result.next_giveaway_time : null;
+  try {
+    const result = db.prepare('SELECT next_giveaway_time FROM giveaway_schedule WHERE id = 1').get();
+    if (!result) {
+      console.log('[Giveaway] Aucune heure de giveaway programmée trouvée');
+      return null;
+    }
+    console.log(`[Giveaway] Heure du prochain giveaway récupérée: ${new Date(result.next_giveaway_time).toISOString()}`);
+    return result.next_giveaway_time;
+  } catch (error) {
+    console.error('Erreur lors de la récupération de l\'horaire du giveaway:', error);
+    return null;
+  }
 }
 
 // Fonction pour mettre à jour l'heure du prochain giveaway
 function updateNextScheduledGiveawayTime(timestamp) {
-  db.prepare(`
-    INSERT OR REPLACE INTO giveaway_schedule (id, next_giveaway_time)
-    VALUES (1, ?)
-  `).run(timestamp);
+  try {
+    // Vérifier si l'ID 1 existe
+    const exists = db.prepare('SELECT 1 FROM giveaway_schedule WHERE id = 1').get();
+    
+    if (exists) {
+      // Mettre à jour l'entrée existante
+      db.prepare('UPDATE giveaway_schedule SET next_giveaway_time = ? WHERE id = 1').run(timestamp);
+    } else {
+      // Créer une nouvelle entrée
+      db.prepare('INSERT INTO giveaway_schedule (id, next_giveaway_time) VALUES (1, ?)').run(timestamp);
+    }
+    
+    console.log(`[Giveaway] Heure du prochain giveaway mise à jour: ${new Date(timestamp).toISOString()}`);
+    return true;
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour de l\'horaire du giveaway:', error);
+    // Essayer de récupérer en recréant la table si nécessaire
+    if (error.code === 'SQLITE_ERROR' && error.message.includes('no such table')) {
+      console.log('[Giveaway] Recréation de la table giveaway_schedule...');
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS giveaway_schedule (
+          id INTEGER PRIMARY KEY,
+          next_giveaway_time INTEGER NOT NULL
+        )
+      `);
+      // Réessayer l'insertion
+      return updateNextScheduledGiveawayTime(timestamp);
+    }
+    return false;
+  }
 }
 
 // Planifier le prochain giveaway
