@@ -1077,9 +1077,8 @@ async function handleGive(interaction) {
   }
 }
 
-// Configuration du giveaway
+// Importation des fonctions de giveaway depuis la base de données
 const { 
-  db,
   saveGiveaway, 
   getActiveGiveaway, 
   getAllActiveGiveaways, 
