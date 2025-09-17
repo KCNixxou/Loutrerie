@@ -950,7 +950,11 @@ async function handleTicTacToe(interaction) {
     updateUser(player2.id, { balance: user2.balance - bet });
   }
   
-  // Fonction pour créer une nouvelle partie de morpion
+  // Créer la partie contre un autre joueur
+  await createTicTacToeGame(interaction, player1, player2, bet, false);
+}
+
+// Fonction pour créer une nouvelle partie de morpion
 async function createTicTacToeGame(interaction, player1, player2, bet = 0, isSoloMode = false) {
   // Créer la grille de jeu 5x5
   const board = Array(25).fill(null);
@@ -2012,3 +2016,4 @@ module.exports = {
   getTicTacToeLeaderboard,
   resetTicTacToeStats
 };
+
