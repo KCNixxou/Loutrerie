@@ -45,6 +45,9 @@ function updateDatabaseSchema() {
   addColumnIfNotExists('users', 'special_balance', 'INTEGER DEFAULT 0');
   addColumnIfNotExists('users', 'special_total_won', 'INTEGER DEFAULT 0');
   addColumnIfNotExists('users', 'special_total_wagered', 'INTEGER DEFAULT 0');
+  
+  // Ajout de la colonne pour le suivi des récompenses BDG quotidiennes
+  addColumnIfNotExists('users', 'last_bdg_claim', 'INTEGER DEFAULT 0');
 }
 
 // Exécuter la mise à jour du schéma
