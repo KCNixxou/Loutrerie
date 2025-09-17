@@ -920,31 +920,95 @@ app.listen(PORT, () => {
   console.log(`🌐 Serveur web démarré sur le port ${PORT}`);
 });
 
-// Fonctions pour les commandes give
-async function handleGiveAdmin(interaction) {
-  // Vérifier si l'utilisateur est l'admin autorisé
-  if (interaction.user.id !== '314458846754111499') {
-    await interaction.reply({ content: '❌ Cette commande est réservée aux administrateurs.', ephemeral: true });
-    return;
+// Fonction pour gérer la récompense quotidienne BDG
+async function handleDailyBdg(interaction) {
+  try {
+    const userId = interaction.user.id;
+    const member = interaction.member;
+    const currentTime = Math.floor(Date.now() / 1000);
+    const oneDayInSeconds = 24 * 60 * 60;
+    
+    // Vérifier si l'utilisateur a déjà réclamé sa récompense aujourd'hui
+    const user = ensureUser(userId);
+    const lastClaim = user.last_bdg_claim || 0;
+    
+    if (currentTime - lastClaim < oneDayInSeconds) {
+      const nextClaim = lastClaim + oneDayInSeconds;
+      const timeLeft = nextClaim - currentTime;
+      const hours = Math.floor(timeLeft / 3600);
+      const minutes = Math.floor((timeLeft % 3600) / 60);
+      
+      return interaction.reply({
+        content: `⏳ Tu as déjà réclamé ta récompense BDG aujourd'hui. Tu pourras à nouveau réclamer dans ${hours}h${minutes}m.`,
+        ephemeral: true
+      });
+    }
+    
+    // Vérifier si l'utilisateur a un rôle BDG
+    const bdgRoles = [
+      config.shop.bdgBaby.role,
+      config.shop.bdgPetit.role,
+      config.shop.bdgGros.role,
+      config.shop.bdgUltime.role
+    ];
+    
+    const memberRoles = member.roles.cache.map(role => role.name);
+    const hasBdgRole = bdgRoles.some(role => memberRoles.includes(role));
+    
+    if (!hasBdgRole) {
+      return interaction.reply({
+        content: '❌ Tu dois avoir un rôle BDG pour réclamer cette récompense !',
+        ephemeral: true
+      });
+    }
+    
+    // Déterminer la récompense en fonction du rôle BDG
+    let reward = 0;
+    let roleName = '';
+    
+    if (memberRoles.includes(config.shop.bdgUltime.role)) {
+      reward = config.shop.bdgUltime.dailyReward;
+      roleName = config.shop.bdgUltime.name;
+    } else if (memberRoles.includes(config.shop.bdgGros.role)) {
+      reward = config.shop.bdgGros.dailyReward;
+      roleName = config.shop.bdgGros.name;
+    } else if (memberRoles.includes(config.shop.bdgPetit.role)) {
+      reward = config.shop.bdgPetit.dailyReward;
+      roleName = config.shop.bdgPetit.name;
+    } else if (memberRoles.includes(config.shop.bdgBaby.role)) {
+      reward = config.shop.bdgBaby.dailyReward;
+      roleName = config.shop.bdgBaby.name;
+    }
+    
+    // Mettre à jour le solde de l'utilisateur
+    const newBalance = (user.balance || 0) + reward;
+    updateUser(userId, {
+      balance: newBalance,
+      last_bdg_claim: currentTime
+    });
+    
+    // Envoyer un message de confirmation
+    const embed = new EmbedBuilder()
+      .setTitle('🎉 Récompense BDG quotidienne')
+      .setDescription(`Tu as reçu ta récompense quotidienne en tant que **${roleName}** !`)
+      .addFields(
+        { name: 'Récompense', value: `+${reward} ${config.currency.emoji}`, inline: true },
+        { name: 'Nouveau solde', value: `${newBalance} ${config.currency.emoji}`, inline: true }
+      )
+      .setColor(0x00ff00)
+      .setFooter({ text: 'Reviens demain pour une nouvelle récompense !' });
+    
+    await interaction.reply({ embeds: [embed] });
+    
+  } catch (error) {
+    console.error('Erreur dans handleDailyBdg:', error);
+    if (!interaction.replied) {
+      await interaction.reply({
+        content: '❌ Une erreur est survenue lors du traitement de ta demande.',
+        ephemeral: true
+      });
+    }
   }
-
-  const targetUser = interaction.options.getUser('utilisateur');
-  const amount = interaction.options.getInteger('montant');
-
-  if (targetUser.bot) {
-    await interaction.reply({ content: '❌ Tu ne peux pas donner de coquillages à un bot !', ephemeral: true });
-    return;
-  }
-
-  const user = ensureUser(targetUser.id);
-  updateUser(targetUser.id, { balance: user.balance + amount });
-
-  const embed = new EmbedBuilder()
-    .setTitle('🐚 Don administrateur')
-    .setDescription(`<@${targetUser.id}> a reçu **${amount}** ${config.currency.emoji} de la part de l'administrateur !`)
-    .setColor(0x00ff00);
-
-  await interaction.reply({ embeds: [embed] });
 }
 
 async function handleGive(interaction) {
