@@ -1275,208 +1275,190 @@ async function endGiveaway(channelId) {
   }
 }
 
+// Configuration des giveaways
+const GIVEAWAY_CONFIG = {
+  MIN_HOUR: 10, // 10h
+  MAX_HOUR: 22,  // 22h
+  MIN_DAYS_BETWEEN: 1,
+  MAX_DAYS_BETWEEN: 3,
+  DEFAULT_DELAY: 3600000 // 1h en millisecondes
+};
+
 // Fonction utilitaire pour exécuter du SQL avec gestion d'erreur
 function safeExec(sql, params = []) {
   try {
-    return db.prepare(sql).run(params);
+    const result = db.prepare(sql).run(params);
+    return { success: true, result };
   } catch (error) {
     console.error('Erreur SQL:', { sql, params, error });
-    throw error;
+    return { success: false, error };
   }
 }
 
 // Fonction utilitaire pour récupérer une ligne avec gestion d'erreur
 function safeGet(sql, params = []) {
   try {
-    return db.prepare(sql).get(params);
+    return { success: true, result: db.prepare(sql).get(params) };
   } catch (error) {
     console.error('Erreur SQL (get):', { sql, params, error });
-    return null;
+    return { success: false, error };
   }
 }
 
-// Table pour stocker l'horaire des giveaways
+// Initialisation de la table des giveaways
 function initializeGiveawayTable() {
   try {
-    // Vérifier si la table existe
-    const tableExists = db.prepare(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='giveaway_schedule'"
-    ).get();
+    // Créer la table si elle n'existe pas
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS giveaway_schedule (
+        id INTEGER PRIMARY KEY,
+        next_giveaway_time INTEGER NOT NULL DEFAULT 0,
+        last_updated INTEGER NOT NULL DEFAULT 0
+      )
+    `);
 
-    if (!tableExists) {
-      console.log('[Giveaway] Création de la table giveaway_schedule');
-      db.exec(`
-        CREATE TABLE giveaway_schedule (
-          id INTEGER PRIMARY KEY,
-          next_giveaway_time INTEGER NOT NULL DEFAULT 0
-        )
-      `);
-      
-      // Ajouter une entrée par défaut
-      const initialTime = Date.now() + 3600000; // 1h dans le futur
+    // Vérifier si une entrée existe déjà
+    const { result: existing } = safeGet('SELECT 1 FROM giveaway_schedule WHERE id = 1');
+    
+    if (!existing) {
+      // Créer une entrée par défaut
+      const nextTime = generateNextGiveawayTime();
       safeExec(
-        'INSERT INTO giveaway_schedule (id, next_giveaway_time) VALUES (1, ?)',
-        [initialTime]
+        'INSERT INTO giveaway_schedule (id, next_giveaway_time, last_updated) VALUES (1, ?, ?)',
+        [nextTime, Date.now()]
       );
-      console.log('[Giveaway] Entrée initiale créée avec succès');
-    } else {
-      console.log('[Giveaway] Table giveaway_schedule déjà existante');
-      
-      // Vérifier si l'entrée par défaut existe
-      const hasEntry = safeGet('SELECT 1 FROM giveaway_schedule WHERE id = 1');
-      if (!hasEntry) {
-        console.log('[Giveaway] Création de l\'entrée par défaut');
-        const initialTime = Date.now() + 3600000; // 1h dans le futur
-        safeExec(
-          'INSERT INTO giveaway_schedule (id, next_giveaway_time) VALUES (1, ?)',
-          [initialTime]
-        );
-      }
+      console.log(`[Giveaway] Table initialisée avec la prochaine date: ${new Date(nextTime).toISOString()}`);
     }
   } catch (error) {
     console.error('Erreur critique lors de l\'initialisation de la table giveaway_schedule:', error);
-    // Essayer de récupérer en recréant la table
-    try {
-      db.exec('DROP TABLE IF EXISTS giveaway_schedule');
-      db.exec(`
-        CREATE TABLE giveaway_schedule (
-          id INTEGER PRIMARY KEY,
-          next_giveaway_time INTEGER NOT NULL DEFAULT 0
-        )
-      `);
-      const initialTime = Date.now() + 3600000;
-      safeExec(
-        'INSERT INTO giveaway_schedule (id, next_giveaway_time) VALUES (1, ?)',
-        [initialTime]
-      );
-      console.log('[Giveaway] Table recréée avec succès après erreur');
-    } catch (recoveryError) {
-      console.error('Échec critique lors de la récupération:', recoveryError);
-      process.exit(1); // Arrêter le bot car la base de données est corrompue
-    }
+    throw error;
   }
 }
 
 // Initialiser la table au démarrage
 initializeGiveawayTable();
 
-// Fonction pour obtenir l'heure du prochain giveaway
-function getNextScheduledGiveawayTime() {
+// Générer une prochaine date de giveaway valide
+function generateNextGiveawayTime() {
   try {
-    const result = safeGet('SELECT next_giveaway_time FROM giveaway_schedule WHERE id = 1');
-    if (!result || !result.next_giveaway_time) {
-      console.log('[Giveaway] Aucune heure de giveaway programmée valide trouvée, génération d\'une nouvelle date');
-      const newTime = Date.now() + 3600000; // 1h dans le futur par défaut
-      updateNextScheduledGiveawayTime(newTime);
-      return newTime;
+    const now = new Date();
+    const nextDate = new Date(now);
+    
+    // Ajouter un nombre aléatoire de jours (entre MIN_DAYS_BETWEEN et MAX_DAYS_BETWEEN)
+    const daysToAdd = Math.floor(Math.random() * 
+      (GIVEAWAY_CONFIG.MAX_DAYS_BETWEEN - GIVEAWAY_CONFIG.MIN_DAYS_BETWEEN + 1)) + GIVEAWAY_CONFIG.MIN_DAYS_BETWEEN;
+    
+    nextDate.setDate(now.getDate() + daysToAdd);
+    
+    // Définir une heure aléatoire entre MIN_HOUR et MAX_HOUR
+    const hour = Math.floor(Math.random() * 
+      (GIVEAWAY_CONFIG.MAX_HOUR - GIVEAWAY_CONFIG.MIN_HOUR + 1)) + GIVEAWAY_CONFIG.MIN_HOUR;
+    
+    nextDate.setHours(hour, 0, 0, 0);
+    
+    // S'assurer que la date est dans le futur
+    if (nextDate <= now) {
+      nextDate.setDate(now.getDate() + 1);
+      nextDate.setHours(
+        Math.floor(Math.random() * (GIVEAWAY_CONFIG.MAX_HOUR - GIVEAWAY_CONFIG.MIN_HOUR + 1)) + GIVEAWAY_CONFIG.MIN_HOUR,
+        0, 0, 0
+      );
     }
     
-    const time = parseInt(result.next_giveaway_time, 10);
-    if (isNaN(time) || time <= 0) {
-      console.log('[Giveaway] Heure de giveaway invalide, réinitialisation');
-      const newTime = Date.now() + 3600000;
-      updateNextScheduledGiveawayTime(newTime);
-      return newTime;
-    }
-    
-    console.log(`[Giveaway] Heure du prochain giveaway: ${new Date(time).toISOString()}`);
-    return time;
+    return nextDate.getTime();
   } catch (error) {
-    console.error('Erreur critique dans getNextScheduledGiveawayTime:', error);
-    // Retourner une heure par défaut en cas d'erreur
-    return Date.now() + 3600000;
+    console.error('Erreur lors de la génération de la prochaine date de giveaway:', error);
+    // Retourner une date par défaut en cas d'erreur (1h dans le futur)
+    return Date.now() + GIVEAWAY_CONFIG.DEFAULT_DELAY;
   }
 }
 
-// Fonction pour mettre à jour l'heure du prochain giveaway
+// Obtenir l'heure du prochain giveaway
+function getNextScheduledGiveawayTime() {
+  try {
+    const { result } = safeGet('SELECT next_giveaway_time FROM giveaway_schedule WHERE id = 1');
+    
+    if (!result || !result.next_giveaway_time) {
+      console.log('[Giveaway] Aucune heure de giveaway programmée, génération d\'une nouvelle date');
+      const newTime = generateNextGiveawayTime();
+      updateNextScheduledGiveawayTime(newTime);
+      return newTime;
+    }
+    
+    const nextTime = parseInt(result.next_giveaway_time, 10);
+    
+    if (isNaN(nextTime) || nextTime <= 0) {
+      console.log('[Giveaway] Heure de giveaway invalide, génération d\'une nouvelle date');
+      const newTime = generateNextGiveawayTime();
+      updateNextScheduledGiveawayTime(newTime);
+      return newTime;
+    }
+    
+    console.log(`[Giveaway] Prochain giveaway programmé pour: ${new Date(nextTime).toISOString()}`);
+    return nextTime;
+  } catch (error) {
+    console.error('Erreur critique dans getNextScheduledGiveawayTime:', error);
+    return Date.now() + GIVEAWAY_CONFIG.DEFAULT_DELAY;
+  }
+}
+
+// Mettre à jour l'heure du prochain giveaway
 function updateNextScheduledGiveawayTime(timestamp) {
-  // Valider le timestamp
-  const validTimestamp = Math.max(0, parseInt(timestamp, 10) || 0);
-  if (validTimestamp <= 0) {
+  const validTimestamp = Math.max(0, parseInt(timestamp, 10));
+  
+  if (isNaN(validTimestamp) || validTimestamp <= 0) {
     console.error('[Giveaway] Timestamp invalide pour updateNextScheduledGiveawayTime:', timestamp);
     return false;
   }
-
+  
   try {
-    // Vérifier si l'entrée existe déjà
-    const exists = safeGet('SELECT 1 FROM giveaway_schedule WHERE id = 1');
+    const { success } = safeExec(
+      'INSERT OR REPLACE INTO giveaway_schedule (id, next_giveaway_time, last_updated) VALUES (1, ?, ?)',
+      [validTimestamp, Date.now()]
+    );
     
-    if (exists) {
-      // Mettre à jour l'entrée existante
-      safeExec(
-        'UPDATE giveaway_schedule SET next_giveaway_time = ? WHERE id = 1',
-        [validTimestamp]
-      );
-    } else {
-      // Créer une nouvelle entrée
-      safeExec(
-        'INSERT INTO giveaway_schedule (id, next_giveaway_time) VALUES (1, ?)',
-        [validTimestamp]
-      );
+    if (success) {
+      console.log(`[Giveaway] Prochain giveaway programmé pour: ${new Date(validTimestamp).toISOString()}`);
+      return true;
     }
     
-    console.log(`[Giveaway] Heure du prochain giveaway mise à jour: ${new Date(validTimestamp).toISOString()}`);
-    return true;
+    return false;
   } catch (error) {
-    console.error('Erreur critique dans updateNextScheduledGiveawayTime:', error);
-    
-    // Essayer de réinitialiser la table en cas d'erreur
-    try {
-      console.log('[Giveaway] Tentative de réinitialisation de la table...');
-      db.exec('DROP TABLE IF EXISTS giveaway_schedule');
-      initializeGiveawayTable();
-      
-      // Réessayer après réinitialisation
-      return updateNextScheduledGiveawayTime(validTimestamp);
-    } catch (recoveryError) {
-      console.error('Échec de la récupération de la table giveaway_schedule:', recoveryError);
-      return false;
-    }
+    console.error('Erreur lors de la mise à jour de l\'horaire du giveaway:', error);
+    return false;
   }
 }
 
 // Planifier le prochain giveaway
 function scheduleNextGiveaway() {
   try {
-    // Vérifier s'il y a déjà une heure planifiée
-    const nextScheduledTime = getNextScheduledGiveawayTime();
-    let targetTime;
+    // Obtenir l'heure du prochain giveaway
+    const nextTime = getNextScheduledGiveawayTime();
+    const targetTime = new Date(nextTime);
+    const now = new Date();
     
-    if (nextScheduledTime) {
-      targetTime = new Date(nextScheduledTime);
-      const now = new Date();
-      
-      // Journalisation pour le débogage
-      console.log(`[Giveaway Debug] Heure actuelle: ${now.toISOString()}`);
-      console.log(`[Giveaway Debug] Heure planifiée: ${targetTime.toISOString()}`);
-      
-      // Si l'heure planifiée est dans le passé, en générer une nouvelle
-      if (targetTime <= now) {
-        console.log('[Giveaway] L\'heure planifiée est dans le passé, génération d\'une nouvelle date');
-        targetTime = generateNextGiveawayTime();
-        updateNextScheduledGiveawayTime(targetTime.getTime());
-      }
-    } else {
-      // Aucune heure planifiée, en générer une nouvelle
-      console.log('[Giveaway] Aucune heure planifiée, génération d\'une nouvelle date');
-      targetTime = generateNextGiveawayTime();
-      updateNextScheduledGiveawayTime(targetTime.getTime());
+    // Vérifier si la date est valide
+    if (isNaN(targetTime.getTime())) {
+      console.error('[Giveaway] Date de giveaway invalide, réessai dans 1 minute');
+      return setTimeout(scheduleNextGiveaway, 60000);
     }
     
-    const timeUntil = targetTime - Date.now();
-    
-    // Vérifier que le temps d'attente est valide
-    if (timeUntil < 0) {
-      console.error('[Giveaway ERREUR] Temps d\'attente négatif, régénération de la date');
-      targetTime = generateNextGiveawayTime();
-      updateNextScheduledGiveawayTime(targetTime.getTime());
+    // Si la date est dans le passé, en générer une nouvelle
+    if (targetTime <= now) {
+      console.log('[Giveaway] La date du giveaway est dans le passé, génération d\'une nouvelle date');
+      const newTime = generateNextGiveawayTime();
+      updateNextScheduledGiveawayTime(newTime);
       return scheduleNextGiveaway();
     }
     
-    console.log(`[Giveaway] Prochain giveaway programmé pour ${targetTime.toLocaleString('fr-FR', { timeZone: 'Europe/Paris' })}`);
+    const timeUntil = targetTime - now;
+    
+    // Journalisation
+    console.log(`[Giveaway] Prochain giveaway programmé pour: ${targetTime.toISOString()}`);
     console.log(`[Giveaway] Démarrage dans ${Math.floor(timeUntil / 1000 / 60)} minutes`);
     
-    setTimeout(async () => {
+    // Planifier le prochain giveaway
+    const timeout = setTimeout(async () => {
       try {
         console.log('[Giveaway] Démarrage du giveaway automatique...');
         const channel = await client.channels.fetch(GIVEAWAY_CHANNEL_ID);
@@ -1491,37 +1473,14 @@ function scheduleNextGiveaway() {
       scheduleNextGiveaway();
     }, timeUntil);
     
+    // Gérer correctement le nettoyage du timeout
+    timeout.unref();
+    
   } catch (error) {
     console.error('Erreur critique dans scheduleNextGiveaway:', error);
     // En cas d'erreur, réessayer après 1 minute
     setTimeout(scheduleNextGiveaway, 60000);
   }
-}
-
-// Générer une heure aléatoire pour le prochain giveaway
-function generateNextGiveawayTime() {
-  // Créer une date dans le fuseau horaire local
-  const now = new Date();
-  
-  // Obtenir l'heure actuelle en heure de Paris
-  const parisTimeStr = now.toLocaleString('fr-FR', { timeZone: 'Europe/Paris' });
-  const parisTime = new Date(parisTimeStr);
-  
-  // Heure aléatoire entre MIN_HOUR et MAX_HOUR
-  const hours = Math.floor(Math.random() * (MAX_HOUR - MIN_HOUR + 1)) + MIN_HOUR;
-  const minutes = Math.floor(Math.random() * 60);
-  
-  // Créer la date cible pour aujourd'hui
-  const targetTime = new Date(parisTime);
-  targetTime.setHours(hours, minutes, 0, 0);
-  
-  // Si l'heure est déjà passée aujourd'hui, programmer pour demain
-  if (targetTime <= parisTime) {
-    targetTime.setDate(targetTime.getDate() + 1);
-  }
-  
-  // Convertir en timestamp pour éviter les problèmes de fuseau horaire
-  return new Date(targetTime.getTime());
 }
 
 // Gestion de la commande loutre-giveaway
