@@ -111,9 +111,11 @@ function ensureUser(userId) {
 
 function updateUser(userId, data) {
   if (!data || Object.keys(data).length === 0) {
-    console.error('No data provided for update');
+    console.error('[DB DEBUG] No data provided for update');
     return;
   }
+  
+  console.log(`[DB DEBUG] Mise à jour de l'utilisateur ${userId} avec les données:`, JSON.stringify(data, null, 2));
   
   try {
     const keys = Object.keys(data);
@@ -123,15 +125,28 @@ function updateUser(userId, data) {
     // Add userId as the last parameter for the WHERE clause
     values.push(userId);
     
-    const stmt = db.prepare(`UPDATE users SET ${setClause} WHERE user_id = ?`);
+    const query = `UPDATE users SET ${setClause} WHERE user_id = ?`;
+    console.log(`[DB DEBUG] Exécution de la requête: ${query}`, values);
+    
+    const stmt = db.prepare(query);
     const result = stmt.run(...values);
     
+    console.log(`[DB DEBUG] Résultat de la mise à jour:`, result);
+    
     if (result.changes === 0) {
-      console.warn(`No user found with ID: ${userId}`);
+      console.warn(`[DB DEBUG] Aucun utilisateur trouvé avec l'ID: ${userId}, tentative de création...`);
+      // Essayer de créer l'utilisateur s'il n'existe pas
+      ensureUser(userId);
+      // Réessayer la mise à jour
+      const retryResult = stmt.run(...values);
+      console.log(`[DB DEBUG] Résultat de la tentative de réessai:`, retryResult);
+      return retryResult;
     }
+    
+    return result;
   } catch (error) {
-    console.error('Error updating user:', error);
-    console.error('Data being updated:', data);
+    console.error('[DB DEBUG] Erreur lors de la mise à jour de l\'utilisateur:', error);
+    console.error('[DB DEBUG] Données en cours de mise à jour:', data);
     throw error; // Re-throw the error to be caught by the caller
   }
 }

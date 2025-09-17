@@ -124,31 +124,50 @@ client.on('messageCreate', async (message) => {
   
   const user = ensureUser(message.author.id);
   const currentTime = now();
+  const timeSinceLastXp = currentTime - (user.last_xp_gain || 0);
+  
+  console.log(`[XP DEBUG] Message de ${message.author.tag} (${message.author.id})`);
+  console.log(`[XP DEBUG] Dernier gain d'XP: ${new Date(user.last_xp_gain).toISOString()} (${timeSinceLastXp}ms ago)`);
+  console.log(`[XP DEBUG] XP actuel: ${user.xp}, Niveau: ${user.level}`);
   
   // Vérifier le cooldown XP
-  if (currentTime - user.last_xp_gain < config.xp.cooldown) return;
+  if (timeSinceLastXp < config.xp.cooldown) {
+    console.log(`[XP DEBUG] Cooldown non atteint: ${timeSinceLastXp}ms < ${config.xp.cooldown}ms`);
+    return;
+  }
   
   // Calculer gain XP avec multiplicateur VIP
   let xpGain = random(config.xp.minPerMessage, config.xp.maxPerMessage);
   const multiplier = getXpMultiplier(message.member);
   xpGain = Math.floor(xpGain * multiplier);
   
-  const newXp = user.xp + xpGain;
+  const newXp = (user.xp || 0) + xpGain;
   const newLevel = calculateLevel(newXp);
-  const levelUp = newLevel > user.level;
+  const levelUp = newLevel > (user.level || 1);
+  
+  console.log(`[XP DEBUG] Gain d'XP: +${xpGain} (x${multiplier} multiplicateur)`);
+  console.log(`[XP DEBUG] Nouvel XP: ${newXp}, Nouveau niveau: ${newLevel} (${levelUp ? 'NIVEAU SUPÉRIEUR!' : 'Pas de changement de niveau'})`);
   
   // Mettre à jour les messages quotidiens et missions
-  const newDailyMessages = user.daily_messages + 1;
-  const missionReward = updateMissionProgress(message.author.id, 'messages_30', 1) + 
+  const newDailyMessages = (user.daily_messages || 0) + 1;
+  const missionReward = updateMissionProgress(message.author.id, 'messages_30', 1) ||
                        updateMissionProgress(message.author.id, 'messages_50', 1);
   
-  updateUser(message.author.id, {
+  const updateData = {
     xp: newXp,
     level: newLevel,
     last_xp_gain: currentTime,
     daily_messages: newDailyMessages,
-    balance: user.balance + (levelUp ? 50 : 0) + missionReward
-  });
+    balance: (user.balance || 0) + (levelUp ? 50 : 0) + (missionReward || 0)
+  };
+  
+  console.log('[XP DEBUG] Mise à jour de la base de données:', JSON.stringify(updateData, null, 2));
+  
+  updateUser(message.author.id, updateData);
+  
+  if (levelUp) {
+    console.log(`[XP DEBUG] Félicitations! ${message.author.tag} est maintenant niveau ${newLevel}!`);
+  }
   
   if (levelUp) {
     const embed = new EmbedBuilder()
