@@ -463,6 +463,21 @@ async function handleCoinflipMulti(interaction) {
 
 // SHOP
 async function handleShop(interaction) {
+  // Créer la description des rôles BDG
+  const bdgRolesDescription = [
+    `**${config.shop.bdgBaby.name}** - ${config.shop.bdgBaby.price.toLocaleString()} ${config.currency.emoji}`,
+    `• Récompense quotidienne: ${config.shop.bdgBaby.dailyReward.toLocaleString()} ${config.currency.emoji}`,
+    '',
+    `**${config.shop.bdgPetit.name}** - ${config.shop.bdgPetit.price.toLocaleString()} ${config.currency.emoji}`,
+    `• Récompense quotidienne: ${config.shop.bdgPetit.dailyReward.toLocaleString()} ${config.currency.emoji}`,
+    '',
+    `**${config.shop.bdgGros.name}** - ${config.shop.bdgGros.price.toLocaleString()} ${config.currency.emoji}`,
+    `• Récompense quotidienne: ${config.shop.bdgGros.dailyReward.toLocaleString()} ${config.currency.emoji}`,
+    '',
+    `**${config.shop.bdgUltime.name}** - ${config.shop.bdgUltime.price.toLocaleString()} ${config.currency.emoji}`,
+    `• Récompense quotidienne: ${config.shop.bdgUltime.dailyReward.toLocaleString()} ${config.currency.emoji}`
+  ].join('\n');
+
   const embed = new EmbedBuilder()
     .setTitle('🛒 Boutique')
     .setDescription('Découvrez les avantages exclusifs de la boutique !')
@@ -470,24 +485,29 @@ async function handleShop(interaction) {
     .setImage('https://i.imgur.com/YbdHZae.png') // Bannière en bas de l'embed
     .addFields(
       { 
+        name: '🏆 Rôles BDG', 
+        value: bdgRolesDescription,
+        inline: false 
+      },
+      { 
         name: '👑 Rôles VIP', 
-        value: `**VIP** - ${config.shop.vip.price} ${config.currency.emoji}\n• +25% XP sur les messages\n\n**Super VIP** - ${config.shop.superVip.price} ${config.currency.emoji}\n• +50% XP sur les messages`, 
+        value: `**VIP** - ${config.shop.vip.price.toLocaleString()} ${config.currency.emoji}\n• +25% XP sur les messages\n\n**Super VIP** - ${config.shop.superVip.price.toLocaleString()} ${config.currency.emoji}\n• +50% XP sur les messages`, 
         inline: false 
       },
       { 
         name: '🎨 Personnalisation', 
-        value: `**${config.shop.colorChange.name}** - ${config.shop.colorChange.price} ${config.currency.emoji}\n• Change la couleur de ton pseudo sur le serveur`, 
+        value: `**${config.shop.colorChange.name}** - ${config.shop.colorChange.price.toLocaleString()} ${config.currency.emoji}\n• Change la couleur de ton pseudo sur le serveur`, 
         inline: false 
       },
       { 
         name: '🎁 Surprises', 
-        value: `**${config.shop.surprise1.name}** - ${config.shop.surprise1.price} ${config.currency.emoji}\n**${config.shop.surprise2.name}** - ${config.shop.surprise2.price} ${config.currency.emoji}`, 
+        value: `**${config.shop.surprise1.name}** - ${config.shop.surprise1.price.toLocaleString()} ${config.currency.emoji}\n**${config.shop.surprise2.name}** - ${config.shop.surprise2.price.toLocaleString()} ${config.currency.emoji}`, 
         inline: false 
       }
     )
     .setColor(0xffd700)
     .setFooter({ 
-      text: 'Utilise /acheter pour acheter un item',
+      text: 'Utilise /acheter [item] pour acheter un item (ex: /acheter bdg_baby)',
       iconURL: 'https://i.imgur.com/your-icon-url.png' // Petite icône dans le footer
     });
   
@@ -526,6 +546,26 @@ async function handlePurchase(interaction) {
       price = config.shop.surprise2.price;
       itemName = config.shop.surprise2.name;
       break;
+    case 'bdg_baby':
+      price = config.shop.bdgBaby.price;
+      itemName = config.shop.bdgBaby.name;
+      roleToAdd = config.shop.bdgBaby.role;
+      break;
+    case 'bdg_petit':
+      price = config.shop.bdgPetit.price;
+      itemName = config.shop.bdgPetit.name;
+      roleToAdd = config.shop.bdgPetit.role;
+      break;
+    case 'bdg_gros':
+      price = config.shop.bdgGros.price;
+      itemName = config.shop.bdgGros.name;
+      roleToAdd = config.shop.bdgGros.role;
+      break;
+    case 'bdg_ultime':
+      price = config.shop.bdgUltime.price;
+      itemName = config.shop.bdgUltime.name;
+      roleToAdd = config.shop.bdgUltime.role;
+      break;
   }
   
   if (user.balance < price) {
@@ -537,28 +577,40 @@ async function handlePurchase(interaction) {
   
   if (roleToAdd) {
     try {
-      // Gestion des rôles VIP
-      if (roleToAdd === 'VIP' || roleToAdd === 'Super VIP') {
+      // Gestion des rôles VIP et BDG
+      const bdgRoles = [
+        config.shop.bdgBaby.role,
+        config.shop.bdgPetit.role,
+        config.shop.bdgGros.role,
+        config.shop.bdgUltime.role
+      ];
+      const isVipRole = ['VIP', 'Super VIP'].includes(roleToAdd);
+      const isBdgRole = bdgRoles.includes(roleToAdd);
+
+      if (isVipRole || isBdgRole) {
         let role = interaction.guild.roles.cache.find(r => r.name === roleToAdd);
         if (!role) {
-          const roleColor = roleToAdd === 'VIP' ? 0xffd700 : 0xff6600;
+          // Définir une couleur par défaut si ce n'est pas un rôle VIP
+          const roleColor = roleToAdd === 'VIP' ? 0xffd700 : 
+                          roleToAdd === 'Super VIP' ? 0xff6600 :
+                          0x7289DA; // Couleur Discord par défaut
           
           role = await interaction.guild.roles.create({
             name: roleToAdd,
             color: roleColor,
             reason: 'Rôle acheté dans la boutique',
             mentionable: false,
-            hoist: false
+            hoist: isBdgRole // Pour que les rôles BDG soient affichés dans la liste des membres
           });
         }
         
-        // Supprimer l'ancien rôle VIP si existant
-        const existingVipRoles = interaction.member.roles.cache.filter(r => 
-          ['VIP', 'Super VIP'].includes(r.name)
-        );
+        // Supprimer l'ancien rôle du même type si existant
+        const rolesToRemove = isVipRole 
+          ? interaction.member.roles.cache.filter(r => ['VIP', 'Super VIP'].includes(r.name))
+          : interaction.member.roles.cache.filter(r => bdgRoles.includes(r.name));
         
-        if (existingVipRoles.size > 0) {
-          await interaction.member.roles.remove(existingVipRoles);
+        if (rolesToRemove.size > 0) {
+          await interaction.member.roles.remove(rolesToRemove);
         }
         
         await interaction.member.roles.add(role);

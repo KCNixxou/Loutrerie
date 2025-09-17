@@ -26,7 +26,11 @@ module.exports = {
     superVip: { price: 20000, name: 'Super VIP' },
     colorChange: { price: 10000, name: 'Changement de couleurs' },
     surprise1: { price: 100000, name: 'Surprise Mystère #1' },
-    surprise2: { price: 100000, name: 'Surprise Mystère #2' }
+    surprise2: { price: 100000, name: 'Surprise Mystère #2' },
+    bdgBaby: { price: 10000, name: 'Bébé BDG', role: 'Bébé BDG', dailyReward: 500 },
+    bdgPetit: { price: 50000, name: 'Petit BDG', role: 'Petit BDG', dailyReward: 1000 },
+    bdgGros: { price: 200000, name: 'Gros BDG', role: 'Gros BDG', dailyReward: 5000 },
+    bdgUltime: { price: 1000000, name: 'BDG Ultime', role: 'BDG Ultime', dailyReward: 20000 }
   },
   missions: {
     daily: [

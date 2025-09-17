@@ -19,6 +19,10 @@ const commands = [
     .setDescription('Récupérer ta récompense journalière de 100 🐚'),
 
   new SlashCommandBuilder()
+    .setName('dailybdg')
+    .setDescription('Récupérer ta récompense BDG journalière (nécessite un rôle BDG)'),
+
+  new SlashCommandBuilder()
     .setName('highlow')
     .setDescription('Jouer au High Low (Plus haut/Plus bas/Égal)')
     .addIntegerOption(option =>
@@ -167,8 +171,12 @@ const commands = [
         .setDescription('Item à acheter')
         .setRequired(true)
         .addChoices(
-          { name: 'Rôle VIP (10,000 🐚)', value: 'vip' },
-          { name: 'Rôle Super VIP (20,000 🐚)', value: 'super_vip' },
+          { name: 'Bébé BDG (10,000 🐚)', value: 'bdg_baby' },
+          { name: 'Petit BDG (50,000 🐚)', value: 'bdg_petit' },
+          { name: 'Gros BDG (200,000 🐚)', value: 'bdg_gros' },
+          { name: 'BDG Ultime (1,000,000 🐚)', value: 'bdg_ultime' },
+          { name: 'VIP (10,000 🐚)', value: 'vip' },
+          { name: 'Super VIP (20,000 🐚)', value: 'super_vip' },
           { name: 'Changement de couleurs (10,000 🐚)', value: 'color_change' },
           { name: 'Surprise Mystère #1 (100,000 🐚)', value: 'surprise1' },
           { name: 'Surprise Mystère #2 (100,000 🐚)', value: 'surprise2' }

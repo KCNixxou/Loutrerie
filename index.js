@@ -609,6 +609,100 @@ async function handleSlashCommand(interaction) {
         content: `🎁 Tu as reçu ta récompense journalière de **${config.currency.dailyReward}** ${config.currency.emoji} !\nNouveau solde: **${newBalance}** ${config.currency.emoji}`
       });
       break;
+      
+    case 'dailybdg':
+      const bdgUserId = interaction.user.id;
+      const bdgUser = ensureUser(bdgUserId);
+      const bdgNow = new Date();
+      let lastBdgClaim = bdgUser.last_bdg_claim || 0;
+      const bdgToday = new Date(bdgNow);
+      bdgToday.setHours(0, 0, 0, 0);
+      
+      // Vérifier si l'utilisateur a un rôle BDG
+      const member = await interaction.guild.members.fetch(bdgUserId);
+      const bdgRoles = [
+        config.shop.bdgBaby.role,
+        config.shop.bdgPetit.role,
+        config.shop.bdgGros.role,
+        config.shop.bdgUltime.role
+      ];
+      
+      const hasBdgRole = member.roles.cache.some(role => bdgRoles.includes(role.name));
+      
+      if (!hasBdgRole) {
+        await interaction.reply({
+          content: '❌ Vous devez avoir un rôle BDG (Bébé BDG, Petit BDG, Gros BDG ou BDG Ultime) pour utiliser cette commande !',
+          ephemeral: true
+        });
+        return;
+      }
+      
+      // Vérifier si le timestamp est valide (entre 2000 et 2100)
+      const lastBdgClaimDate = new Date(lastBdgClaim * 1000);
+      
+      if (lastBdgClaimDate.getFullYear() < 2000 || lastBdgClaimDate.getFullYear() > 2100) {
+        // Timestamp invalide, on le réinitialise
+        console.log('Timestamp BDG invalide détecté, réinitialisation...');
+        lastBdgClaim = 0;
+      }
+      
+      const lastBdgClaimTimestamp = lastBdgClaim * 1000;
+      const bdgTodayTimestamp = bdgToday.getTime();
+      
+      if (lastBdgClaim > 0 && lastBdgClaimTimestamp >= bdgTodayTimestamp) {
+        // Calculer le temps jusqu'à minuit prochain
+        const nextDay = new Date(bdgToday);
+        nextDay.setDate(nextDay.getDate() + 1);
+        const timeUntilReset = nextDay - bdgNow;
+        const hours = Math.floor(timeUntilReset / (1000 * 60 * 60));
+        const minutes = Math.floor((timeUntilReset % (1000 * 60 * 60)) / (1000 * 60));
+        
+        await interaction.reply({
+          content: `⏳ Tu as déjà récupéré ta récompense BDG aujourd'hui ! Reviens dans ${hours}h${minutes}m.`,
+          ephemeral: true
+        });
+        return;
+      }
+      
+      // Déterminer le montant de la récompense en fonction du rôle le plus élevé
+      let reward = 0;
+      let roleName = '';
+      
+      if (member.roles.cache.some(r => r.name === config.shop.bdgUltime.role)) {
+        reward = config.shop.bdgUltime.dailyReward;
+        roleName = config.shop.bdgUltime.role;
+      } else if (member.roles.cache.some(r => r.name === config.shop.bdgGros.role)) {
+        reward = config.shop.bdgGros.dailyReward;
+        roleName = config.shop.bdgGros.role;
+      } else if (member.roles.cache.some(r => r.name === config.shop.bdgPetit.role)) {
+        reward = config.shop.bdgPetit.dailyReward;
+        roleName = config.shop.bdgPetit.role;
+      } else if (member.roles.cache.some(r => r.name === config.shop.bdgBaby.role)) {
+        reward = config.shop.bdgBaby.dailyReward;
+        roleName = config.shop.bdgBaby.role;
+      }
+      
+      // Mettre à jour le solde de l'utilisateur
+      const newBdgBalance = (bdgUser.balance || 0) + reward;
+      
+      updateUser(bdgUserId, {
+        balance: newBdgBalance,
+        last_bdg_claim: Math.floor(bdgNow.getTime() / 1000)
+      });
+      
+      // Envoyer la réponse
+      const bdgEmbed = new EmbedBuilder()
+        .setTitle('🎉 Récompense BDG journalière')
+        .setDescription(`Félicitations ! En tant que **${roleName}**, tu as reçu ta récompense quotidienne de **${reward.toLocaleString()}** ${config.currency.emoji} !`)
+        .addFields(
+          { name: 'Nouveau solde', value: `${newBdgBalance.toLocaleString()} ${config.currency.emoji}`, inline: true },
+          { name: 'Prochaine récompense', value: 'Demain à minuit', inline: true }
+        )
+        .setColor(0x00ff00)
+        .setTimestamp();
+      
+      await interaction.reply({ embeds: [bdgEmbed] });
+      break;
 
     case 'missions':
       const missions = JSON.parse(user.daily_missions || '[]');
