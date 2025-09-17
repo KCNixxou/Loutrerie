@@ -215,7 +215,7 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('give')
-    .setDescription('Donner des coquillages à un autre joueur (max 200/jour)')
+    .setDescription('Donner des coquillages à un autre joueur (max 500/jour)')
     .addUserOption(option =>
       option.setName('utilisateur')
         .setDescription('À qui voulez-vous donner des coquillages ?')
@@ -225,7 +225,7 @@ const commands = [
         .setDescription('Nombre de coquillages à donner')
         .setRequired(true)
         .setMinValue(1)
-        .setMaxValue(200)),
+        .setMaxValue(500)),
 
   new SlashCommandBuilder()
     .setName('morpion')
