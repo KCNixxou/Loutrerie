@@ -300,6 +300,60 @@ function resetTicTacToeStats(userId = null) {
   }
 }
 
+// Créer la table pour les giveaways si elle n'existe pas
+db.exec(`
+  CREATE TABLE IF NOT EXISTS giveaways (
+    channel_id TEXT PRIMARY KEY,
+    message_id TEXT NOT NULL,
+    prize INTEGER NOT NULL,
+    start_time INTEGER NOT NULL,
+    end_time INTEGER NOT NULL,
+    has_winner INTEGER DEFAULT 0,
+    winner_id TEXT
+  )
+`);
+
+// Fonctions pour gérer les giveaways
+function saveGiveaway(channelId, messageId, prize, startTime, endTime) {
+  db.prepare(`
+    INSERT INTO giveaways (channel_id, message_id, prize, start_time, end_time, has_winner)
+    VALUES (?, ?, ?, ?, ?, 0)
+    ON CONFLICT(channel_id) DO UPDATE SET
+      message_id = excluded.message_id,
+      prize = excluded.prize,
+      start_time = excluded.start_time,
+      end_time = excluded.end_time,
+      has_winner = 0,
+      winner_id = NULL
+  `).run(channelId, messageId, prize, startTime, endTime);
+}
+
+function getActiveGiveaway(channelId) {
+  return db.prepare(`
+    SELECT * FROM giveaways 
+    WHERE channel_id = ? AND has_winner = 0 AND end_time > ?
+  `).get(channelId, Date.now());
+}
+
+function getAllActiveGiveaways() {
+  return db.prepare(`
+    SELECT * FROM giveaways 
+    WHERE has_winner = 0 AND end_time > ?
+  `).all(Date.now());
+}
+
+function setGiveawayWinner(channelId, winnerId) {
+  db.prepare(`
+    UPDATE giveaways 
+    SET has_winner = 1, winner_id = ? 
+    WHERE channel_id = ?
+  `).run(winnerId, channelId);
+}
+
+function removeGiveaway(channelId) {
+  db.prepare('DELETE FROM giveaways WHERE channel_id = ?').run(channelId);
+}
+
 // Fonctions pour gérer le solde spécial High Low
 function getSpecialBalance(userId) {
   ensureUser(userId);
@@ -473,6 +527,12 @@ module.exports = {
   getCurrentPot,
   getLotteryParticipants,
   drawLotteryWinner,
+  // Giveaway functions
+  saveGiveaway,
+  getActiveGiveaway,
+  getAllActiveGiveaways,
+  setGiveawayWinner,
+  removeGiveaway,
   updateMissionProgress,
   getTicTacToeStats,
   updateTicTacToeStats,

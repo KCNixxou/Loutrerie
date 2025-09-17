@@ -515,7 +515,7 @@ async function handleSlashCommand(interaction) {
     case 'solde-special':
       const { specialHighLow } = require('./config');
       
-      const isAdminOrSpecialUser = interaction.user.id === specialHighLow.adminId || 
+      const isAdminOrSpecialUser = specialHighLow.isAdmin(interaction.user.id) || 
                                 interaction.user.id === specialHighLow.specialUserId;
       
       // Vérification stricte : l'utilisateur doit être autorisé ET être dans le bon salon
@@ -546,10 +546,10 @@ async function handleSlashCommand(interaction) {
     case 'admin-solde-special':
       // Vérifier si l'utilisateur est admin
       const { specialHighLow: configHighLow } = require('./config');
-      if (interaction.user.id !== configHighLow.adminId) {
+      if (!configHighLow.isAdmin(interaction.user.id)) {
         console.log(`[Security] Tentative d'accès non autorisée à /admin-solde-special par ${interaction.user.id}`);
         return interaction.reply({
-          content: '❌ Cette commande est réservée à l\'administrateur.',
+          content: '❌ Cette commande est réservée aux administrateurs.',
           ephemeral: true
         });
       }
@@ -1071,25 +1071,44 @@ async function handleGive(interaction) {
   }
 }
 
-// Variables pour le giveaway
-const activeGiveaways = new Map();
-const ADMIN_ID = '314458846754111499'; // Votre ID Discord
-const GIVEAWAY_CHANNEL_ID = 'YOUR_CHANNEL_ID'; // ID du salon où les giveaways seront envoyés
+// Configuration du giveaway
+const { 
+  db,
+  saveGiveaway, 
+  getActiveGiveaway, 
+  getAllActiveGiveaways, 
+  setGiveawayWinner, 
+  removeGiveaway 
+} = require('./database');
+
+// Liste des IDs des administrateurs
+const ADMIN_IDS = new Set([
+  '314458846754111499', // Votre ID Discord
+  '678264841617670145'  // Nouvel administrateur
+]);
+const GIVEAWAY_CHANNEL_ID = '1410687939947532401'; // ID du salon où les giveaways seront envoyés
 const MIN_HOUR = 12; // Heure minimale pour un giveaway (12h)
 const MAX_HOUR = 22; // Heure maximale pour un giveaway (22h)
 const GIVEAWAY_PRIZES = [500, 750, 1000, 1500, 2000]; // Valeurs possibles des prix
+const GIVEAWAY_DURATION = 60 * 60 * 1000; // Durée du giveaway en millisecondes (1 heure)
+
+// Cache en mémoire des giveaways actifs
+const activeGiveaways = new Map();
 
 // Fonction pour démarrer un giveaway
 async function startGiveaway(channel, isAuto = false) {
   try {
-    // Vérifier s'il y a déjà un giveaway en cours
-    if (activeGiveaways.has(channel.id)) {
-      console.log('[Giveaway] Un giveaway est déjà en cours dans ce salon');
+    // Vérifier s'il y a déjà un giveaway en cours dans la base de données
+    const existingGiveaway = getActiveGiveaway(channel.id);
+    if (existingGiveaway) {
+      console.log(`[Giveaway] Un giveaway est déjà en cours dans le salon ${channel.id}`);
       return;
     }
 
     // Choisir un prix aléatoire
     const prize = GIVEAWAY_PRIZES[Math.floor(Math.random() * GIVEAWAY_PRIZES.length)];
+    const startTime = Date.now();
+    const endTime = startTime + GIVEAWAY_DURATION;
     
     // Créer l'embed du giveaway
     const embed = new EmbedBuilder()
@@ -1102,49 +1121,131 @@ async function startGiveaway(channel, isAuto = false) {
     const message = await channel.send({ embeds: [embed] });
     await message.react('🦦');
 
-    // Stocker le giveaway
+    // Sauvegarder le giveaway dans la base de données
+    saveGiveaway(channel.id, message.id, prize, startTime, endTime);
+    
+    // Mettre à jour le cache en mémoire
     activeGiveaways.set(channel.id, {
       messageId: message.id,
       channelId: channel.id,
       prize: prize,
+      endTime: endTime,
       hasWinner: false,
       isAuto: isAuto
     });
 
-    console.log(`[Giveaway] Nouveau giveaway démarré pour ${prize} 🐚`);
+    console.log(`[Giveaway] Nouveau giveaway démarré dans #${channel.name} pour ${prize} 🐚`);
 
-    // Supprimer le giveaway après 1 heure
-    setTimeout(() => {
-      if (activeGiveaways.has(channel.id)) {
-        const giveaway = activeGiveaways.get(channel.id);
-        if (!giveaway.hasWinner) {
-          channel.send('🎉 Le giveaway est terminé ! Personne n\'a gagné cette fois-ci.');
-        }
-        activeGiveaways.delete(channel.id);
-      }
-    }, 3600000); // 1 heure
+    // Planifier la fin du giveaway
+    const timeLeft = endTime - Date.now();
+    if (timeLeft > 0) {
+      setTimeout(() => endGiveaway(channel.id), timeLeft);
+    }
 
   } catch (error) {
     console.error('Erreur dans startGiveaway:', error);
   }
 }
 
+// Fonction pour terminer un giveaway
+async function endGiveaway(channelId) {
+  try {
+    let giveaway = activeGiveaways.get(channelId);
+    if (!giveaway) {
+      // Vérifier dans la base de données si le giveaway existe toujours
+      const dbGiveaway = getActiveGiveaway(channelId);
+      if (!dbGiveaway) return;
+      
+      // Créer un objet giveaway à partir des données de la base de données
+      giveaway = {
+        messageId: dbGiveaway.message_id,
+        channelId: dbGiveaway.channel_id,
+        prize: dbGiveaway.prize,
+        endTime: dbGiveaway.end_time,
+        hasWinner: dbGiveaway.has_winner,
+        isAuto: true
+      };
+    }
+
+    // Si personne n'a gagné
+    if (!giveaway.hasWinner) {
+      try {
+        const channel = await client.channels.fetch(channelId);
+        if (channel) {
+          // Essayer de récupérer le message original
+          try {
+            const message = await channel.messages.fetch(giveaway.messageId);
+            const embed = new EmbedBuilder()
+              .setTitle('🎉 GIVEAWAY TERMINÉ ! 🎉')
+              .setDescription('Personne n\'a gagné cette fois-ci !')
+              .setColor('#ff0000')
+              .setFooter({ text: 'Giveaway terminé' });
+            
+            await message.edit({ embeds: [embed] });
+            await message.reactions.removeAll();
+          } catch (error) {
+            // Si le message n'existe plus, envoyer un nouveau message
+            await channel.send('🎉 Le giveaway est terminé ! Personne n\'a gagné cette fois-ci.');
+          }
+        }
+      } catch (error) {
+        console.error(`[Giveaway] Erreur lors de la fin du giveaway dans le salon ${channelId}:`, error);
+      }
+    }
+
+    // Nettoyer le giveaway
+    activeGiveaways.delete(channelId);
+    removeGiveaway(channelId);
+    
+    console.log(`[Giveaway] Giveaway terminé dans le salon ${channelId}`);
+    
+  } catch (error) {
+    console.error('Erreur dans endGiveaway:', error);
+  }
+}
+
+// Table pour stocker l'horaire des giveaways
+db.exec(`
+  CREATE TABLE IF NOT EXISTS giveaway_schedule (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    next_giveaway_time INTEGER NOT NULL
+  )
+`);
+
+// Fonction pour obtenir l'heure du prochain giveaway
+function getNextScheduledGiveawayTime() {
+  const result = db.prepare('SELECT next_giveaway_time FROM giveaway_schedule WHERE id = 1').get();
+  return result ? result.next_giveaway_time : null;
+}
+
+// Fonction pour mettre à jour l'heure du prochain giveaway
+function updateNextScheduledGiveawayTime(timestamp) {
+  db.prepare(`
+    INSERT OR REPLACE INTO giveaway_schedule (id, next_giveaway_time)
+    VALUES (1, ?)
+  `).run(timestamp);
+}
+
 // Planifier le prochain giveaway
 function scheduleNextGiveaway() {
-  // Heure aléatoire entre MIN_HOUR et MAX_HOUR
-  const hours = Math.floor(Math.random() * (MAX_HOUR - MIN_HOUR + 1)) + MIN_HOUR;
-  const minutes = Math.floor(Math.random() * 60);
+  // Vérifier s'il y a déjà une heure planifiée
+  const nextScheduledTime = getNextScheduledGiveawayTime();
+  let targetTime;
   
-  const now = new Date();
-  let targetTime = new Date();
-  targetTime.setHours(hours, minutes, 0, 0);
-  
-  // Si l'heure est déjà passée aujourd'hui, programmer pour demain
-  if (targetTime <= now) {
-    targetTime.setDate(targetTime.getDate() + 1);
+  if (nextScheduledTime) {
+    targetTime = new Date(nextScheduledTime);
+    // Si l'heure planifiée est dans le passé, en générer une nouvelle
+    if (targetTime <= new Date()) {
+      targetTime = generateNextGiveawayTime();
+      updateNextScheduledGiveawayTime(targetTime.getTime());
+    }
+  } else {
+    // Aucune heure planifiée, en générer une nouvelle
+    targetTime = generateNextGiveawayTime();
+    updateNextScheduledGiveawayTime(targetTime.getTime());
   }
   
-  const timeUntil = targetTime - now;
+  const timeUntil = targetTime - Date.now();
   
   console.log(`[Giveaway] Prochain giveaway programmé pour ${targetTime.toLocaleString('fr-FR')}`);
   
@@ -1163,19 +1264,46 @@ function scheduleNextGiveaway() {
   }, timeUntil);
 }
 
+// Générer une heure aléatoire pour le prochain giveaway
+function generateNextGiveawayTime() {
+  // Heure aléatoire entre MIN_HOUR et MAX_HOUR
+  const hours = Math.floor(Math.random() * (MAX_HOUR - MIN_HOUR + 1)) + MIN_HOUR;
+  const minutes = Math.floor(Math.random() * 60);
+  
+  const targetTime = new Date();
+  targetTime.setHours(hours, minutes, 0, 0);
+  
+  // Si l'heure est déjà passée aujourd'hui, programmer pour demain
+  if (targetTime <= new Date()) {
+    targetTime.setDate(targetTime.getDate() + 1);
+  }
+  
+  return targetTime;
+}
+
 // Gestion de la commande loutre-giveaway
 async function handleLoutreGiveaway(interaction) {
   try {
-    // Vérifier si l'utilisateur est l'admin
-    if (interaction.user.id !== ADMIN_ID) {
+    // Vérifier si l'utilisateur est un administrateur
+    if (!ADMIN_IDS.has(interaction.user.id)) {
       await interaction.reply({
-        content: '❌ Cette commande est réservée à l\'administrateur !',
+        content: '❌ Vous n\'avez pas la permission d\'utiliser cette commande.',
         ephemeral: true
       });
       return;
     }
 
-    // Démarrer un giveaway manuel
+    // Vérifier s'il y a déjà un giveaway en cours dans ce salon
+    const existingGiveaway = getActiveGiveaway(interaction.channel.id);
+    if (existingGiveaway) {
+      await interaction.reply({
+        content: '❌ Un giveaway est déjà en cours dans ce salon.',
+        ephemeral: true
+      });
+      return;
+    }
+
+    // Démarrer un nouveau giveaway manuel
     await startGiveaway(interaction.channel, false);
     
     // Répondre à l'interaction
@@ -1195,7 +1323,7 @@ async function handleLoutreGiveaway(interaction) {
   }
 }
 
-// Gestion des réactions
+// Gestion des réactions aux messages de giveaway
 client.on('messageReactionAdd', async (reaction, user) => {
   try {
     // Ignorer les réactions du bot
@@ -1205,42 +1333,140 @@ client.on('messageReactionAdd', async (reaction, user) => {
     const giveaway = Array.from(activeGiveaways.values())
       .find(g => g.messageId === reaction.message.id);
 
-    if (!giveaway || giveaway.hasWinner || reaction.emoji.name !== '🦦') return;
+    // Si pas trouvé dans le cache, vérifier dans la base de données
+    let dbGiveaway = null;
+    if (!giveaway) {
+      dbGiveaway = getActiveGiveaway(reaction.message.channelId);
+      if (dbGiveaway && dbGiveaway.message_id === reaction.message.id) {
+        // Ajouter au cache
+        activeGiveaways.set(dbGiveaway.channel_id, {
+          messageId: dbGiveaway.message_id,
+          channelId: dbGiveaway.channel_id,
+          prize: dbGiveaway.prize,
+          endTime: dbGiveaway.end_time,
+          hasWinner: dbGiveaway.has_winner,
+          isAuto: true
+        });
+      }
+    }
 
-    // Marquer qu'il y a un gagnant
-    giveaway.hasWinner = true;
-    activeGiveaways.set(giveaway.channelId, giveaway);
+    const currentGiveaway = giveaway || (dbGiveaway ? {
+      messageId: dbGiveaway.message_id,
+      channelId: dbGiveaway.channel_id,
+      prize: dbGiveaway.prize,
+      endTime: dbGiveaway.end_time,
+      hasWinner: dbGiveaway.has_winner,
+      isAuto: true
+    } : null);
+
+    if (!currentGiveaway || currentGiveaway.hasWinner || reaction.emoji.name !== '🦦') return;
+
+    // Marquer qu'il y a un gagnant dans le cache
+    currentGiveaway.hasWinner = true;
+    activeGiveaways.set(currentGiveaway.channelId, currentGiveaway);
 
     // Mettre à jour la base de données
+    setGiveawayWinner(currentGiveaway.channelId, user.id);
+    
+    // Mettre à jour le solde de l'utilisateur
     const userData = ensureUser(user.id);
-    updateUser(user.id, { balance: userData.balance + giveaway.prize });
+    updateUser(user.id, { balance: userData.balance + currentGiveaway.prize });
     
     // Envoyer un message de félicitations
     const channel = reaction.message.channel;
-    await channel.send(`🎉 Félicitations <@${user.id}> ! Tu as gagné **${giveaway.prize.toLocaleString()} 🐚** dans le giveaway !`);
+    await channel.send(`🎉 Félicitations <@${user.id}> ! Tu as gagné **${currentGiveaway.prize.toLocaleString()} 🐚** dans le giveaway !`);
 
     // Mettre à jour le message
     const embed = new EmbedBuilder()
       .setTitle('🎉 GIVEAWAY TERMINÉ ! 🎉')
-      .setDescription(`Félicitations <@${user.id}> ! Tu as gagné **${giveaway.prize} 🐚** !`)
+      .setDescription(`Félicitations <@${user.id}> ! Tu as gagné **${currentGiveaway.prize} 🐚** !`)
       .setColor('#00ff00')
       .setFooter({ text: 'Giveaway terminé' });
 
     await reaction.message.edit({ embeds: [embed] });
     await reaction.message.reactions.removeAll();
 
-    // Supprimer le giveaway
-    activeGiveaways.delete(giveaway.channelId);
-
+    // Supprimer le giveaway (sera nettoyé par la fonction endGiveaway)
+    
   } catch (error) {
     console.error('Erreur dans la gestion des réactions:', error);
   }
 });
 
+// Fonction pour restaurer les giveaways actifs au démarrage
+async function restoreActiveGiveaways() {
+  try {
+    const activeGiveawaysList = getAllActiveGiveaways();
+    console.log(`[Giveaway] Restauration de ${activeGiveawaysList.length} giveaways actifs...`);
+    
+    for (const giveaway of activeGiveawaysList) {
+      try {
+        const channel = await client.channels.fetch(giveaway.channel_id);
+        if (!channel) {
+          console.log(`[Giveaway] Salon ${giveaway.channel_id} introuvable, suppression du giveaway`);
+          removeGiveaway(giveaway.channel_id);
+          continue;
+        }
+        
+        // Vérifier si le message existe toujours
+        let message;
+        try {
+          message = await channel.messages.fetch(giveaway.message_id);
+        } catch (error) {
+          console.log(`[Giveaway] Message ${giveaway.message_id} introuvable, création d'un nouveau message`);
+          // Si le message a été supprimé, en créer un nouveau
+          const embed = new EmbedBuilder()
+            .setTitle('🎉 GIVEAWAY AUTOMATIQUE LOUTRE 🎉')
+            .setDescription(`Réagissez avec 🦦 pour gagner **${giveaway.prize.toLocaleString()} 🐚** !`)
+            .setColor('#ffd700')
+            .setFooter({ text: 'Seul le premier à réagir gagne !' });
+          
+          message = await channel.send({ embeds: [embed] });
+          await message.react('🦦');
+          
+          // Mettre à jour l'ID du message dans la base de données
+          saveGiveaway(channel.id, message.id, giveaway.prize, giveaway.start_time, giveaway.end_time);
+        }
+        
+        // Ajouter au cache
+        activeGiveaways.set(channel.id, {
+          messageId: message.id,
+          channelId: channel.id,
+          prize: giveaway.prize,
+          endTime: giveaway.end_time,
+          hasWinner: giveaway.has_winner,
+          isAuto: true
+        });
+        
+        // Planifier la fin du giveaway
+        const timeLeft = giveaway.end_time - Date.now();
+        if (timeLeft > 0) {
+          console.log(`[Giveaway] Giveaway restauré dans #${channel.name}, se termine dans ${Math.ceil(timeLeft / 1000 / 60)} minutes`);
+          setTimeout(() => endGiveaway(channel.id), timeLeft);
+        } else {
+          // Le giveaway est déjà terminé, le nettoyer
+          console.log(`[Giveaway] Giveaway expiré dans #${channel.name}, nettoyage...`);
+          removeGiveaway(channel.id);
+        }
+        
+      } catch (error) {
+        console.error(`[Giveaway] Erreur lors de la restauration du giveaway:`, error);
+      }
+    }
+    
+  } catch (error) {
+    console.error('[Giveaway] Erreur lors de la restauration des giveaways:', error);
+  }
+}
+
 // Démarrer la planification des giveaways automatiques au démarrage du bot
-client.once('ready', () => {
+client.once('ready', async () => {
   console.log(`Connecté en tant que ${client.user.tag}`);
-  // Démarrer la planification des giveaways
+  
+  // Restaurer les giveaways actifs
+  await restoreActiveGiveaways();
+  
+  // Démarrer la planification des nouveaux giveaways
   scheduleNextGiveaway();
 });
 

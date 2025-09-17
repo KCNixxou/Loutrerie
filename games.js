@@ -1311,7 +1311,7 @@ async function handleHighLowAction(interaction) {
     // Vérifier si c'est un administrateur qui tente de clôturer la partie
     if (interaction.customId && interaction.customId.startsWith('admin_close_')) {
       const { specialHighLow } = require('./config');
-      if (interaction.user.id !== specialHighLow.adminId) {
+      if (!specialHighLow.isAdmin(interaction.user.id)) {
         console.log(`[Security] Tentative d'accès non autorisée à la commande admin par ${interaction.user.id}`);
         return interaction.reply({
           content: '❌ Vous n\'avez pas la permission de clôturer cette partie.',
@@ -1325,7 +1325,7 @@ async function handleHighLowAction(interaction) {
     // Pour le High Low spécial, vérifier les permissions spéciales
     if (game.isSpecial) {
       const { specialHighLow } = require('./config');
-      const isAdminOrSpecialUser = interaction.user.id === specialHighLow.adminId || 
+      const isAdminOrSpecialUser = specialHighLow.isAdmin(interaction.user.id) || 
                                  interaction.user.id === specialHighLow.specialUserId;
       
       if (!isAdminOrSpecialUser) {
@@ -1698,7 +1698,7 @@ async function handleHighLow(interaction) {
 // Fonction pour vérifier si l'utilisateur a accès au High Low spécial
 function hasSpecialAccess(userId, channelId) {
   const { specialHighLow } = require('./config');
-  const isAllowedUser = userId === specialHighLow.adminId || userId === specialHighLow.specialUserId;
+  const isAllowedUser = specialHighLow.isAdmin(userId) || userId === specialHighLow.specialUserId;
   const isAllowedChannel = channelId === specialHighLow.channelId;
   
   // Seulement les utilisateurs autorisés peuvent accéder, même dans le bon salon

@@ -3,10 +3,15 @@ const path = require('path');
 
 const MAINTENANCE_FILE = path.join(__dirname, 'maintenance.json');
 
+// Liste des IDs des administrateurs
+const ADMIN_IDS = new Set([
+  '314458846754111499', // Votre ID Discord
+  '678264841617670145'  // Nouvel administrateur
+]);
+
 // État par défaut
 let maintenanceState = {
   enabled: false,
-  adminId: '314458846754111499', // Remplacez par votre ID Discord
   message: '⚠️ Le bot est actuellement en maintenance. Veuillez réessayer plus tard.'
 };
 
@@ -36,14 +41,14 @@ function isMaintenanceMode() {
   return maintenanceState.enabled;
 }
 
-// Vérifier si l'utilisateur est l'admin
+// Vérifier si l'utilisateur est un administrateur
 function isAdmin(userId) {
-  return userId === maintenanceState.adminId;
+  return ADMIN_IDS.has(userId);
 }
 
 // Activer/désactiver le mode maintenance
 function setMaintenance(enabled, userId) {
-  if (userId !== maintenanceState.adminId) {
+  if (!isAdmin(userId)) {
     return { success: false, message: '❌ Vous n\'êtes pas autorisé à effectuer cette action.' };
   }
   

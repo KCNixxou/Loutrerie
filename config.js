@@ -42,9 +42,13 @@ module.exports = {
   // Configuration pour le salon spécial High Low
   specialHighLow: {
     channelId: '1378373298861248642', // ID du salon spécial
-    adminId: '314458846754111499',   // Votre ID d'admin
+    adminIds: ['314458846754111499', '678264841617670145'],   // Liste des IDs des administrateurs
     specialUserId: '678264841617670145', // ID de l'utilisateur spécial
     maxBet: 50000, // Mise maximale pour le salon spécial
-    startingBalance: 1000 // Solde de départ pour le salon spécial
+    startingBalance: 1000, // Solde de départ pour le salon spécial
+    // Fonction utilitaire pour vérifier si un utilisateur est admin
+    isAdmin: function(userId) {
+      return this.adminIds.includes(userId);
+    }
   }
 };
