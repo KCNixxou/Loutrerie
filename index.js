@@ -157,7 +157,7 @@ client.on('messageCreate', async (message) => {
     level: newLevel,  // Déjà une valeur numérique
     last_xp_gain: currentTime,
     daily_messages: newDailyMessages,
-    balance: (user.balance || 0) + (levelUp ? 50 : 0) + (missionReward || 0)
+    balance: (user.balance || 0) + (levelUp ? 100 : 0) + (missionReward || 0)  // Augmenté de 50 à 100
   };
   
   console.log('[XP DEBUG] Mise à jour de la base de données:', JSON.stringify(updateData, null, 2));
@@ -172,7 +172,7 @@ client.on('messageCreate', async (message) => {
     const levelInfo = getLevelInfo(newXp);
     const embed = new EmbedBuilder()
       .setTitle('🎉 Niveau supérieur !')
-      .setDescription(`Félicitations <@${message.author.id}> ! Tu es maintenant niveau **${newLevel}** !\n+50 ${config.currency.emoji} de bonus !\nProgression: ${levelInfo.currentXp}/${levelInfo.xpForNextLevel} XP (${levelInfo.progress.toFixed(1)}%)`)
+      .setDescription(`Félicitations <@${message.author.id}> ! Tu es maintenant niveau **${newLevel}** !\n+100 ${config.currency.emoji} de bonus !\nProgression: ${levelInfo.currentXp}/${levelInfo.xpForNextLevel} XP (${levelInfo.progress.toFixed(1)}%)`)
       .setColor(0x00ff00);
     
     message.channel.send({ embeds: [embed] });

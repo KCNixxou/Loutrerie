@@ -195,6 +195,7 @@ module.exports = {
   random,
   now,
   calculateLevel,
+  getLevelInfo,
   getCardValue,
   compareCards,
   getXpMultiplier,
@@ -203,5 +204,7 @@ module.exports = {
   formatHand,
   getRouletteColor,
   playSlots,
-  scheduleMidnightReset
+  scheduleMidnightReset,
+  getCardValue: getCardValue,
+  compareCards: compareCards
 };

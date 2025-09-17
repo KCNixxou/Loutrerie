@@ -1,7 +1,7 @@
 module.exports = {
   currency: {
     emoji: '🐚',
-    dailyReward: 100,
+    dailyReward: 200,  // Augmenté de 100 à 200
     startingBalance: 500
   },
   casino: {
