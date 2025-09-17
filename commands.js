@@ -275,4 +275,23 @@ const commands = [
     .setDMPermission(false)
 ];
 
+// Admin command for lottery pot
+const adminCommand = new SlashCommandBuilder()
+  .setName('tas')
+  .setDescription('[ADMIN] Gérer le pot commun de la loterie')
+  .setDefaultMemberPermissions('0') // Admin only
+  .setDMPermission(false)
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('tirer')
+      .setDescription('Tirer au sort le gagnant du pot commun')
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('statut')
+      .setDescription('Voir le montant actuel du pot commun')
+  );
+
+commands.push(adminCommand);
+
 module.exports = commands.map(command => command.toJSON());

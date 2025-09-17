@@ -99,6 +99,25 @@ db.exec(`
   )
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS lottery_pot (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    current_amount INTEGER DEFAULT 0,
+    last_winner_id TEXT,
+    last_win_amount INTEGER DEFAULT 0,
+    last_win_time INTEGER DEFAULT 0
+  )
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS lottery_participants (
+    user_id TEXT,
+    amount_contributed INTEGER DEFAULT 0,
+    last_contribution_time INTEGER DEFAULT 0,
+    PRIMARY KEY (user_id)
+  )
+`);
+
 // Fonctions utilitaires
 function ensureUser(userId) {
   let user = db.prepare('SELECT * FROM users WHERE user_id = ?').get(userId);
@@ -282,10 +301,85 @@ function addSpecialWagered(userId, amount) {
     .run(amount, userId);
 }
 
+// Lottery Pot Functions
+function addToPot(amount) {
+  const pot = db.prepare('SELECT * FROM lottery_pot WHERE id = 1').get() || { current_amount: 0 };
+  const newAmount = (pot.current_amount || 0) + amount;
+  db.prepare(`
+    INSERT OR REPLACE INTO lottery_pot (id, current_amount) 
+    VALUES (1, ?)
+  `).run(newAmount);
+  return newAmount;
+}
+
+function addLotteryParticipant(userId, amount) {
+  const now = Date.now();
+  db.prepare(`
+    INSERT INTO lottery_participants (user_id, amount_contributed, last_contribution_time)
+    VALUES (?, ?, ?)
+    ON CONFLICT(user_id) 
+    DO UPDATE SET 
+      amount_contributed = amount_contributed + ?,
+      last_contribution_time = ?
+  `).run(userId, amount, now, amount, now);
+}
+
+function getCurrentPot() {
+  const pot = db.prepare('SELECT * FROM lottery_pot WHERE id = 1').get();
+  return pot ? pot.current_amount : 0;
+}
+
+function getLotteryParticipants() {
+  return db.prepare('SELECT * FROM lottery_participants WHERE amount_contributed > 0').all();
+}
+
+function drawLotteryWinner() {
+  const participants = getLotteryParticipants();
+  if (participants.length === 0) return null;
+
+  const totalContributions = participants.reduce((sum, p) => sum + p.amount_contributed, 0);
+  const pot = getCurrentPot();
+  let random = Math.random() * totalContributions;
+  let winner = null;
+  
+  for (const p of participants) {
+    random -= p.amount_contributed;
+    if (random <= 0) {
+      winner = p;
+      break;
+    }
+  }
+
+  if (!winner) return null;
+
+  const now = Date.now();
+  db.prepare(`
+    UPDATE lottery_pot 
+    SET 
+      current_amount = 0,
+      last_winner_id = ?,
+      last_win_amount = ?,
+      last_win_time = ?
+    WHERE id = 1
+  `).run(winner.user_id, pot, now);
+
+  db.prepare('DELETE FROM lottery_participants').run();
+
+  return {
+    userId: winner.user_id,
+    amount: pot
+  };
+}
+
 module.exports = {
   db,
   ensureUser,
   updateUser,
+  addToPot,
+  addLotteryParticipant,
+  getCurrentPot,
+  getLotteryParticipants,
+  drawLotteryWinner,
   updateMissionProgress,
   getTicTacToeStats,
   updateTicTacToeStats,

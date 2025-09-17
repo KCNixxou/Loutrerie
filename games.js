@@ -56,8 +56,12 @@ async function handleBlackjackStart(interaction) {
     return;
   }
   
-  // Déduire la mise
+  // Déduire la mise et ajouter 1% au pot commun
   updateUser(interaction.user.id, { balance: user.balance - bet });
+  
+  // Ajouter au pot commun
+  const { contributeToLotteryPot } = require('./utils/gameUtils');
+  contributeToLotteryPot(interaction.user.id, bet);
   
   const deck = createDeck();
   const playerHand = [deck.pop(), deck.pop()];
@@ -212,6 +216,10 @@ async function handleRouletteChoice(interaction) {
   const betAmount = parseInt(bet);
   const user = ensureUser(interaction.user.id);
   
+  // Add to lottery pot
+  const { contributeToLotteryPot } = require('./utils/gameUtils');
+  contributeToLotteryPot(interaction.user.id, betAmount);
+  
   // Ne pas déduire la mise ici, elle est déjà déduite dans handleRouletteStart
   
   const resultNumber = random(0, 36);
@@ -265,8 +273,12 @@ async function handleSlots(interaction) {
     return;
   }
   
-  // Déduire la mise
+  // Déduire la mise et ajouter 1% au pot commun
   updateUser(interaction.user.id, { balance: user.balance - bet });
+  
+  // Ajouter au pot commun
+  const { contributeToLotteryPot } = require('./utils/gameUtils');
+  contributeToLotteryPot(interaction.user.id, bet);
   
   // Mettre à jour l'utilisateur pour avoir le bon solde
   const updatedUser = ensureUser(interaction.user.id);
@@ -325,8 +337,13 @@ async function handleCoinflipSolo(interaction) {
     return;
   }
   
-  // Déduire la mise
+  // Déduire la mise et ajouter 1% au pot commun
+  const potContribution = Math.ceil(bet * 0.01);
   updateUser(interaction.user.id, { balance: user.balance - bet });
+  
+  // Ajouter au pot commun
+  const { contributeToLotteryPot } = require('./utils/gameUtils');
+  contributeToLotteryPot(interaction.user.id, bet);
   
   const result = random(0, 1) === 0 ? 'pile' : 'face';
   const won = choice === result;

@@ -349,8 +349,64 @@ async function handleSlashCommand(interaction) {
       await startCrashGame(interaction);
       break;
       
-    case 'cashout':
-      await handleCashout(interaction);
+    case 'dailybdg':
+      await handleDailyBdg(interaction);
+      break;
+      
+    case 'tas':
+      if (!isAdmin(interaction.user.id)) {
+        return interaction.reply({ 
+          content: '❌ Seuls les administrateurs peuvent utiliser cette commande.', 
+          ephemeral: true 
+        });
+      }
+      
+      const lotterySubcommand = interaction.options.getSubcommand();
+      const { getCurrentPot, drawLotteryWinner } = require('./database');
+      
+      if (lotterySubcommand === 'tirer') {
+        const winner = drawLotteryWinner();
+        
+        if (!winner) {
+          return interaction.reply({
+            content: '❌ Aucun participant dans le pot commun pour le moment.',
+            ephemeral: true
+          });
+        }
+        
+        // Update winner's balance
+        const user = ensureUser(winner.userId);
+        updateUser(winner.userId, { balance: user.balance + winner.amount });
+        
+        // Get the winner's username
+        let winnerName;
+        try {
+          const winnerMember = await interaction.guild.members.fetch(winner.userId);
+          winnerName = winnerMember.user.tag;
+        } catch (e) {
+          winnerName = `Utilisateur (${winner.userId})`;
+        }
+        
+        await interaction.reply({
+          content: `🎉 **TIRAGE AU SORT** 🎉\n` +
+                  `Le gagnant du pot commun est **${winnerName}** !\n` +
+                  `Il remporte **${winner.amount}** ${config.currency.emoji} !`,
+          allowedMentions: { users: [winner.userId] }
+        });
+        
+      } else if (lotterySubcommand === 'statut') {
+        const potAmount = getCurrentPot();
+        const participants = require('./database').getLotteryParticipants();
+        
+        const embed = new EmbedBuilder()
+          .setTitle('💰 Pot Commun de la Loterie')
+          .setDescription(`Montant actuel du pot : **${potAmount}** ${config.currency.emoji}\n` +
+                        `Nombre de participants : **${participants.length}**`)
+          .setColor(0x00ff00)
+          .setFooter({ text: '1% de chaque mise est ajouté au pot commun' });
+          
+        await interaction.reply({ embeds: [embed] });
+      }
       break;
       
     case 'next':

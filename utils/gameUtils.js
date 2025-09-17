@@ -46,7 +46,25 @@ async function checkActiveGame(interaction, activeGames, gameName) {
   return false;
 }
 
+// Add to lottery pot and track participant
+function contributeToLotteryPot(userId, betAmount) {
+  const potContribution = Math.ceil(betAmount * 0.01); // 1% of bet
+  if (potContribution > 0) {
+    try {
+      const database = require('../database');
+      database.addToPot(potContribution);
+      database.addLotteryParticipant(userId, potContribution);
+      return potContribution;
+    } catch (error) {
+      console.error('Error contributing to lottery pot:', error);
+      return 0;
+    }
+  }
+  return 0;
+}
+
 module.exports = {
   validateBet,
-  checkActiveGame
+  checkActiveGame,
+  contributeToLotteryPot
 };
