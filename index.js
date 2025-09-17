@@ -1004,8 +1004,10 @@ async function handleGive(interaction) {
     }
 
     // Vérifier la limite quotidienne
-    const dailyGiveLimit = 500;  // Augmenté de 200 à 500
-    if (dailyGiven + amount > dailyGiveLimit) {
+    const dailyGiveLimit = 500;  // Limite de 500 coquillages par jour
+    const newDailyGiven = dailyGiven + amount;
+    
+    if (newDailyGiven > dailyGiveLimit) {
       const remaining = dailyGiveLimit - dailyGiven;
       await interaction.reply({ 
         content: `❌ Tu ne peux donner que ${remaining} ${config.currency.emoji} de plus aujourd'hui ! (Limite: ${dailyGiveLimit}/jour)`, 
@@ -1028,10 +1030,10 @@ async function handleGive(interaction) {
     const receiver = ensureUser(targetUser.id);
     const receiverBalance = receiver.balance || 0;
     
-    // Mise à jour du donneur
+    // Mise à jour du donneur avec le nouveau montant quotidien
     updateUser(giverId, { 
       balance: giverBalance - amount,
-      daily_given: dailyGiven + amount,
+      daily_given: newDailyGiven,
       last_give_reset: currentTime
     });
     
