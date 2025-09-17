@@ -588,32 +588,46 @@ async function handlePurchase(interaction) {
       const isBdgRole = bdgRoles.includes(roleToAdd);
 
       if (isVipRole || isBdgRole) {
-        let role = interaction.guild.roles.cache.find(r => r.name === roleToAdd);
-        if (!role) {
-          // Définir une couleur par défaut si ce n'est pas un rôle VIP
-          const roleColor = roleToAdd === 'VIP' ? 0xffd700 : 
-                          roleToAdd === 'Super VIP' ? 0xff6600 :
-                          0x7289DA; // Couleur Discord par défaut
+        try {
+          let role = interaction.guild.roles.cache.find(r => r.name === roleToAdd);
           
-          role = await interaction.guild.roles.create({
-            name: roleToAdd,
-            color: roleColor,
-            reason: 'Rôle acheté dans la boutique',
-            mentionable: false,
-            hoist: isBdgRole // Pour que les rôles BDG soient affichés dans la liste des membres
-          });
+          if (!role) {
+            // Vérifier d'abord si le bot a la permission de gérer les rôles
+            const me = await interaction.guild.members.fetchMe();
+            if (!me.permissions.has('ManageRoles')) {
+              throw new Error('Je n\'ai pas la permission de gérer les rôles. Veuillez me donner la permission "Gérer les rôles" et placer mon rôle au-dessus des rôles que je dois gérer.');
+            }
+            
+            // Définir une couleur par défaut
+            const roleColor = roleToAdd === 'VIP' ? 0xffd700 : 
+                            roleToAdd === 'Super VIP' ? 0xff6600 :
+                            0x7289DA; // Couleur Discord par défaut
+            
+            // Créer le rôle avec les bonnes permissions
+            role = await interaction.guild.roles.create({
+              name: roleToAdd,
+              color: roleColor,
+              reason: 'Rôle acheté dans la boutique',
+              mentionable: false,
+              hoist: isBdgRole,
+              position: interaction.guild.roles.highest.position - 1 // Essayer de placer le rôle juste en dessous du rôle le plus haut
+            });
+          }
+          
+          // Supprimer l'ancien rôle du même type si existant
+          const rolesToRemove = isVipRole 
+            ? interaction.member.roles.cache.filter(r => ['VIP', 'Super VIP'].includes(r.name))
+            : interaction.member.roles.cache.filter(r => bdgRoles.includes(r.name));
+          
+          if (rolesToRemove.size > 0) {
+            await interaction.member.roles.remove(rolesToRemove);
+          }
+          
+          await interaction.member.roles.add(role);
+        } catch (error) {
+          console.error('Erreur lors de la gestion des rôles:', error);
+          throw error; // Renvoyer l'erreur pour la gérer dans le bloc try-catch principal
         }
-        
-        // Supprimer l'ancien rôle du même type si existant
-        const rolesToRemove = isVipRole 
-          ? interaction.member.roles.cache.filter(r => ['VIP', 'Super VIP'].includes(r.name))
-          : interaction.member.roles.cache.filter(r => bdgRoles.includes(r.name));
-        
-        if (rolesToRemove.size > 0) {
-          await interaction.member.roles.remove(rolesToRemove);
-        }
-        
-        await interaction.member.roles.add(role);
       } 
       // Gestion du changement de couleur
       else if (item === 'color_change') {
@@ -638,10 +652,27 @@ async function handlePurchase(interaction) {
       }
     } catch (error) {
       console.error('Erreur lors de la gestion des rôles:', error);
-      await interaction.followUp({ 
-        content: '❌ Une erreur est survenue lors de la mise à jour de ton profil. Contacte un administrateur.', 
-        ephemeral: true 
-      });
+      
+      // Vérifier si une réponse a déjà été envoyée
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ 
+          content: `❌ Erreur lors de la création/attribution du rôle : ${error.message}\n\n` +
+                  `Assurez-vous que :\n` +
+                  `1. Le bot a la permission "Gérer les rôles"\n` +
+                  `2. Le rôle du bot est placé AU-DESSUS des rôles qu'il doit gérer\n` +
+                  `3. Le bot a les permissions d'administrateur ou les permissions nécessaires`, 
+          ephemeral: true 
+        });
+      } else {
+        await interaction.followUp({ 
+          content: `❌ Erreur lors de la création/attribution du rôle : ${error.message}\n\n` +
+                  `Assurez-vous que :\n` +
+                  `1. Le bot a la permission "Gérer les rôles"\n` +
+                  `2. Le rôle du bot est placé AU-DESSUS des rôles qu'il doit gérer\n` +
+                  `3. Le bot a les permissions d'administrateur ou les permissions nécessaires`, 
+          ephemeral: true 
+        });
+      }
       return;
     }
   }
