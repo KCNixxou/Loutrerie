@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 
 const commands = [
   new SlashCommandBuilder()
@@ -262,27 +262,29 @@ const commands = [
         .setRequired(false)),
 
   new SlashCommandBuilder()
-    .setName('loutre-giveaway')
-    .setDescription('Gérer les giveaways')
-    .addSubcommand(subcommand =>
-      subcommand
-        .setName('start')
-        .setDescription('[ADMIN] Lancer un giveaway de 500 pour la première loutre qui clique')
-    )
-    .addSubcommand(subcommand =>
-      subcommand
-        .setName('next')
-        .setDescription('Voir quand est le prochain giveaway')
-    )
-    .setDefaultMemberPermissions('0')
-    .setDMPermission(false),
-    
-  // Commande de maintenance
-  new SlashCommandBuilder()
     .setName('maintenance')
     .setDescription('[ADMIN] Activer/désactiver le mode maintenance')
     .setDefaultMemberPermissions('0')
+    .setDMPermission(false),
+    
+  new SlashCommandBuilder()
+    .setName('concours-quotidien')
+    .setDescription('[ADMIN] Lancer un concours quotidien (premier arrivé, premier servi)')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setDMPermission(false)
+    .addIntegerOption(option =>
+      option.setName('duree')
+        .setDescription('Durée maximale du concours en heures (1-16)')
+        .setRequired(true)
+        .setMinValue(1)
+        .setMaxValue(16)
+    )
+    .addIntegerOption(option =>
+      option.setName('gain')
+        .setDescription('Montant du gain en coquillages')
+        .setRequired(true)
+        .setMinValue(100)
+    )
 ];
 
 // Admin command for lottery pot

@@ -196,8 +196,13 @@ client.on('interactionCreate', async (interaction) => {
       });
     }
 
-    if (interaction.isChatInputCommand()) {
-      await handleSlashCommand(interaction);
+    // Gestion des commandes slash
+    if (interaction.isCommand()) {
+      if (interaction.commandName === 'concours-quotidien') {
+        await handleDailyContest(interaction);
+      } else {
+        await handleSlashCommand(interaction);
+      }
     } else if (interaction.isButton()) {
       if (interaction.customId.startsWith('coinflip_multi_')) {
         await handleCoinflipMulti(interaction);
@@ -1149,7 +1154,12 @@ const {
   getActiveGiveaway, 
   getAllActiveGiveaways, 
   setGiveawayWinner, 
-  removeGiveaway 
+  removeGiveaway,
+  saveDailyContest,
+  getActiveDailyContest,
+  setDailyContestWinner,
+  getLastDailyContest,
+  getDailyContestById
 } = require('./database');
 
 // Liste des IDs des administrateurs
@@ -1556,75 +1566,102 @@ async function handleLoutreGiveaway(interaction) {
   }
 }
 
-// Gestion des réactions aux messages de giveaway
-client.on('messageReactionAdd', async (reaction, user) => {
+// Gestion de la commande concours-quotidien
+async function handleDailyContest(interaction) {
+  // Vérifier les permissions admin
+  if (!ADMIN_IDS.has(interaction.user.id)) {
+    return interaction.reply({ 
+      content: '❌ Vous n\'avez pas la permission d\'utiliser cette commande.', 
+      ephemeral: true 
+    });
+  }
+
+  const durationHours = interaction.options.getInteger('duree');
+  const prize = interaction.options.getInteger('gain');
+  const startTime = Date.now();
+  const endTime = startTime + (durationHours * 60 * 60 * 1000);
+
   try {
-    // Ignorer les réactions du bot
-    if (user.bot) return;
-
-    // Vérifier si c'est une réaction à un message de giveaway
-    const giveaway = Array.from(activeGiveaways.values())
-      .find(g => g.messageId === reaction.message.id);
-
-    // Si pas trouvé dans le cache, vérifier dans la base de données
-    let dbGiveaway = null;
-    if (!giveaway) {
-      dbGiveaway = getActiveGiveaway(reaction.message.channelId);
-      if (dbGiveaway && dbGiveaway.message_id === reaction.message.id) {
-        // Ajouter au cache
-        activeGiveaways.set(dbGiveaway.channel_id, {
-          messageId: dbGiveaway.message_id,
-          channelId: dbGiveaway.channel_id,
-          prize: dbGiveaway.prize,
-          endTime: dbGiveaway.end_time,
-          hasWinner: dbGiveaway.has_winner,
-          isAuto: true
-        });
-      }
+    // Vérifier s'il y a déjà un concours actif
+    const activeContest = getActiveDailyContest();
+    if (activeContest) {
+      return interaction.reply({
+        content: `❌ Il y a déjà un concours en cours qui se termine <t:${Math.floor(activeContest.end_time / 1000)}:R>`,
+        ephemeral: true
+      });
     }
 
-    const currentGiveaway = giveaway || (dbGiveaway ? {
-      messageId: dbGiveaway.message_id,
-      channelId: dbGiveaway.channel_id,
-      prize: dbGiveaway.prize,
-      endTime: dbGiveaway.end_time,
-      hasWinner: dbGiveaway.has_winner,
-      isAuto: true
-    } : null);
-
-    if (!currentGiveaway || currentGiveaway.hasWinner || reaction.emoji.name !== '🦦') return;
-
-    // Marquer qu'il y a un gagnant dans le cache
-    currentGiveaway.hasWinner = true;
-    activeGiveaways.set(currentGiveaway.channelId, currentGiveaway);
-
-    // Mettre à jour la base de données
-    setGiveawayWinner(currentGiveaway.channelId, user.id);
-    
-    // Mettre à jour le solde de l'utilisateur
-    const userData = ensureUser(user.id);
-    updateUser(user.id, { balance: userData.balance + currentGiveaway.prize });
-    
-    // Envoyer un message de félicitations
-    const channel = reaction.message.channel;
-    await channel.send(`🎉 Félicitations <@${user.id}> ! Tu as gagné **${currentGiveaway.prize.toLocaleString()} 🐚** dans le giveaway !`);
-
-    // Mettre à jour le message
+    // Créer l'embed du concours
     const embed = new EmbedBuilder()
-      .setTitle('🎉 GIVEAWAY TERMINÉ ! 🎉')
-      .setDescription(`Félicitations <@${user.id}> ! Tu as gagné **${currentGiveaway.prize} 🐚** !`)
-      .setColor('#00ff00')
-      .setFooter({ text: 'Giveaway terminé' });
+      .setTitle('🎉 CONCOURS QUOTIDIEN 🎉')
+      .setDescription(
+        `**Premier arrivé, premier servi !**\n` +
+        `Réagissez avec 🦦 pour tenter de gagner **${prize.toLocaleString()} 🐚** !\n\n` +
+        `Le concours se termine dans **${durationHours} heure(s)** ou dès qu'un gagnant est désigné.`
+      )
+      .setColor('#ffd700')
+      .setFooter({ text: 'Un seul gagnant sera désigné !' });
 
-    await reaction.message.edit({ embeds: [embed] });
-    await reaction.message.reactions.removeAll();
+    // Envoyer le message du concours
+    const message = await interaction.channel.send({ embeds: [embed] });
+    await message.react('🦦');
 
-    // Supprimer le giveaway (sera nettoyé par la fonction endGiveaway)
+    // Sauvegarder le concours dans la base de données
+    const contestId = saveDailyContest(interaction.channelId, message.id, prize, startTime, endTime);
     
+    // Planifier la fin du concours
+    const timeLeft = endTime - startTime;
+    if (timeLeft > 0) {
+      setTimeout(() => endDailyContest(contestId, interaction.channel), timeLeft);
+    }
+
+    await interaction.reply({
+      content: `✅ Concours quotidien lancé avec succès ! Il se terminera <t:${Math.floor(endTime / 1000)}:R>`,
+      ephemeral: true
+    });
+
   } catch (error) {
-    console.error('Erreur dans la gestion des réactions:', error);
+    console.error('Erreur lors du lancement du concours quotidien:', error);
+    await interaction.reply({
+      content: '❌ Une erreur est survenue lors du lancement du concours.',
+      ephemeral: true
+    });
   }
-});
+}
+
+// Fonction pour terminer un concours quotidien
+async function endDailyContest(contestId, channel) {
+  try {
+    // Récupérer les informations du concours
+    const contest = getDailyContestById(contestId);
+    if (!contest || contest.has_winner) return;
+
+    // Marquer le concours comme terminé
+    db.prepare('UPDATE daily_contests SET is_active = 0 WHERE id = ?').run(contestId);
+
+    // Essayer de récupérer le message
+    let message;
+    try {
+      message = await channel.messages.fetch(contest.message_id);
+    } catch (error) {
+      console.error('Erreur lors de la récupération du message du concours:', error);
+      return;
+    }
+
+    // Mettre à jour le message pour indiquer qu'aucun gagnant n'a été trouvé
+    const embed = new EmbedBuilder()
+      .setTitle('🎉 CONCOURS TERMINÉ ! 🎉')
+      .setDescription('Le concours est terminé mais personne n\'a gagné cette fois-ci.\nRevenez demain pour une nouvelle chance !')
+      .setColor('#ff0000');
+
+    await message.edit({ embeds: [embed] });
+    await message.reactions.removeAll();
+
+  } catch (error) {
+    console.error('Erreur lors de la fin du concours quotidien:', error);
+  }
+}
+
 
 // Fonction pour restaurer les giveaways actifs au démarrage
 async function restoreActiveGiveaways() {
@@ -1692,12 +1729,75 @@ async function restoreActiveGiveaways() {
   }
 }
 
+// Fonction pour restaurer les concours quotidiens actifs au démarrage
+async function restoreActiveDailyContests() {
+  try {
+    const activeContestsList = getAllActiveDailyContests();
+    console.log(`[Concours] Restauration de ${activeContestsList.length} concours quotidiens actifs...`);
+    
+    for (const contest of activeContestsList) {
+      try {
+        const channel = await client.channels.fetch(contest.channel_id);
+        if (!channel) {
+          console.log(`[Concours] Salon ${contest.channel_id} introuvable, suppression du concours`);
+          removeDailyContest(contest.id);
+          continue;
+        }
+        
+        // Vérifier si le message existe toujours
+        let message;
+        try {
+          message = await channel.messages.fetch(contest.message_id);
+        } catch (error) {
+          console.log(`[Concours] Message ${contest.message_id} introuvable, création d'un nouveau message`);
+          // Si le message a été supprimé, en créer un nouveau
+          const embed = new EmbedBuilder()
+            .setTitle('🎉 CONCOURS QUOTIDIEN 🎉')
+            .setDescription(
+              `**Premier arrivé, premier servi !**\n` +
+              `Réagissez avec 🦦 pour tenter de gagner **${contest.prize.toLocaleString()} 🐚** !\n\n` +
+              `Le concours se termine dans **${Math.ceil((contest.end_time - Date.now()) / 1000 / 60 / 60)} heure(s)** ou dès qu'un gagnant est désigné.`
+            )
+            .setColor('#ffd700')
+            .setFooter({ text: 'Un seul gagnant sera désigné !' });
+          
+          message = await channel.send({ embeds: [embed] });
+          await message.react('🦦');
+          
+          // Mettre à jour l'ID du message dans la base de données
+          saveDailyContest(channel.id, message.id, contest.prize, contest.start_time, contest.end_time);
+        }
+        
+        // Planifier la fin du concours
+        const timeLeft = contest.end_time - Date.now();
+        if (timeLeft > 0) {
+          console.log(`[Concours] Concours restauré dans #${channel.name}, se termine dans ${Math.ceil(timeLeft / 1000 / 60)} minutes`);
+          setTimeout(() => endDailyContest(contest.id, channel), timeLeft);
+        } else {
+          // Le concours est déjà terminé, le nettoyer
+          console.log(`[Concours] Concours expiré dans #${channel.name}, nettoyage...`);
+          removeDailyContest(contest.id);
+        }
+        
+      } catch (error) {
+        console.error(`[Concours] Erreur lors de la restauration du concours:`, error);
+      }
+    }
+    
+  } catch (error) {
+    console.error('[Concours] Erreur lors de la restauration des concours:', error);
+  }
+}
+
 // Démarrer la planification des giveaways automatiques au démarrage du bot
 client.once('ready', async () => {
   console.log(`Connecté en tant que ${client.user.tag}`);
   
   // Restaurer les giveaways actifs
   await restoreActiveGiveaways();
+  
+  // Restaurer les concours quotidiens actifs
+  await restoreActiveDailyContests();
   
   // Démarrer la planification des nouveaux giveaways
   scheduleNextGiveaway();
