@@ -208,17 +208,3 @@ function removeDailyContest(contestId) {
   }
 }
 
-// Exporter les fonctions et la connexion à la base de données
-module.exports = {
-  db,
-  ensureUser,
-  updateUser,
-  saveDailyContest,
-  getActiveDailyContest,
-  getDailyContestById,
-  getAllActiveDailyContests,
-  setDailyContestWinner,
-  removeDailyContest,
-  // Autres fonctions exportées...
-  ...require('./database-functions') // Si vous avez d'autres fonctions dans un fichier séparé
-};
