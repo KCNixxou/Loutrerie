@@ -120,11 +120,17 @@ client.once('ready', async () => {
 client.on('messageCreate', async (message) => {
   if (!message.guild || message.author.bot) return;
   
+  // Vérifier si le salon est dans la liste des exclus
+  if (config.xp.excludedChannels.includes(message.channelId)) {
+    console.log(`[XP] Message ignoré - Salon exclu: ${message.channel.name} (${message.channelId})`);
+    return;
+  }
+  
   const user = ensureUser(message.author.id);
   const currentTime = now();
   const timeSinceLastXp = currentTime - (user.last_xp_gain || 0);
   
-  console.log(`[XP DEBUG] Message de ${message.author.tag} (${message.author.id})`);
+  console.log(`[XP DEBUG] Message de ${message.author.tag} (${message.author.id}) dans #${message.channel.name}`);
   console.log(`[XP DEBUG] Dernier gain d'XP: ${new Date(user.last_xp_gain).toISOString()} (${timeSinceLastXp}ms ago)`);
   console.log(`[XP DEBUG] XP actuel: ${user.xp}, Niveau: ${user.level}`);
   

@@ -19,7 +19,13 @@ module.exports = {
     maxPerMessage: 25,
     cooldown: 15000, // 15 secondes (réduit de 1 minute)
     vipMultiplier: 1.25,       // +25% d'XP pour les VIP
-    superVipMultiplier: 1.5    // +50% d'XP pour les Super VIP
+    superVipMultiplier: 1.5,   // +50% d'XP pour les Super VIP
+    // Salons exclus du gain d'XP
+    excludedChannels: [
+      '1378269518136348743', // Salon 1
+      '1415784183741284392', // Salon 2
+      '1378373298861248642'  // Salon 3 (High Low spécial)
+    ]
   },
   shop: {
     vip: { price: 10000, name: 'VIP' },
