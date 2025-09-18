@@ -1369,9 +1369,14 @@ function endHighLowGame(gameId, interaction, isAdmin = false) {
   activeHighLowGames.delete(gameId);
   
   if (interaction) {
+    const user = ensureUser(game.userId); // S'assurer d'avoir les dernières données utilisateur
     const embed = new EmbedBuilder()
       .setTitle('🎴 High Low - Partie clôturée' + (isAdmin ? ' (par un administrateur)' : ''))
-      .setDescription(`La partie a été clôturée avec un gain net de **${netWinnings} ${config.currency.emoji}** !\n(Mise initiale: ${game.initialBet} + Gains: ${netWinnings})`)
+      .setDescription(
+        `La partie a été clôturée avec un gain net de **${netWinnings} ${config.currency.emoji}** !\n` +
+        `(Mise initiale: ${game.initialBet} + Gains: ${netWinnings})\n` +
+        `💵 Votre solde actuel: **${user.balance + game.totalWon} ${config.currency.emoji}**`
+      )
       .setColor(0xf1c40f);
     
     interaction.update({ 
@@ -1584,9 +1589,14 @@ async function handleHighLowAction(interaction) {
     console.log('[HighLow] User lost everything. Deleting game.');
     activeHighLowGames.delete(gameId);
     
+    const user = ensureUser(game.userId); // S'assurer d'avoir les dernières données utilisateur
     const embed = new EmbedBuilder()
       .setTitle('🎴 High Low - Perdu !')
-      .setDescription(`**Dernière carte:** ${newCard.value}${newCard.suit}\n\nDommage, vous avez tout perdu (mise + gains potentiels).`)
+      .setDescription(
+        `**Dernière carte:** ${newCard.value}${newCard.suit}\n\n` +
+        `Dommage, vous avez tout perdu (mise + gains potentiels).\n` +
+        `💵 Votre solde actuel: **${user.balance} ${config.currency.emoji}**`
+      )
       .setColor(0xe74c3c);
     
     return interaction.update({ embeds: [embed], components: [] });
@@ -1653,9 +1663,14 @@ async function handleHighLowDecision(interaction) {
       // Le totalWon inclut déjà la mise initiale * multiplicateur
       addSpecialWinnings(interaction.user.id, game.totalWon);
       
+      const user = ensureUser(game.userId); // S'assurer d'avoir les dernières données utilisateur
       const embed = new EmbedBuilder()
-        .setTitle('🎴 High Low Spécial - Fin de partie')
-        .setDescription(`Vous avez choisi de vous arrêter avec un gain total de **${game.totalWon} ${config.currency.emoji}** !\n(Mise initiale: ${game.initialBet} + Gains: ${game.totalWon - game.initialBet})`)
+        .setTitle('🎴 High Low - Arrêt volontaire' + (game.isSpecial ? ' (Spécial)' : ''))
+        .setDescription(
+          `Vous avez choisi de vous arrêter avec un gain total de **${game.totalWon} ${config.currency.emoji}** !\n` +
+          `(Mise initiale: ${game.initialBet} + Gains: ${game.totalWon - game.initialBet})\n` +
+          `💵 Votre solde actuel: **${user.balance + game.totalWon} ${config.currency.emoji}**`
+        )
         .setColor(0x9b59b6);
       
       activeHighLowGames.delete(gameId);
@@ -1665,9 +1680,14 @@ async function handleHighLowDecision(interaction) {
       // Pour le High Low normal, utiliser le solde normal
       updateUser(interaction.user.id, { balance: user.balance + game.totalWon });
       
+      const user = ensureUser(game.userId); // S'assurer d'avoir les dernières données utilisateur
       const embed = new EmbedBuilder()
-        .setTitle('🎴 High Low - Fin de partie')
-        .setDescription(`Vous avez choisi de vous arrêter avec un gain total de **${game.totalWon} ${config.currency.emoji}** !\n(Mise initiale: ${game.initialBet} + Gains: ${game.totalWon - game.initialBet})`)
+        .setTitle('🎴 High Low - Arrêt volontaire' + (game.isSpecial ? ' (Spécial)' : ''))
+        .setDescription(
+          `Vous avez choisi de vous arrêter avec un gain total de **${game.totalWon} ${config.currency.emoji}** !\n` +
+          `(Mise initiale: ${game.initialBet} + Gains: ${game.totalWon - game.initialBet})\n` +
+          `💵 Votre solde actuel: **${user.balance + game.totalWon} ${config.currency.emoji}**`
+        )
         .setColor(0xf1c40f);
       
       activeHighLowGames.delete(gameId);
