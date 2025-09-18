@@ -1329,6 +1329,79 @@ db.exec(`
   )
 `);
 
+// Fonction pour gérer la commande /givea (admin)
+async function handleGiveAdmin(interaction) {
+  try {
+    // Vérifier si l'utilisateur est un administrateur
+    const ADMIN_IDS = ['314458846754111499', '678264841617670145'];
+    if (!ADMIN_IDS.includes(interaction.user.id)) {
+      return interaction.reply({
+        content: '❌ Tu n\'as pas la permission d\'utiliser cette commande !',
+        ephemeral: true
+      });
+    }
+
+    const targetUser = interaction.options.getUser('utilisateur');
+    const amount = interaction.options.getInteger('montant');
+
+    // Vérifications de base
+    if (!targetUser || amount === null) {
+      return interaction.reply({ 
+        content: '❌ Paramètres invalides. Utilisation: `/givea @utilisateur montant`', 
+        ephemeral: true 
+      });
+    }
+
+    if (targetUser.bot) {
+      return interaction.reply({ 
+        content: '❌ Tu ne peux pas donner de coquillages à un bot !', 
+        ephemeral: true 
+      });
+    }
+
+    if (amount <= 0) {
+      return interaction.reply({ 
+        content: '❌ Le montant doit être supérieur à 0 !', 
+        ephemeral: true 
+      });
+    }
+
+    // Récupérer les informations du receveur
+    const receiver = ensureUser(targetUser.id);
+    const receiverBalance = receiver.balance || 0;
+    
+    // Mise à jour du solde du receveur
+    updateUser(targetUser.id, { 
+      balance: receiverBalance + amount 
+    });
+
+    // Créer et envoyer l'embed de confirmation
+    const embed = new EmbedBuilder()
+      .setTitle('🎁 Don de coquillages (Admin)')
+      .setDescription(`L'administrateur <@${interaction.user.id}> a donné **${amount}** ${config.currency.emoji} à <@${targetUser.id}> !`)
+      .addFields(
+        { 
+          name: 'Receveur', 
+          value: `Nouveau solde: **${receiverBalance + amount}** ${config.currency.emoji}`, 
+          inline: true 
+        }
+      )
+      .setColor(0x00ff00)
+      .setTimestamp();
+
+    await interaction.reply({ embeds: [embed] });
+    
+  } catch (error) {
+    console.error('Erreur dans la commande /givea:', error);
+    if (!interaction.replied) {
+      await interaction.reply({
+        content: '❌ Une erreur est survenue lors du traitement de la commande.',
+        ephemeral: true
+      });
+    }
+  }
+}
+
 // Fonction pour obtenir l'heure du prochain giveaway
 function getNextScheduledGiveawayTime() {
   const result = db.prepare('SELECT next_giveaway_time FROM giveaway_schedule WHERE id = 1').get();
