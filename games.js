@@ -1678,15 +1678,15 @@ async function handleHighLowDecision(interaction) {
       return interaction.update({ embeds: [embed], components: [] });
     } else {
       // Pour le High Low normal, utiliser le solde normal
-      updateUser(interaction.user.id, { balance: user.balance + game.totalWon });
+      const newBalance = user.balance + game.totalWon;
+      updateUser(interaction.user.id, { balance: newBalance });
       
-      const user = ensureUser(game.userId); // S'assurer d'avoir les dernières données utilisateur
       const embed = new EmbedBuilder()
         .setTitle('🎴 High Low - Arrêt volontaire' + (game.isSpecial ? ' (Spécial)' : ''))
         .setDescription(
           `Vous avez choisi de vous arrêter avec un gain total de **${game.totalWon} ${config.currency.emoji}** !\n` +
           `(Mise initiale: ${game.initialBet} + Gains: ${game.totalWon - game.initialBet})\n` +
-          `💵 Votre solde actuel: **${user.balance + game.totalWon} ${config.currency.emoji}**`
+          `💵 Votre solde actuel: **${newBalance} ${config.currency.emoji}**`
         )
         .setColor(0xf1c40f);
       
