@@ -361,6 +361,10 @@ async function handleSlashCommand(interaction) {
       await handleDailyBdg(interaction);
       break;
       
+    case 'reset-dailybdg':
+      await handleResetDailyBdg(interaction);
+      break;
+      
     case 'tas':
       try {
         console.log(`[Lottery] Command /tas received from ${interaction.user.id}`);
@@ -921,6 +925,46 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
   console.log(`🌐 Serveur web démarré sur le port ${PORT}`);
 });
+
+// Fonction pour réinitialiser la récompense BDG d'un utilisateur
+async function handleResetDailyBdg(interaction) {
+  try {
+    // Vérifier les permissions d'administration
+    if (!isAdmin(interaction.user.id)) {
+      return interaction.reply({
+        content: '❌ Vous n\'avez pas la permission d\'utiliser cette commande.',
+        ephemeral: true
+      });
+    }
+    
+    const targetUser = interaction.options.getUser('utilisateur');
+    if (!targetUser) {
+      return interaction.reply({
+        content: '❌ Utilisateur non trouvé.',
+        ephemeral: true
+      });
+    }
+    
+    // Réinitialiser la dernière réclamation BDG
+    updateUser(targetUser.id, {
+      last_bdg_claim: 0
+    });
+    
+    await interaction.reply({
+      content: `✅ La récompense BDG quotidienne de <@${targetUser.id}> a été réinitialisée.`,
+      ephemeral: true
+    });
+    
+  } catch (error) {
+    console.error('Erreur dans handleResetDailyBdg:', error);
+    if (!interaction.replied) {
+      await interaction.reply({
+        content: '❌ Une erreur est survenue lors de la réinitialisation de la récompense BDG.',
+        ephemeral: true
+      });
+    }
+  }
+}
 
 // Fonction pour gérer la récompense quotidienne BDG
 async function handleDailyBdg(interaction) {

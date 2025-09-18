@@ -279,6 +279,17 @@ const commands = [
     
   // Commande de maintenance
   new SlashCommandBuilder()
+    .setName('reset-dailybdg')
+    .setDescription('[ADMIN] Réinitialiser la récompense BDG quotidienne d\'un utilisateur')
+    .setDefaultMemberPermissions('0')
+    .setDMPermission(false)
+    .addUserOption(option =>
+      option.setName('utilisateur')
+        .setDescription('L\'utilisateur à réinitialiser')
+        .setRequired(true)
+    ),
+
+  new SlashCommandBuilder()
     .setName('maintenance')
     .setDescription('[ADMIN] Activer/désactiver le mode maintenance')
     .setDefaultMemberPermissions('0')
