@@ -1369,13 +1369,16 @@ function endHighLowGame(gameId, interaction, isAdmin = false) {
   activeHighLowGames.delete(gameId);
   
   if (interaction) {
-    const user = ensureUser(game.userId); // S'assurer d'avoir les dernières données utilisateur
+    // Mettre à jour le solde de l'utilisateur
+    const updatedUser = ensureUser(game.userId);
+    const newBalance = updatedUser.balance + game.totalWon;
+    
     const embed = new EmbedBuilder()
       .setTitle('🎴 High Low - Partie clôturée' + (isAdmin ? ' (par un administrateur)' : ''))
       .setDescription(
         `La partie a été clôturée avec un gain net de **${netWinnings} ${config.currency.emoji}** !\n` +
         `(Mise initiale: ${game.initialBet} + Gains: ${netWinnings})\n` +
-        `💵 Votre solde actuel: **${user.balance + game.totalWon} ${config.currency.emoji}**`
+        `💵 Votre solde actuel: **${newBalance} ${config.currency.emoji}**`
       )
       .setColor(0xf1c40f);
     
@@ -1587,15 +1590,19 @@ async function handleHighLowAction(interaction) {
   } else {
     // Le joueur a perdu - il perd tout
     console.log('[HighLow] User lost everything. Deleting game.');
+    
+    // Obtenir le solde actuel avant de supprimer la partie
+    const updatedUser = ensureUser(game.userId);
+    
+    // Supprimer la partie
     activeHighLowGames.delete(gameId);
     
-    const user = ensureUser(game.userId); // S'assurer d'avoir les dernières données utilisateur
     const embed = new EmbedBuilder()
       .setTitle('🎴 High Low - Perdu !')
       .setDescription(
         `**Dernière carte:** ${newCard.value}${newCard.suit}\n\n` +
         `Dommage, vous avez tout perdu (mise + gains potentiels).\n` +
-        `💵 Votre solde actuel: **${user.balance} ${config.currency.emoji}**`
+        `💵 Votre solde actuel: **${updatedUser.balance} ${config.currency.emoji}**`
       )
       .setColor(0xe74c3c);
     
@@ -1663,13 +1670,16 @@ async function handleHighLowDecision(interaction) {
       // Le totalWon inclut déjà la mise initiale * multiplicateur
       addSpecialWinnings(interaction.user.id, game.totalWon);
       
-      const user = ensureUser(game.userId); // S'assurer d'avoir les dernières données utilisateur
+      // Mettre à jour le solde de l'utilisateur
+      const updatedUser = ensureUser(game.userId);
+      const newBalance = updatedUser.balance + game.totalWon;
+      
       const embed = new EmbedBuilder()
-        .setTitle('🎴 High Low - Arrêt volontaire' + (game.isSpecial ? ' (Spécial)' : ''))
+        .setTitle('🎴 High Low - Arrêt volontaire (Spécial)')
         .setDescription(
           `Vous avez choisi de vous arrêter avec un gain total de **${game.totalWon} ${config.currency.emoji}** !\n` +
           `(Mise initiale: ${game.initialBet} + Gains: ${game.totalWon - game.initialBet})\n` +
-          `💵 Votre solde actuel: **${user.balance + game.totalWon} ${config.currency.emoji}**`
+          `💵 Votre solde actuel: **${newBalance} ${config.currency.emoji}**`
         )
         .setColor(0x9b59b6);
       
