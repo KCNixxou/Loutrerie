@@ -94,23 +94,25 @@ client.once('ready', async () => {
     console.error('❌ Erreur lors de l\'enregistrement des commandes:', error);
   }
   
-  // Démarrer le reset des missions et des limites quotidiennes à minuit
+  // Démarrer le reset des missions, des limites quotidiennes et des récompenses BDG à minuit
   scheduleMidnightReset(() => {
-    console.log('🔄 Reset des missions et limites quotidiennes à minuit');
+    console.log('🔄 Reset des missions, limites quotidiennes et récompenses BDG à minuit');
     const { generateDailyMissions } = require('./database');
     const missions = generateDailyMissions();
     const users = db.prepare('SELECT user_id FROM users').all();
     const currentTime = Math.floor(Date.now() / 1000);
     
     for (const user of users) {
-      // Réinitialiser les missions quotidiennes
+      // Réinitialiser les missions quotidiennes et les récompenses BDG
       updateUser(user.user_id, {
         daily_missions: JSON.stringify(missions),
         daily_messages: 0,
         last_mission_reset: currentTime,
         // Réinitialiser le compteur de dons quotidiens
         daily_given: 0,
-        last_give_reset: currentTime
+        last_give_reset: currentTime,
+        // Réinitialiser la récompense BDG quotidienne
+        last_bdg_claim: 0
       });
     }
   });
@@ -1291,70 +1293,153 @@ function getNextScheduledGiveawayTime() {
 
 // Fonction pour mettre à jour l'heure du prochain giveaway
 function updateNextScheduledGiveawayTime(timestamp) {
-  db.prepare(`
-    INSERT OR REPLACE INTO giveaway_schedule (id, next_giveaway_time)
-    VALUES (1, ?)
-  `).run(timestamp);
+  if (!timestamp) {
+    console.error('Erreur: timestamp manquant pour updateNextScheduledGiveawayTime');
+    return;
+  }
+  
+  try {
+    db.prepare(`
+      INSERT OR REPLACE INTO giveaway_schedule (id, next_giveaway_time)
+      VALUES (1, ?)
+    `).run(timestamp);
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour du prochain giveaway:', error);
+  }
 }
 
 // Planifier le prochain giveaway
 function scheduleNextGiveaway() {
-  // Vérifier s'il y a déjà une heure planifiée
-  const nextScheduledTime = getNextScheduledGiveawayTime();
-  let targetTime;
-  
-  if (nextScheduledTime) {
-    targetTime = new Date(nextScheduledTime);
-    // Si l'heure planifiée est dans le passé, en générer une nouvelle
-    if (targetTime <= new Date()) {
-      targetTime = generateNextGiveawayTime();
-      updateNextScheduledGiveawayTime(targetTime.getTime());
-    }
-  } else {
-    // Aucune heure planifiée, en générer une nouvelle
-    targetTime = generateNextGiveawayTime();
-    updateNextScheduledGiveawayTime(targetTime.getTime());
-  }
-  
-  const timeUntil = targetTime - Date.now();
-  
-  console.log(`[Giveaway] Prochain giveaway programmé pour ${targetTime.toLocaleString('fr-FR')}`);
-  
-  setTimeout(async () => {
-    try {
-      const channel = await client.channels.fetch(GIVEAWAY_CHANNEL_ID);
-      if (channel) {
-        await startGiveaway(channel, true);
+  try {
+    // Vérifier s'il y a déjà une heure planifiée
+    const nextScheduledTime = getNextScheduledGiveawayTime();
+    let targetTime;
+    
+    if (nextScheduledTime) {
+      targetTime = new Date(nextScheduledTime);
+      // Si l'heure planifiée est dans le passé ou invalide, en générer une nouvelle
+      if (isNaN(targetTime.getTime()) || targetTime <= new Date()) {
+        targetTime = generateNextGiveawayTime();
+        if (targetTime) {
+          updateNextScheduledGiveawayTime(targetTime.getTime());
+        } else {
+          console.error('Erreur: Impossible de générer une heure de giveaway valide');
+          // Réessayer dans 1 heure
+          return setTimeout(scheduleNextGiveaway, 60 * 60 * 1000);
+        }
       }
-    } catch (error) {
-      console.error('Erreur lors du démarrage du giveaway automatique:', error);
+    } else {
+      // Aucune heure planifiée, en générer une nouvelle
+      targetTime = generateNextGiveawayTime();
+      if (targetTime) {
+        updateNextScheduledGiveawayTime(targetTime.getTime());
+      } else {
+        console.error('Erreur: Impossible de générer une heure de giveaway valide');
+        // Réessayer dans 1 heure
+        return setTimeout(scheduleNextGiveaway, 60 * 60 * 1000);
+      }
     }
     
-    // Programmer le prochain giveaway
-    scheduleNextGiveaway();
-  }, timeUntil);
+    const timeUntil = Math.max(0, targetTime - Date.now());
+    
+    if (timeUntil > 0) {
+      console.log(`[Giveaway] Prochain giveaway programmé pour ${targetTime.toLocaleString('fr-FR')}`);
+      
+      setTimeout(async () => {
+        try {
+          const channel = await client.channels.fetch(GIVEAWAY_CHANNEL_ID);
+          if (channel) {
+            await startGiveaway(channel, true);
+          }
+        } catch (error) {
+          console.error('Erreur lors du démarrage du giveaway automatique:', error);
+        }
+        
+        // Programmer le prochain giveaway
+        scheduleNextGiveaway();
+      }, timeUntil);
+    } else {
+      // Si le temps est déjà dépassé, programmer immédiatement
+      console.log('[Giveaway] Démarrage immédiat du giveaway');
+      (async () => {
+        try {
+          const channel = await client.channels.fetch(GIVEAWAY_CHANNEL_ID);
+          if (channel) {
+            await startGiveaway(channel, true);
+          }
+        } catch (error) {
+          console.error('Erreur lors du démarrage du giveaway automatique:', error);
+        }
+        scheduleNextGiveaway();
+      })();
+    }
+  } catch (error) {
+    console.error('Erreur critique dans scheduleNextGiveaway:', error);
+    // Réessayer dans 1 heure en cas d'erreur
+    setTimeout(scheduleNextGiveaway, 60 * 60 * 1000);
+  }
 }
 
 // Générer une heure aléatoire pour le prochain giveaway
 function generateNextGiveawayTime() {
-  // Créer une date dans le fuseau horaire de Paris
-  const now = new Date();
-  const parisTime = new Date(now.toLocaleString('fr-FR', { timeZone: 'Europe/Paris' }));
-  
-  // Heure aléatoire entre MIN_HOUR et MAX_HOUR
-  const hours = Math.floor(Math.random() * (MAX_HOUR - MIN_HOUR + 1)) + MIN_HOUR;
-  const minutes = Math.floor(Math.random() * 60);
-  
-  // Créer la date cible dans le fuseau horaire de Paris
-  const targetTime = new Date(parisTime);
-  targetTime.setHours(hours, minutes, 0, 0);
-  
-  // Si l'heure est déjà passée aujourd'hui, programmer pour demain
-  if (targetTime <= parisTime) {
-    targetTime.setDate(targetTime.getDate() + 1);
+  try {
+    // Vérifier que MIN_HOUR et MAX_HOUR sont valides
+    if (typeof MIN_HOUR !== 'number' || typeof MAX_HOUR !== 'number' || 
+        MIN_HOUR < 0 || MIN_HOUR > 23 || 
+        MAX_HOUR < 0 || MAX_HOUR > 23 ||
+        MIN_HOUR > MAX_HOUR) {
+      console.error('Configuration des heures de giveaway invalide. Utilisation des valeurs par défaut (12h-22h)');
+      const defaultMin = 12;
+      const defaultMax = 22;
+      
+      // Créer une date dans le fuseau horaire de Paris
+      const now = new Date();
+      const parisTime = new Date(now.toLocaleString('fr-FR', { timeZone: 'Europe/Paris' }));
+      
+      // Heure aléatoire entre les valeurs par défaut
+      const hours = Math.floor(Math.random() * (defaultMax - defaultMin + 1)) + defaultMin;
+      const minutes = Math.floor(Math.random() * 60);
+      
+      // Créer la date cible dans le fuseau horaire de Paris
+      const targetTime = new Date(parisTime);
+      targetTime.setHours(hours, minutes, 0, 0);
+      
+      // Si l'heure est déjà passée aujourd'hui, programmer pour demain
+      if (targetTime <= parisTime) {
+        targetTime.setDate(targetTime.getDate() + 1);
+      }
+      
+      return targetTime;
+    }
+    
+    // Créer une date dans le fuseau horaire de Paris
+    const now = new Date();
+    const parisTime = new Date(now.toLocaleString('fr-FR', { timeZone: 'Europe/Paris' }));
+    
+    // Heure aléatoire entre MIN_HOUR et MAX_HOUR
+    const hours = Math.floor(Math.random() * (MAX_HOUR - MIN_HOUR + 1)) + MIN_HOUR;
+    const minutes = Math.floor(Math.random() * 60);
+    
+    // Créer la date cible dans le fuseau horaire de Paris
+    const targetTime = new Date(parisTime);
+    targetTime.setHours(hours, minutes, 0, 0);
+    
+    // Si l'heure est déjà passée aujourd'hui, programmer pour demain
+    if (targetTime <= parisTime) {
+      targetTime.setDate(targetTime.getDate() + 1);
+    }
+    
+    // Vérifier que la date générée est valide
+    if (isNaN(targetTime.getTime())) {
+      console.error('Erreur: Date de giveaway invalide générée');
+      return null;
+    }
+    
+    return targetTime;
+  } catch (error) {
+    console.error('Erreur dans generateNextGiveawayTime:', error);
+    return null;
   }
-  
-  return targetTime;
 }
 
 // Gestion de la commande loutre-giveaway
