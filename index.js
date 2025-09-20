@@ -948,6 +948,19 @@ async function handleSlashCommand(interaction) {
       await handleMinesCommand(interaction);
       break;
   }
+} catch (error) {
+  console.error('Erreur dans la commande slash:', error);
+  if (!interaction.replied && !interaction.deferred) {
+    await interaction.reply({ 
+      content: '❌ Une erreur est survenue lors du traitement de la commande.', 
+      ephemeral: true 
+    }).catch(console.error);
+  } else {
+    await interaction.followUp({ 
+      content: '❌ Une erreur est survenue lors du traitement de la commande.', 
+      ephemeral: true 
+    }).catch(console.error);
+  }
 }
 
 // Serveur web pour uptime
