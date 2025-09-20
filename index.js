@@ -1770,45 +1770,36 @@ async function restoreActiveGiveaways() {
         let message;
         try {
           message = await channel.messages.fetch(giveaway.message_id);
+          
+          // Vérifier si le giveaway est toujours actif
+          if (giveaway.end_time > Date.now()) {
+            console.log(`[Giveaway] Giveaway trouvé dans #${channel.name}, se termine dans ${Math.ceil((giveaway.end_time - Date.now()) / 1000 / 60)} minutes`);
+            setTimeout(() => endGiveaway(channel.id), giveaway.end_time - Date.now());
+          } else {
+            // Le giveaway est déjà terminé, le nettoyer
+            console.log(`[Giveaway] Giveaway expiré dans #${channel.name}, nettoyage...`);
+            removeGiveaway(channel.id);
+          }
         } catch (error) {
-          console.log(`[Giveaway] Message ${giveaway.message_id} introuvable, cr�ation d'un nouveau message`);
-          // Si le message a �t� supprim�, en cr�er un nouveau
+          console.log(`[Giveaway] Message ${giveaway.message_id} introuvable, création d'un nouveau message`);
           const embed = new EmbedBuilder()
             .setTitle('?? GIVEAWAY AUTOMATIQUE LOUTRE ??')
-            .setDescription(`R�agissez avec ?? pour gagner **${giveaway.prize.toLocaleString()} ??** !`)
+            .setDescription(`Réagissez avec ?? pour gagner **${giveaway.prize.toLocaleString()} ??** !`)
             .setColor('#ffd700')
-            .setFooter({ text: 'Seul le premier � r�agir gagne !' });
-          
+            .setFooter({ text: 'Seul le premier à réagir gagne !' });
+
           message = await channel.send({ embeds: [embed] });
           await message.react('??');
-          
-          // Mettre � jour l'ID du message dans la base de donn�es
-          saveGiveaway(channel.id, message.id, giveaway.prize, giveaway.start_time, giveaway.end_time);
+
+          // Mettre à jour l'ID du message dans la base de données
+          saveGiveaway(channel.id, message.id, giveaway.prize, giveaway.end_time, false);
+
+          console.log(`[Giveaway] Giveaway restauré dans #${channel.name}, se termine dans ${Math.ceil((giveaway.end_time - Date.now()) / 1000 / 60)} minutes`);
+          setTimeout(() => endGiveaway(channel.id), giveaway.end_time - Date.now());
         }
         
-        // Ajouter au cache
-        activeGiveaways.set(channel.id, {
-          messageId: message.id,
-          channelId: channel.id,
-          prize: giveaway.prize,
-          endTime: giveaway.end_time,
-          hasWinner: giveaway.has_winner,
-          isAuto: true
-        });
-        
-        // Planifier la fin du giveaway
-        const timeLeft = giveaway.end_time - Date.now();
-        if (timeLeft > 0) {
-          console.log(`[Giveaway] Giveaway restaur� dans #${channel.name}, se termine dans ${Math.ceil(timeLeft / 1000 / 60)} minutes`);
-          setTimeout(() => endGiveaway(channel.id), timeLeft);
-        } else {
-          // Le giveaway est d�j� termin�, le nettoyer
-          console.log(`[Giveaway] Giveaway expir� dans #${channel.name}, nettoyage...`);
-          removeGiveaway(channel.id);
-        }
-        
-      } catch (error) {
-        console.error(`[Giveaway] Erreur lors de la restauration du giveaway:`, error);
+      } catch (err) {
+        console.error(`[Giveaway] Erreur lors de la restauration du giveaway:`, err);
       }
     }
     
@@ -1824,4 +1815,6 @@ app.listen(PORT, () => {
 
 // Connexion du bot
 client.login(process.env.DISCORD_TOKEN);
+}
+
 
