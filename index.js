@@ -1817,7 +1817,6 @@ async function restoreActiveGiveaways() {
   }
 }
 
-
 // Démarrer le serveur web pour uptime
 app.listen(PORT, () => {
   console.log(`Serveur web démarré sur le port ${PORT}`);
