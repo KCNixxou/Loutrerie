@@ -2,7 +2,7 @@ require('dotenv').config();
 const { Client, GatewayIntentBits, Partials, REST, Routes, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const express = require('express');
 const { isMaintenanceMode, isAdmin, maintenanceMiddleware, setMaintenance } = require('./maintenance');
-// Modules personnalisés
+// Modules personnalisï¿½s
 const config = require('./config');
 const { ensureUser, updateUser, updateMissionProgress, db, getSpecialBalance, updateSpecialBalance } = require('./database');
 const { random, now, getXpMultiplier, scheduleMidnightReset, calculateLevel, getLevelInfo } = require('./utils');
@@ -52,31 +52,31 @@ const client = new Client({
   partials: [Partials.Channel, Partials.Message, Partials.Reaction]
 });
 
-// Événement ready
+// ï¿½vï¿½nement ready
 client.once('ready', async () => {
-  console.log(`? ${client.user.tag} est connecté !`);
+  console.log(`? ${client.user.tag} est connectï¿½ !`);
   
-  // Afficher les commandes chargées
-  console.log('Commandes disponibles:', client.commands?.map(cmd => cmd.name).join(', ') || 'Aucune commande chargée');
-  console.log('Commandes à enregistrer depuis commands.js:', commands.map(cmd => cmd.name).join(', '));
+  // Afficher les commandes chargï¿½es
+  console.log('Commandes disponibles:', client.commands?.map(cmd => cmd.name).join(', ') || 'Aucune commande chargï¿½e');
+  console.log('Commandes ï¿½ enregistrer depuis commands.js:', commands.map(cmd => cmd.name).join(', '));
   
-  // Vérifier la commande /profil
+  // Vï¿½rifier la commande /profil
   const profilCmd = commands.find(cmd => cmd.name === 'profil');
-  console.log('Commande /profil trouvée:', profilCmd ? 'Oui' : 'Non');
+  console.log('Commande /profil trouvï¿½e:', profilCmd ? 'Oui' : 'Non');
   
   // Enregistrer les commandes
   const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
   
   try {
     console.log('?? Enregistrement des commandes...');
-    console.log('Commandes à enregistrer:', commands.map(cmd => cmd.name).join(', '));
+    console.log('Commandes ï¿½ enregistrer:', commands.map(cmd => cmd.name).join(', '));
     
     // Enregistrement global des commandes
     const result = await rest.put(
       Routes.applicationCommands(client.user.id),
       { body: commands }
     );
-    console.log('Commandes enregistrées avec succès:', result.map(cmd => cmd.name).join(', '));
+    console.log('Commandes enregistrï¿½es avec succï¿½s:', result.map(cmd => cmd.name).join(', '));
     
     // Enregistrement pour chaque serveur (en cas de mise en cache)
     for (const guild of client.guilds.cache.values()) {
@@ -90,39 +90,39 @@ client.once('ready', async () => {
       }
     }
     
-    console.log('? Commandes enregistrées !');
+    console.log('? Commandes enregistrï¿½es !');
   } catch (error) {
     console.error('? Erreur lors de l\'enregistrement des commandes:', error);
   }
   
-  // Démarrer le reset des missions, des limites quotidiennes et des récompenses BDG à minuit
+  // Dï¿½marrer le reset des missions, des limites quotidiennes et des rï¿½compenses BDG ï¿½ minuit
   scheduleMidnightReset(async () => {
-    console.log('?? Reset des missions, limites quotidiennes et récompenses BDG à minuit');
+    console.log('?? Reset des missions, limites quotidiennes et rï¿½compenses BDG ï¿½ minuit');
     const { generateDailyMissions } = require('./database');
     const missions = generateDailyMissions();
     const users = db.prepare('SELECT user_id FROM users').all();
     const currentTime = Math.floor(Date.now() / 1000);
     
-    // Récupérer tous les membres du serveur pour éviter les appels répétés
+    // Rï¿½cupï¿½rer tous les membres du serveur pour ï¿½viter les appels rï¿½pï¿½tï¿½s
     const guild = client.guilds.cache.first();
     if (guild) {
       await guild.members.fetch(); // S'assurer que tous les membres sont en cache
     }
     
     for (const user of users) {
-      // Réinitialiser les missions quotidiennes et les récompenses BDG
+      // Rï¿½initialiser les missions quotidiennes et les rï¿½compenses BDG
       updateUser(user.user_id, {
         daily_missions: JSON.stringify(missions),
         daily_messages: 0,
         last_mission_reset: currentTime,
-        // Réinitialiser le compteur de dons quotidiens
+        // Rï¿½initialiser le compteur de dons quotidiens
         daily_given: 0,
         last_give_reset: currentTime,
-        // Réinitialiser la récompense BDG quotidienne
+        // Rï¿½initialiser la rï¿½compense BDG quotidienne
         last_bdg_claim: 0
       });
       
-      // Vérifier si l'utilisateur a un rôle BDG et lui envoyer un message
+      // Vï¿½rifier si l'utilisateur a un rï¿½le BDG et lui envoyer un message
       const member = client.guilds.cache.first()?.members.cache.get(user.user_id);
       if (member) {
         const bdgRoles = [
@@ -138,10 +138,10 @@ client.once('ready', async () => {
         if (hasBdgRole) {
           try {
             await member.send({
-              content: '?? **Nouvelle récompense BDG disponible !**\nUtilise la commande `/dailybdg` pour réclamer ta récompense quotidienne ! ??'
+              content: '?? **Nouvelle rï¿½compense BDG disponible !**\nUtilise la commande `/dailybdg` pour rï¿½clamer ta rï¿½compense quotidienne ! ??'
             });
           } catch (error) {
-            console.error(`Impossible d'envoyer un message à ${member.user.tag}:`, error);
+            console.error(`Impossible d'envoyer un message ï¿½ ${member.user.tag}:`, error);
           }
         }
       }
@@ -153,9 +153,9 @@ client.once('ready', async () => {
 client.on('messageCreate', async (message) => {
   if (!message.guild || message.author.bot) return;
   
-  // Vérifier si le salon est dans la liste des exclus
+  // Vï¿½rifier si le salon est dans la liste des exclus
   if (config.xp.excludedChannels.includes(message.channelId)) {
-    console.log(`[XP] Message ignoré - Salon exclu: ${message.channel.name} (${message.channelId})`);
+    console.log(`[XP] Message ignorï¿½ - Salon exclu: ${message.channel.name} (${message.channelId})`);
     return;
   }
   
@@ -167,7 +167,7 @@ client.on('messageCreate', async (message) => {
   console.log(`[XP DEBUG] Dernier gain d'XP: ${new Date(user.last_xp_gain).toISOString()} (${timeSinceLastXp}ms ago)`);
   console.log(`[XP DEBUG] XP actuel: ${user.xp}, Niveau: ${user.level}`);
   
-  // Vérifier le cooldown XP
+  // Vï¿½rifier le cooldown XP
   if (timeSinceLastXp < config.xp.cooldown) {
     console.log(`[XP DEBUG] Cooldown non atteint: ${timeSinceLastXp}ms < ${config.xp.cooldown}ms`);
     return;
@@ -184,34 +184,34 @@ client.on('messageCreate', async (message) => {
   const levelInfo = getLevelInfo(newXp);
   
   console.log(`[XP DEBUG] Gain d'XP: +${xpGain} (x${multiplier} multiplicateur)`);
-  console.log(`[XP DEBUG] Nouvel XP: ${newXp}, Nouveau niveau: ${newLevel} (${levelUp ? 'NIVEAU SUPÉRIEUR!' : 'Pas de changement de niveau'})`);
+  console.log(`[XP DEBUG] Nouvel XP: ${newXp}, Nouveau niveau: ${newLevel} (${levelUp ? 'NIVEAU SUPï¿½RIEUR!' : 'Pas de changement de niveau'})`);
   
-  // Mettre à jour les messages quotidiens et missions
+  // Mettre ï¿½ jour les messages quotidiens et missions
   const newDailyMessages = (user.daily_messages || 0) + 1;
   const missionReward = updateMissionProgress(message.author.id, 'messages_30', 1) ||
                        updateMissionProgress(message.author.id, 'messages_50', 1);
   
   const updateData = {
     xp: newXp,
-    level: newLevel,  // Déjà une valeur numérique
+    level: newLevel,  // Dï¿½jï¿½ une valeur numï¿½rique
     last_xp_gain: currentTime,
     daily_messages: newDailyMessages,
-    balance: (user.balance || 0) + (levelUp ? 100 : 0) + (missionReward || 0)  // Augmenté de 50 à 100
+    balance: (user.balance || 0) + (levelUp ? 100 : 0) + (missionReward || 0)  // Augmentï¿½ de 50 ï¿½ 100
   };
   
-  console.log('[XP DEBUG] Mise à jour de la base de données:', JSON.stringify(updateData, null, 2));
+  console.log('[XP DEBUG] Mise ï¿½ jour de la base de donnï¿½es:', JSON.stringify(updateData, null, 2));
   
   updateUser(message.author.id, updateData);
   
   if (levelUp) {
-    console.log(`[XP DEBUG] Félicitations! ${message.author.tag} est maintenant niveau ${newLevel}!`);
+    console.log(`[XP DEBUG] Fï¿½licitations! ${message.author.tag} est maintenant niveau ${newLevel}!`);
   }
   
   if (levelUp) {
     const levelInfo = getLevelInfo(newXp);
     const embed = new EmbedBuilder()
-      .setTitle('?? Niveau supérieur !')
-      .setDescription(`Félicitations <@${message.author.id}> ! Tu es maintenant niveau **${newLevel}** !\n+100 ${config.currency.emoji} de bonus !\nProgression: ${levelInfo.currentXp}/${levelInfo.xpForNextLevel} XP (${levelInfo.progress.toFixed(1)}%)`)
+      .setTitle('?? Niveau supï¿½rieur !')
+      .setDescription(`Fï¿½licitations <@${message.author.id}> ! Tu es maintenant niveau **${newLevel}** !\n+100 ${config.currency.emoji} de bonus !\nProgression: ${levelInfo.currentXp}/${levelInfo.xpForNextLevel} XP (${levelInfo.progress.toFixed(1)}%)`)
       .setColor(0x00ff00);
     
     message.channel.send({ embeds: [embed] });
@@ -221,10 +221,10 @@ client.on('messageCreate', async (message) => {
 // Gestion des interactions
 client.on('interactionCreate', async (interaction) => {
   try {
-    // Vérifier le mode maintenance pour toutes les interactions
+    // Vï¿½rifier le mode maintenance pour toutes les interactions
     if (isMaintenanceMode() && interaction.user.id !== '314458846754111499') {
       return interaction.reply({ 
-        content: '?? Le bot est actuellement en maintenance. Veuillez réessayer plus tard.',
+        content: '?? Le bot est actuellement en maintenance. Veuillez rï¿½essayer plus tard.',
         flags: 'Ephemeral'
       });
     }
@@ -243,21 +243,21 @@ client.on('interactionCreate', async (interaction) => {
       } else if (interaction.customId === 'cashout' || interaction.customId === 'next_multiplier') {
         await handleCrashButton(interaction);
       } else if (interaction.customId.startsWith('highlow_')) {
-        // Gérer les actions du High Low normal
+        // Gï¿½rer les actions du High Low normal
         if (interaction.customId.startsWith('highlow_continue_') || interaction.customId.startsWith('highlow_stop_')) {
           await handleHighLowDecision(interaction);
         } else {
           await handleHighLowAction(interaction);
         }
       } else if (interaction.customId.startsWith('special_highlow_')) {
-        // Gérer les actions du High Low spécial
+        // Gï¿½rer les actions du High Low spï¿½cial
         if (interaction.customId.startsWith('special_highlow_continue_') || interaction.customId.startsWith('special_highlow_stop_')) {
           await handleHighLowDecision(interaction);
         } else {
           await handleHighLowAction(interaction);
         }
       } else if (interaction.customId.startsWith('mines_') || interaction.customId === 'mines_cashout' || interaction.customId === 'mines_flag') {
-        // Gérer les actions du jeu des mines
+        // Gï¿½rer les actions du jeu des mines
         const { handleMinesButtonInteraction } = require('./games/mines');
         await handleMinesButtonInteraction(interaction);
       } else {
@@ -277,40 +277,40 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
-async function handleSlashCommand(interaction) {
-  console.log(`[COMMANDE] Commande reçue: ${interaction.commandName}`);
+async function handleSlashCommand(interaction) 
+  console.log(`[COMMANDE] Commande reï¿½ue: ${interaction.commandName}`);
   
   try {
     switch (interaction.commandName) {
       case 'de':
         const diceResult = Math.floor(Math.random() * 6) + 1;
-        await interaction.reply(`?? Le dé affiche : **${diceResult}**`);
+        await interaction.reply(`?? Le dï¿½ affiche : **${diceResult}**`);
         break;
       
       case 'profil':
         try {
-          console.log('[DEBUG] Commande /profil déclenchée');
+          console.log('[DEBUG] Commande /profil dï¿½clenchï¿½e');
           console.log('[DEBUG] Options:', interaction.options.data);
           console.log('[DEBUG] Utilisateur:', interaction.user.tag, `(${interaction.user.id})`);
           
-          console.log('[DEBUG] Récupération de l\'utilisateur cible...');
+          console.log('[DEBUG] Rï¿½cupï¿½ration de l\'utilisateur cible...');
           const targetUser = interaction.options.getUser('utilisateur') || interaction.user;
           const isSelf = targetUser.id === interaction.user.id;
         
-          console.log(`[DEBUG] Cible: ${targetUser.tag} (${targetUser.id}) - ${isSelf ? 'soi-même' : 'autre utilisateur'}`);
+          console.log(`[DEBUG] Cible: ${targetUser.tag} (${targetUser.id}) - ${isSelf ? 'soi-mï¿½me' : 'autre utilisateur'}`);
         
-          console.log('[DEBUG] Vérification et récupération des données utilisateur...');
+          console.log('[DEBUG] Vï¿½rification et rï¿½cupï¿½ration des donnï¿½es utilisateur...');
           const user = ensureUser(targetUser.id);
-          console.log('[DEBUG] Données utilisateur récupérées:', JSON.stringify(user, null, 2));
+          console.log('[DEBUG] Donnï¿½es utilisateur rï¿½cupï¿½rï¿½es:', JSON.stringify(user, null, 2));
         
           const xp = user.xp || 0;
           console.log(`[DEBUG] XP de l'utilisateur: ${xp}`);
         
           console.log('[DEBUG] Calcul du niveau...');
           const levelInfo = getLevelInfo(xp);
-          console.log('[DEBUG] Niveau calculé:', levelInfo);
+          console.log('[DEBUG] Niveau calculï¿½:', levelInfo);
           
-          console.log('[DEBUG] Création de l\'embed...');
+          console.log('[DEBUG] Crï¿½ation de l\'embed...');
           const embed = new EmbedBuilder()
             .setTitle(`?? Profil de ${targetUser.username}`)
             .setThumbnail(targetUser.displayAvatarURL({ dynamic: true, size: 256 }))
@@ -328,10 +328,10 @@ async function handleSlashCommand(interaction) {
             })
             .setTimestamp();
           
-          // Ajouter un champ supplémentaire si c'est le profil de l'utilisateur
+          // Ajouter un champ supplï¿½mentaire si c'est le profil de l'utilisateur
           if (isSelf) {
             const xpNeeded = levelInfo.xpForNextLevel - levelInfo.currentXp;
-            console.log(`[DEBUG] XP nécessaire pour le prochain niveau: ${xpNeeded}`);
+            console.log(`[DEBUG] XP nï¿½cessaire pour le prochain niveau: ${xpNeeded}`);
             
             embed.addFields({
               name: 'Prochain niveau',
@@ -340,22 +340,22 @@ async function handleSlashCommand(interaction) {
             });
           }
           
-          console.log('[DEBUG] Envoi de la réponse...');
+          console.log('[DEBUG] Envoi de la rï¿½ponse...');
           const replyOptions = { 
             embeds: [embed],
-            ephemeral: isSelf // Le message est éphémère uniquement si c'est le profil de l'utilisateur
+            ephemeral: isSelf // Le message est ï¿½phï¿½mï¿½re uniquement si c'est le profil de l'utilisateur
           };
-          console.log('[DEBUG] Options de réponse:', JSON.stringify(replyOptions, null, 2));
+          console.log('[DEBUG] Options de rï¿½ponse:', JSON.stringify(replyOptions, null, 2));
           
           await interaction.reply(replyOptions);
-          console.log('[DEBUG] Réponse envoyée avec succès');
+          console.log('[DEBUG] Rï¿½ponse envoyï¿½e avec succï¿½s');
           
         } catch (error) {
           console.error('[ERREUR] Erreur dans la commande /profil:', error);
           console.error(error.stack);
           
           try {
-            const errorMessage = '? Une erreur est survenue lors de la récupération du profil. Veuillez réessayer plus tard.';
+            const errorMessage = '? Une erreur est survenue lors de la rï¿½cupï¿½ration du profil. Veuillez rï¿½essayer plus tard.';
             console.log(`[DEBUG] Tentative d'envoi d'un message d'erreur: "${errorMessage}"`);
           
             await interaction.reply({
@@ -363,9 +363,9 @@ async function handleSlashCommand(interaction) {
               ephemeral: true
             });
             
-            console.log('[DEBUG] Message d\'erreur envoyé avec succès');
+            console.log('[DEBUG] Message d\'erreur envoyï¿½ avec succï¿½s');
           } catch (replyError) {
-            console.error('[ERREUR CRITIQUE] Échec de l\'envoi du message d\'erreur:', replyError);
+            console.error('[ERREUR CRITIQUE] ï¿½chec de l\'envoi du message d\'erreur:', replyError);
             console.error(replyError.stack);
           }
       }
@@ -378,7 +378,7 @@ async function handleSlashCommand(interaction) {
       } catch (error) {
         console.error('[ERREUR] Erreur dans la commande /morpion:', error);
         await interaction.reply({
-          content: '? Une erreur est survenue lors du démarrage du jeu. Veuillez réessayer plus tard.',
+          content: '? Une erreur est survenue lors du dï¿½marrage du jeu. Veuillez rï¿½essayer plus tard.',
           ephemeral: true
         });
       }
@@ -469,7 +469,7 @@ async function handleSlashCommand(interaction) {
               `Nombre de participants : **${participants.length}**`
             )
             .setColor(0x00ff00)
-            .setFooter({ text: '1% de chaque mise est ajouté au pot commun' });
+            .setFooter({ text: '1% de chaque mise est ajoutï¿½ au pot commun' });
           
           if (participants.length > 0) {
             // Afficher le top 5 des contributeurs
@@ -515,7 +515,7 @@ async function handleSlashCommand(interaction) {
     case 'reset-morpion-stats':
       if (interaction.user.id !== '314458846754111499') {
         return interaction.reply({ 
-          content: '? Cette commande est réservée à l\'administrateur.', 
+          content: '? Cette commande est rï¿½servï¿½e ï¿½ l\'administrateur.', 
           ephemeral: true 
         });
       }
@@ -524,24 +524,24 @@ async function handleSlashCommand(interaction) {
         const targetUser = interaction.options.getUser('utilisateur');
         
         if (targetUser) {
-          // Réinitialiser pour un utilisateur spécifique
+          // Rï¿½initialiser pour un utilisateur spï¿½cifique
           resetTicTacToeStats(targetUser.id);
           await interaction.reply({ 
-            content: `? Les statistiques du morpion de ${targetUser.tag} ont été réinitialisées avec succès !`, 
+            content: `? Les statistiques du morpion de ${targetUser.tag} ont ï¿½tï¿½ rï¿½initialisï¿½es avec succï¿½s !`, 
             ephemeral: true 
           });
         } else {
-          // Réinitialiser pour tous les utilisateurs
+          // Rï¿½initialiser pour tous les utilisateurs
           resetTicTacToeStats();
           await interaction.reply({ 
-            content: '? Toutes les statistiques du morpion ont été réinitialisées avec succès !', 
+            content: '? Toutes les statistiques du morpion ont ï¿½tï¿½ rï¿½initialisï¿½es avec succï¿½s !', 
             ephemerant: true 
           });
         }
       } catch (error) {
-        console.error('Erreur lors de la réinitialisation des statistiques du morpion:', error);
+        console.error('Erreur lors de la rï¿½initialisation des statistiques du morpion:', error);
         await interaction.reply({ 
-          content: '? Une erreur est survenue lors de la réinitialisation des statistiques.', 
+          content: '? Une erreur est survenue lors de la rï¿½initialisation des statistiques.', 
           ephemeral: true 
         });
       }
@@ -561,11 +561,11 @@ async function handleSlashCommand(interaction) {
       const isAdminOrSpecialUser = specialHighLow.isAdmin(interaction.user.id) || 
                                 interaction.user.id === specialHighLow.specialUserId;
       
-      // Vérification stricte : l'utilisateur doit être autorisé ET être dans le bon salon
+      // Vï¿½rification stricte : l'utilisateur doit ï¿½tre autorisï¿½ ET ï¿½tre dans le bon salon
       if (!isAdminOrSpecialUser || interaction.channelId !== specialHighLow.channelId) {
-        console.log(`[Security] Tentative d'accès non autorisée à /solde-special par ${interaction.user.id} dans le salon ${interaction.channelId}`);
+        console.log(`[Security] Tentative d'accï¿½s non autorisï¿½e ï¿½ /solde-special par ${interaction.user.id} dans le salon ${interaction.channelId}`);
         return interaction.reply({
-          content: '? Cette commande est réservée au salon spécial et aux utilisateurs autorisés.',
+          content: '? Cette commande est rï¿½servï¿½e au salon spï¿½cial et aux utilisateurs autorisï¿½s.',
           ephemeral: true
         });
       }
@@ -573,13 +573,13 @@ async function handleSlashCommand(interaction) {
       const specialBalance = getSpecialBalance(interaction.user.id);
       
       const embed = new EmbedBuilder()
-        .setTitle('?? Solde Spécial High Low')
-        .setDescription(`Votre solde spécial est de **${specialBalance}** ${config.currency.emoji}`)
+        .setTitle('?? Solde Spï¿½cial High Low')
+        .setDescription(`Votre solde spï¿½cial est de **${specialBalance}** ${config.currency.emoji}`)
         .setColor(0x9b59b6);
         
       if (isAdminOrSpecialUser) {
         embed.addFields(
-          { name: 'Statut', value: '?? Utilisateur spécial', inline: true }
+          { name: 'Statut', value: '?? Utilisateur spï¿½cial', inline: true }
         );
       }
       
@@ -587,21 +587,21 @@ async function handleSlashCommand(interaction) {
       break;
       
     case 'admin-solde-special':
-      // Vérifier si l'utilisateur est admin
+      // Vï¿½rifier si l'utilisateur est admin
       const { specialHighLow: configHighLow } = require('./config');
       if (!configHighLow.isAdmin(interaction.user.id)) {
-        console.log(`[Security] Tentative d'accès non autorisée à /admin-solde-special par ${interaction.user.id}`);
+        console.log(`[Security] Tentative d'accï¿½s non autorisï¿½e ï¿½ /admin-solde-special par ${interaction.user.id}`);
         return interaction.reply({
-          content: '? Cette commande est réservée aux administrateurs.',
+          content: '? Cette commande est rï¿½servï¿½e aux administrateurs.',
           ephemeral: true
         });
       }
       
-      // Vérifier que la commande est utilisée dans le bon salon
+      // Vï¿½rifier que la commande est utilisï¿½e dans le bon salon
       if (interaction.channelId !== configHighLow.channelId) {
         console.log(`[Security] Tentative d'utilisation de /admin-solde-special dans le mauvais salon par ${interaction.user.id}`);
         return interaction.reply({
-          content: `? Cette commande ne peut être utilisée que dans le salon dédié.`,
+          content: `? Cette commande ne peut ï¿½tre utilisï¿½e que dans le salon dï¿½diï¿½.`,
           ephemeral: true
         });
       }
@@ -615,14 +615,14 @@ async function handleSlashCommand(interaction) {
             const amount = interaction.options.getInteger('montant');
             if (amount <= 0) {
               return interaction.reply({
-                content: '? Le montant doit être supérieur à zéro.',
+                content: '? Le montant doit ï¿½tre supï¿½rieur ï¿½ zï¿½ro.',
                 ephemeral: true
               });
             }
             
             const newBalance = updateSpecialBalance(adminTargetUser.id, amount);
             await interaction.reply({
-              content: `? **${amount}** ${config.currency.emoji} ont été ajoutés au solde spécial de ${adminTargetUser.tag}.\nNouveau solde: **${newBalance}** ${config.currency.emoji}`,
+              content: `? **${amount}** ${config.currency.emoji} ont ï¿½tï¿½ ajoutï¿½s au solde spï¿½cial de ${adminTargetUser.tag}.\nNouveau solde: **${newBalance}** ${config.currency.emoji}`,
               ephemeral: true
             });
             break;
@@ -632,18 +632,18 @@ async function handleSlashCommand(interaction) {
             const amount = interaction.options.getInteger('montant');
             if (amount < 0) {
               return interaction.reply({
-                content: '? Le montant ne peut pas être négatif.',
+                content: '? Le montant ne peut pas ï¿½tre nï¿½gatif.',
                 ephemeral: true
               });
             }
             
-            // Pour définir un solde spécifique, on utilise updateSpecialBalance avec la différence
+            // Pour dï¿½finir un solde spï¿½cifique, on utilise updateSpecialBalance avec la diffï¿½rence
             const currentBalance = getSpecialBalance(adminTargetUser.id);
             const difference = amount - currentBalance;
             const newBalance = updateSpecialBalance(adminTargetUser.id, difference);
             
             await interaction.reply({
-              content: `? Le solde spécial de ${adminTargetUser.tag} a été défini à **${newBalance}** ${config.currency.emoji}`,
+              content: `? Le solde spï¿½cial de ${adminTargetUser.tag} a ï¿½tï¿½ dï¿½fini ï¿½ **${newBalance}** ${config.currency.emoji}`,
               ephemeral: true
             });
             break;
@@ -652,11 +652,11 @@ async function handleSlashCommand(interaction) {
           case 'voir': {
             const balance = getSpecialBalance(adminTargetUser.id);
             const embed = new EmbedBuilder()
-              .setTitle(`?? Solde Spécial de ${adminTargetUser.username}`)
+              .setTitle(`?? Solde Spï¿½cial de ${adminTargetUser.username}`)
               .setDescription(`**${balance}** ${config.currency.emoji}`)
               .setColor(0x9b59b6)
               .setThumbnail(adminTargetUser.displayAvatarURL())
-              .setFooter({ text: `Demandé par ${interaction.user.username}`, iconURL: interaction.user.displayAvatarURL() })
+              .setFooter({ text: `Demandï¿½ par ${interaction.user.username}`, iconURL: interaction.user.displayAvatarURL() })
               .setTimestamp();
               
             await interaction.reply({ embeds: [embed], ephemeral: true });
@@ -686,7 +686,7 @@ async function handleSlashCommand(interaction) {
     case 'reset-daily':
       if (interaction.user.id !== '314458846754111499') {
         return interaction.reply({
-          content: '? Cette commande est réservée à l\'administrateur.',
+          content: '? Cette commande est rï¿½servï¿½e ï¿½ l\'administrateur.',
           flags: 'Ephemeral'
         });
       }
@@ -695,7 +695,7 @@ async function handleSlashCommand(interaction) {
       updateUser(targetUserId, { last_daily_claim: 0 });
       
       await interaction.reply({
-        content: `? Date de dernière récupération réinitialisée pour <@${targetUserId}>`,
+        content: `? Date de derniï¿½re rï¿½cupï¿½ration rï¿½initialisï¿½e pour <@${targetUserId}>`,
         flags: 'Ephemeral'
       });
       break;
@@ -708,13 +708,13 @@ async function handleSlashCommand(interaction) {
       const today = new Date(now);
       today.setHours(0, 0, 0, 0);
       
-      // Vérifier si le timestamp est valide (entre 2000 et 2100)
+      // Vï¿½rifier si le timestamp est valide (entre 2000 et 2100)
       const lastClaimDate = new Date(lastClaim * 1000);
       const currentYear = now.getFullYear();
       
       if (lastClaimDate.getFullYear() < 2000 || lastClaimDate.getFullYear() > 2100) {
-        // Timestamp invalide, on le réinitialise
-        console.log('Timestamp invalide détecté, réinitialisation...');
+        // Timestamp invalide, on le rï¿½initialise
+        console.log('Timestamp invalide dï¿½tectï¿½, rï¿½initialisation...');
         lastClaim = 0;
       }
       
@@ -722,9 +722,9 @@ async function handleSlashCommand(interaction) {
       const todayTimestamp = today.getTime();
       
       if (lastClaim > 0 && lastClaimTimestamp >= todayTimestamp) {
-        // Log pour débogage
-        console.log('Dernière récupération aujourd\'hui, calcul du temps restant...');
-        // Calculer le temps jusqu'à minuit prochain
+        // Log pour dï¿½bogage
+        console.log('Derniï¿½re rï¿½cupï¿½ration aujourd\'hui, calcul du temps restant...');
+        // Calculer le temps jusqu'ï¿½ minuit prochain
         const nextMidnight = new Date(today);
         nextMidnight.setDate(nextMidnight.getDate() + 1);
         const timeLeftMs = nextMidnight - now;
@@ -739,7 +739,7 @@ async function handleSlashCommand(interaction) {
         timeLeftText += `${minutes} minute${minutes !== 1 ? 's' : ''}`;
         
         await interaction.reply({ 
-          content: `? Tu as déjà récupéré ta récompense aujourd'hui ! La prochaine récompense sera disponible à minuit dans ${timeLeftText}.`,
+          content: `? Tu as dï¿½jï¿½ rï¿½cupï¿½rï¿½ ta rï¿½compense aujourd'hui ! La prochaine rï¿½compense sera disponible ï¿½ minuit dans ${timeLeftText}.`,
           ephemeral: true
         });
         return;
@@ -753,7 +753,7 @@ async function handleSlashCommand(interaction) {
       });
       
       await interaction.reply({
-        content: `?? Tu as reçu ta récompense journalière de **${config.currency.dailyReward}** ${config.currency.emoji} !\nNouveau solde: **${newBalance}** ${config.currency.emoji}`
+        content: `?? Tu as reï¿½u ta rï¿½compense journaliï¿½re de **${config.currency.dailyReward}** ${config.currency.emoji} !\nNouveau solde: **${newBalance}** ${config.currency.emoji}`
       });
       break;
       
@@ -765,7 +765,7 @@ async function handleSlashCommand(interaction) {
       const bdgToday = new Date(bdgNow);
       bdgToday.setHours(0, 0, 0, 0);
       
-      // Vérifier si l'utilisateur a un rôle BDG
+      // Vï¿½rifier si l'utilisateur a un rï¿½le BDG
       const member = await interaction.guild.members.fetch(bdgUserId);
       const bdgRoles = [
         config.shop.bdgBaby.role,
@@ -778,18 +778,18 @@ async function handleSlashCommand(interaction) {
       
       if (!hasBdgRole) {
         await interaction.reply({
-          content: '? Vous devez avoir un rôle BDG (Bébé BDG, Petit BDG, Gros BDG ou BDG Ultime) pour utiliser cette commande !',
+          content: '? Vous devez avoir un rï¿½le BDG (Bï¿½bï¿½ BDG, Petit BDG, Gros BDG ou BDG Ultime) pour utiliser cette commande !',
           ephemeral: true
         });
         return;
       }
       
-      // Vérifier si le timestamp est valide (entre 2000 et 2100)
+      // Vï¿½rifier si le timestamp est valide (entre 2000 et 2100)
       const lastBdgClaimDate = new Date(lastBdgClaim * 1000);
       
       if (lastBdgClaimDate.getFullYear() < 2000 || lastBdgClaimDate.getFullYear() > 2100) {
-        // Timestamp invalide, on le réinitialise
-        console.log('Timestamp BDG invalide détecté, réinitialisation...');
+        // Timestamp invalide, on le rï¿½initialise
+        console.log('Timestamp BDG invalide dï¿½tectï¿½, rï¿½initialisation...');
         lastBdgClaim = 0;
       }
       
@@ -797,7 +797,7 @@ async function handleSlashCommand(interaction) {
       const bdgTodayTimestamp = bdgToday.getTime();
       
       if (lastBdgClaim > 0 && lastBdgClaimTimestamp >= bdgTodayTimestamp) {
-        // Calculer le temps jusqu'à minuit prochain
+        // Calculer le temps jusqu'ï¿½ minuit prochain
         const nextDay = new Date(bdgToday);
         nextDay.setDate(nextDay.getDate() + 1);
         const timeUntilReset = nextDay - bdgNow;
@@ -805,13 +805,13 @@ async function handleSlashCommand(interaction) {
         const minutes = Math.floor((timeUntilReset % (1000 * 60 * 60)) / (1000 * 60));
         
         await interaction.reply({
-          content: `? Tu as déjà récupéré ta récompense BDG aujourd'hui ! Reviens dans ${hours}h${minutes}m.`,
+          content: `? Tu as dï¿½jï¿½ rï¿½cupï¿½rï¿½ ta rï¿½compense BDG aujourd'hui ! Reviens dans ${hours}h${minutes}m.`,
           ephemeral: true
         });
         return;
       }
       
-      // Déterminer le montant de la récompense en fonction du rôle le plus élevé
+      // Dï¿½terminer le montant de la rï¿½compense en fonction du rï¿½le le plus ï¿½levï¿½
       let reward = 0;
       let roleName = '';
       
@@ -829,7 +829,7 @@ async function handleSlashCommand(interaction) {
         roleName = config.shop.bdgBaby.role;
       }
       
-      // Mettre à jour le solde de l'utilisateur
+      // Mettre ï¿½ jour le solde de l'utilisateur
       const newBdgBalance = (bdgUser.balance || 0) + reward;
       
       updateUser(bdgUserId, {
@@ -837,13 +837,13 @@ async function handleSlashCommand(interaction) {
         last_bdg_claim: Math.floor(bdgNow.getTime() / 1000)
       });
       
-      // Envoyer la réponse
+      // Envoyer la rï¿½ponse
       const bdgEmbed = new EmbedBuilder()
-        .setTitle('?? Récompense BDG journalière')
-        .setDescription(`Félicitations ! En tant que **${roleName}**, tu as reçu ta récompense quotidienne de **${reward.toLocaleString()}** ${config.currency.emoji} !`)
+        .setTitle('?? Rï¿½compense BDG journaliï¿½re')
+        .setDescription(`Fï¿½licitations ! En tant que **${roleName}**, tu as reï¿½u ta rï¿½compense quotidienne de **${reward.toLocaleString()}** ${config.currency.emoji} !`)
         .addFields(
           { name: 'Nouveau solde', value: `${newBdgBalance.toLocaleString()} ${config.currency.emoji}`, inline: true },
-          { name: 'Prochaine récompense', value: 'Demain à minuit', inline: true }
+          { name: 'Prochaine rï¿½compense', value: 'Demain ï¿½ minuit', inline: true }
         )
         .setColor(0x00ff00)
         .setTimestamp();
@@ -859,11 +859,11 @@ async function handleSlashCommand(interaction) {
         const status = mission.completed ? '?' : `${mission.progress}/${mission.goal}`;
         const emoji = mission.completed ? '?' : '??';
         missionText += `${emoji} **${mission.description}**\n`;
-        missionText += `   Progression: ${status} ? Récompense: ${mission.reward} ${config.currency.emoji}\n\n`;
+        missionText += `   Progression: ${status} ? Rï¿½compense: ${mission.reward} ${config.currency.emoji}\n\n`;
       });
       
       const missionEmbed = new EmbedBuilder()
-        .setTitle('?? Missions Journalières')
+        .setTitle('?? Missions Journaliï¿½res')
         .setDescription(missionText || 'Aucune mission disponible')
         .setColor(0xffaa00);
       
@@ -883,7 +883,7 @@ async function handleSlashCommand(interaction) {
       
       const leaderboardEmbed = new EmbedBuilder()
         .setTitle(`?? Classement ${type.toUpperCase()}`)
-        .setDescription(leaderboardText || 'Aucun utilisateur trouvé')
+        .setDescription(leaderboardText || 'Aucun utilisateur trouvï¿½')
         .setColor(0xffd700);
       
       await interaction.reply({ embeds: [leaderboardEmbed] });
@@ -923,18 +923,18 @@ async function handleSlashCommand(interaction) {
 
     case 'set-balance':
       if (interaction.user.id !== '314458846754111499') {
-        return interaction.reply({ content: '? Cette commande est réservée à l\'administrateur.', ephemeral: true });
+        return interaction.reply({ content: '? Cette commande est rï¿½servï¿½e ï¿½ l\'administrateur.', ephemeral: true });
       }
       
       const targetUser = interaction.options.getUser('utilisateur');
       const amount = interaction.options.getInteger('montant');
       
-      // Vérifier que l'utilisateur existe dans la base de données et mettre à jour le solde
+      // Vï¿½rifier que l'utilisateur existe dans la base de donnï¿½es et mettre ï¿½ jour le solde
       ensureUser(targetUser.id);
       updateUser(targetUser.id, { balance: amount });
       
       await interaction.reply({
-        content: `? Le solde de ${targetUser.tag} a été défini à **${amount}** ${config.currency.emoji}`,
+        content: `? Le solde de ${targetUser.tag} a ï¿½tï¿½ dï¿½fini ï¿½ **${amount}** ${config.currency.emoji}`,
         ephemeral: true
       });
       break;
@@ -972,13 +972,13 @@ app.get('/', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`?? Serveur web démarré sur le port ${PORT}`);
+  console.log(`?? Serveur web dï¿½marrï¿½ sur le port ${PORT}`);
 });
 
-// Fonction pour réinitialiser la récompense BDG d'un utilisateur
+// Fonction pour rï¿½initialiser la rï¿½compense BDG d'un utilisateur
 async function handleResetDailyBdg(interaction) {
   try {
-    // Vérifier les permissions d'administration
+    // Vï¿½rifier les permissions d'administration
     if (!isAdmin(interaction.user.id)) {
       return interaction.reply({
         content: '? Vous n\'avez pas la permission d\'utiliser cette commande.',
@@ -989,18 +989,18 @@ async function handleResetDailyBdg(interaction) {
     const targetUser = interaction.options.getUser('utilisateur');
     if (!targetUser) {
       return interaction.reply({
-        content: '? Utilisateur non trouvé.',
+        content: '? Utilisateur non trouvï¿½.',
         ephemeral: true
       });
     }
     
-    // Réinitialiser la dernière réclamation BDG
+    // Rï¿½initialiser la derniï¿½re rï¿½clamation BDG
     updateUser(targetUser.id, {
       last_bdg_claim: 0
     });
     
     await interaction.reply({
-      content: `? La récompense BDG quotidienne de <@${targetUser.id}> a été réinitialisée.`,
+      content: `? La rï¿½compense BDG quotidienne de <@${targetUser.id}> a ï¿½tï¿½ rï¿½initialisï¿½e.`,
       ephemeral: true
     });
     
@@ -1008,14 +1008,14 @@ async function handleResetDailyBdg(interaction) {
     console.error('Erreur dans handleResetDailyBdg:', error);
     if (!interaction.replied) {
       await interaction.reply({
-        content: '? Une erreur est survenue lors de la réinitialisation de la récompense BDG.',
+        content: '? Une erreur est survenue lors de la rï¿½initialisation de la rï¿½compense BDG.',
         ephemeral: true
       });
     }
   }
 }
 
-// Fonction pour gérer la récompense quotidienne BDG
+// Fonction pour gï¿½rer la rï¿½compense quotidienne BDG
 async function handleDailyBdg(interaction) {
   try {
     const userId = interaction.user.id;
@@ -1023,7 +1023,7 @@ async function handleDailyBdg(interaction) {
     const currentTime = Math.floor(Date.now() / 1000);
     const oneDayInSeconds = 24 * 60 * 60;
     
-    // Vérifier si l'utilisateur a déjà réclamé sa récompense aujourd'hui
+    // Vï¿½rifier si l'utilisateur a dï¿½jï¿½ rï¿½clamï¿½ sa rï¿½compense aujourd'hui
     const user = ensureUser(userId);
     const lastClaim = user.last_bdg_claim || 0;
     
@@ -1034,12 +1034,12 @@ async function handleDailyBdg(interaction) {
       const minutes = Math.floor((timeLeft % 3600) / 60);
       
       return interaction.reply({
-        content: `? Tu as déjà réclamé ta récompense BDG aujourd'hui. Tu pourras à nouveau réclamer dans ${hours}h${minutes}m.`,
+        content: `? Tu as dï¿½jï¿½ rï¿½clamï¿½ ta rï¿½compense BDG aujourd'hui. Tu pourras ï¿½ nouveau rï¿½clamer dans ${hours}h${minutes}m.`,
         ephemeral: true
       });
     }
     
-    // Vérifier si l'utilisateur a un rôle BDG
+    // Vï¿½rifier si l'utilisateur a un rï¿½le BDG
     const bdgRoles = [
       config.shop.bdgBaby.role,
       config.shop.bdgPetit.role,
@@ -1052,12 +1052,12 @@ async function handleDailyBdg(interaction) {
     
     if (!hasBdgRole) {
       return interaction.reply({
-        content: '? Tu dois avoir un rôle BDG pour réclamer cette récompense !',
+        content: '? Tu dois avoir un rï¿½le BDG pour rï¿½clamer cette rï¿½compense !',
         ephemeral: true
       });
     }
     
-    // Déterminer la récompense en fonction du rôle BDG
+    // Dï¿½terminer la rï¿½compense en fonction du rï¿½le BDG
     let reward = 0;
     let roleName = '';
     
@@ -1075,7 +1075,7 @@ async function handleDailyBdg(interaction) {
       roleName = config.shop.bdgBaby.name;
     }
     
-    // Mettre à jour le solde de l'utilisateur
+    // Mettre ï¿½ jour le solde de l'utilisateur
     const newBalance = (user.balance || 0) + reward;
     updateUser(userId, {
       balance: newBalance,
@@ -1084,14 +1084,14 @@ async function handleDailyBdg(interaction) {
     
     // Envoyer un message de confirmation
     const embed = new EmbedBuilder()
-      .setTitle('?? Récompense BDG quotidienne')
-      .setDescription(`Tu as reçu ta récompense quotidienne en tant que **${roleName}** !`)
+      .setTitle('?? Rï¿½compense BDG quotidienne')
+      .setDescription(`Tu as reï¿½u ta rï¿½compense quotidienne en tant que **${roleName}** !`)
       .addFields(
-        { name: 'Récompense', value: `+${reward} ${config.currency.emoji}`, inline: true },
+        { name: 'Rï¿½compense', value: `+${reward} ${config.currency.emoji}`, inline: true },
         { name: 'Nouveau solde', value: `${newBalance} ${config.currency.emoji}`, inline: true }
       )
       .setColor(0x00ff00)
-      .setFooter({ text: 'Reviens demain pour une nouvelle récompense !' });
+      .setFooter({ text: 'Reviens demain pour une nouvelle rï¿½compense !' });
     
     await interaction.reply({ embeds: [embed] });
     
@@ -1112,10 +1112,10 @@ async function handleGive(interaction) {
     const amount = interaction.options.getInteger('montant');
     const giverId = interaction.user.id;
 
-    // Vérifications de base
+    // Vï¿½rifications de base
     if (!targetUser || !amount) {
       await interaction.reply({ 
-        content: '? Paramètres invalides. Utilisation: `/give @utilisateur montant`', 
+        content: '? Paramï¿½tres invalides. Utilisation: `/give @utilisateur montant`', 
         ephemeral: true 
       });
       return;
@@ -1123,7 +1123,7 @@ async function handleGive(interaction) {
 
     if (targetUser.bot) {
       await interaction.reply({ 
-        content: '? Tu ne peux pas donner de coquillages à un bot !', 
+        content: '? Tu ne peux pas donner de coquillages ï¿½ un bot !', 
         ephemeral: true 
       });
       return;
@@ -1131,7 +1131,7 @@ async function handleGive(interaction) {
 
     if (targetUser.id === giverId) {
       await interaction.reply({ 
-        content: '? Tu ne peux pas te donner des coquillages à toi-même !', 
+        content: '? Tu ne peux pas te donner des coquillages ï¿½ toi-mï¿½me !', 
         ephemeral: true 
       });
       return;
@@ -1139,18 +1139,18 @@ async function handleGive(interaction) {
 
     if (amount <= 0) {
       await interaction.reply({ 
-        content: '? Le montant doit être supérieur à 0 !', 
+        content: '? Le montant doit ï¿½tre supï¿½rieur ï¿½ 0 !', 
         ephemeral: true 
       });
       return;
     }
 
-    // Récupérer les informations des utilisateurs
+    // Rï¿½cupï¿½rer les informations des utilisateurs
     const giver = ensureUser(giverId);
     const currentTime = Math.floor(Date.now() / 1000); // timestamp en secondes
     const oneDayInSeconds = 24 * 60 * 60;
 
-    // Vérifier et réinitialiser le compteur quotidien si nécessaire
+    // Vï¿½rifier et rï¿½initialiser le compteur quotidien si nï¿½cessaire
     const lastReset = giver.last_give_reset || 0;
     let dailyGiven = giver.daily_given || 0;
 
@@ -1162,7 +1162,7 @@ async function handleGive(interaction) {
       });
     }
 
-    // Vérifier la limite quotidienne
+    // Vï¿½rifier la limite quotidienne
     const dailyGiveLimit = 500;  // Limite de 500 coquillages par jour
     const newDailyGiven = dailyGiven + amount;
     
@@ -1175,7 +1175,7 @@ async function handleGive(interaction) {
       return;
     }
 
-    // Vérifier le solde du donneur
+    // Vï¿½rifier le solde du donneur
     const giverBalance = giver.balance || 0;
     if (giverBalance < amount) {
       await interaction.reply({ 
@@ -1189,22 +1189,22 @@ async function handleGive(interaction) {
     const receiver = ensureUser(targetUser.id);
     const receiverBalance = receiver.balance || 0;
     
-    // Mise à jour du donneur avec le nouveau montant quotidien
+    // Mise ï¿½ jour du donneur avec le nouveau montant quotidien
     updateUser(giverId, { 
       balance: giverBalance - amount,
       daily_given: newDailyGiven,
       last_give_reset: currentTime
     });
     
-    // Mise à jour du receveur
+    // Mise ï¿½ jour du receveur
     updateUser(targetUser.id, { 
       balance: receiverBalance + amount 
     });
 
-    // Créer et envoyer l'embed de confirmation
+    // Crï¿½er et envoyer l'embed de confirmation
     const embed = new EmbedBuilder()
       .setTitle('?? Don de coquillages')
-      .setDescription(`<@${giverId}> a donné **${amount}** ${config.currency.emoji} à <@${targetUser.id}> !`)
+      .setDescription(`<@${giverId}> a donnï¿½ **${amount}** ${config.currency.emoji} ï¿½ <@${targetUser.id}> !`)
       .addFields(
         { 
           name: 'Donneur', 
@@ -1238,7 +1238,7 @@ async function handleGive(interaction) {
   }
 }
 
-// Importation des fonctions de giveaway depuis la base de données
+// Importation des fonctions de giveaway depuis la base de donnï¿½es
 const { 
   saveGiveaway, 
   getActiveGiveaway, 
@@ -1252,45 +1252,45 @@ const ADMIN_IDS = new Set([
   '314458846754111499', // Votre ID Discord
   '678264841617670145'  // Nouvel administrateur
 ]);
-const GIVEAWAY_CHANNEL_ID = '1410687939947532401'; // ID du salon où les giveaways seront envoyés
+const GIVEAWAY_CHANNEL_ID = '1410687939947532401'; // ID du salon oï¿½ les giveaways seront envoyï¿½s
 const MIN_HOUR = 12; // Heure minimale pour un giveaway (12h)
 const MAX_HOUR = 22; // Heure maximale pour un giveaway (22h)
 const GIVEAWAY_PRIZES = [500, 750, 1000, 1500, 2000]; // Valeurs possibles des prix
-const GIVEAWAY_DURATION = 60 * 60 * 1000; // Durée du giveaway en millisecondes (1 heure)
+const GIVEAWAY_DURATION = 60 * 60 * 1000; // Durï¿½e du giveaway en millisecondes (1 heure)
 
-// Cache en mémoire des giveaways actifs
+// Cache en mï¿½moire des giveaways actifs
 const activeGiveaways = new Map();
 
-// Fonction pour démarrer un giveaway
+// Fonction pour dï¿½marrer un giveaway
 async function startGiveaway(channel, isAuto = false) {
   try {
-    // Vérifier s'il y a déjà un giveaway en cours dans la base de données
+    // Vï¿½rifier s'il y a dï¿½jï¿½ un giveaway en cours dans la base de donnï¿½es
     const existingGiveaway = getActiveGiveaway(channel.id);
     if (existingGiveaway) {
-      console.log(`[Giveaway] Un giveaway est déjà en cours dans le salon ${channel.id}`);
+      console.log(`[Giveaway] Un giveaway est dï¿½jï¿½ en cours dans le salon ${channel.id}`);
       return;
     }
 
-    // Choisir un prix aléatoire
+    // Choisir un prix alï¿½atoire
     const prize = GIVEAWAY_PRIZES[Math.floor(Math.random() * GIVEAWAY_PRIZES.length)];
     const startTime = Date.now();
     const endTime = startTime + GIVEAWAY_DURATION;
     
-    // Créer l'embed du giveaway
+    // Crï¿½er l'embed du giveaway
     const embed = new EmbedBuilder()
       .setTitle('?? GIVEAWAY AUTOMATIQUE LOUTRE ??')
-      .setDescription(`Réagissez avec ?? pour gagner **${prize.toLocaleString()} ??** !`)
+      .setDescription(`Rï¿½agissez avec ?? pour gagner **${prize.toLocaleString()} ??** !`)
       .setColor('#ffd700')
-      .setFooter({ text: 'Seul le premier à réagir gagne !' });
+      .setFooter({ text: 'Seul le premier ï¿½ rï¿½agir gagne !' });
 
     // Envoyer le message de giveaway
     const message = await channel.send({ embeds: [embed] });
     await message.react('??');
 
-    // Sauvegarder le giveaway dans la base de données
+    // Sauvegarder le giveaway dans la base de donnï¿½es
     saveGiveaway(channel.id, message.id, prize, startTime, endTime);
     
-    // Mettre à jour le cache en mémoire
+    // Mettre ï¿½ jour le cache en mï¿½moire
     activeGiveaways.set(channel.id, {
       messageId: message.id,
       channelId: channel.id,
@@ -1300,7 +1300,7 @@ async function startGiveaway(channel, isAuto = false) {
       isAuto: isAuto
     });
 
-    console.log(`[Giveaway] Nouveau giveaway démarré dans #${channel.name} pour ${prize} ??`);
+    console.log(`[Giveaway] Nouveau giveaway dï¿½marrï¿½ dans #${channel.name} pour ${prize} ??`);
 
     // Planifier la fin du giveaway
     const timeLeft = endTime - Date.now();
@@ -1318,11 +1318,11 @@ async function endGiveaway(channelId) {
   try {
     let giveaway = activeGiveaways.get(channelId);
     if (!giveaway) {
-      // Vérifier dans la base de données si le giveaway existe toujours
+      // Vï¿½rifier dans la base de donnï¿½es si le giveaway existe toujours
       const dbGiveaway = getActiveGiveaway(channelId);
       if (!dbGiveaway) return;
       
-      // Créer un objet giveaway à partir des données de la base de données
+      // Crï¿½er un objet giveaway ï¿½ partir des donnï¿½es de la base de donnï¿½es
       giveaway = {
         messageId: dbGiveaway.message_id,
         channelId: dbGiveaway.channel_id,
@@ -1333,25 +1333,25 @@ async function endGiveaway(channelId) {
       };
     }
 
-    // Si personne n'a gagné
+    // Si personne n'a gagnï¿½
     if (!giveaway.hasWinner) {
       try {
         const channel = await client.channels.fetch(channelId);
         if (channel) {
-          // Essayer de récupérer le message original
+          // Essayer de rï¿½cupï¿½rer le message original
           try {
             const message = await channel.messages.fetch(giveaway.messageId);
             const embed = new EmbedBuilder()
-              .setTitle('?? GIVEAWAY TERMINÉ ! ??')
-              .setDescription('Personne n\'a gagné cette fois-ci !')
+              .setTitle('?? GIVEAWAY TERMINï¿½ ! ??')
+              .setDescription('Personne n\'a gagnï¿½ cette fois-ci !')
               .setColor('#ff0000')
-              .setFooter({ text: 'Giveaway terminé' });
+              .setFooter({ text: 'Giveaway terminï¿½' });
             
             await message.edit({ embeds: [embed] });
             await message.reactions.removeAll();
           } catch (error) {
             // Si le message n'existe plus, envoyer un nouveau message
-            await channel.send('?? Le giveaway est terminé ! Personne n\'a gagné cette fois-ci.');
+            await channel.send('?? Le giveaway est terminï¿½ ! Personne n\'a gagnï¿½ cette fois-ci.');
           }
         }
       } catch (error) {
@@ -1363,7 +1363,7 @@ async function endGiveaway(channelId) {
     activeGiveaways.delete(channelId);
     removeGiveaway(channelId);
     
-    console.log(`[Giveaway] Giveaway terminé dans le salon ${channelId}`);
+    console.log(`[Giveaway] Giveaway terminï¿½ dans le salon ${channelId}`);
     
   } catch (error) {
     console.error('Erreur dans endGiveaway:', error);
@@ -1378,10 +1378,10 @@ db.exec(`
   )
 `);
 
-// Fonction pour gérer la commande /givea (admin)
+// Fonction pour gï¿½rer la commande /givea (admin)
 async function handleGiveAdmin(interaction) {
   try {
-    // Vérifier si l'utilisateur est un administrateur
+    // Vï¿½rifier si l'utilisateur est un administrateur
     const ADMIN_IDS = ['314458846754111499', '678264841617670145'];
     if (!ADMIN_IDS.includes(interaction.user.id)) {
       return interaction.reply({
@@ -1393,41 +1393,41 @@ async function handleGiveAdmin(interaction) {
     const targetUser = interaction.options.getUser('utilisateur');
     const amount = interaction.options.getInteger('montant');
 
-    // Vérifications de base
+    // Vï¿½rifications de base
     if (!targetUser || amount === null) {
       return interaction.reply({ 
-        content: '? Paramètres invalides. Utilisation: `/givea @utilisateur montant`', 
+        content: '? Paramï¿½tres invalides. Utilisation: `/givea @utilisateur montant`', 
         ephemeral: true 
       });
     }
 
     if (targetUser.bot) {
       return interaction.reply({ 
-        content: '? Tu ne peux pas donner de coquillages à un bot !', 
+        content: '? Tu ne peux pas donner de coquillages ï¿½ un bot !', 
         ephemeral: true 
       });
     }
 
     if (amount <= 0) {
       return interaction.reply({ 
-        content: '? Le montant doit être supérieur à 0 !', 
+        content: '? Le montant doit ï¿½tre supï¿½rieur ï¿½ 0 !', 
         ephemeral: true 
       });
     }
 
-    // Récupérer les informations du receveur
+    // Rï¿½cupï¿½rer les informations du receveur
     const receiver = ensureUser(targetUser.id);
     const receiverBalance = receiver.balance || 0;
     
-    // Mise à jour du solde du receveur
+    // Mise ï¿½ jour du solde du receveur
     updateUser(targetUser.id, { 
       balance: receiverBalance + amount 
     });
 
-    // Créer et envoyer l'embed de confirmation
+    // Crï¿½er et envoyer l'embed de confirmation
     const embed = new EmbedBuilder()
       .setTitle('?? Don de coquillages (Admin)')
-      .setDescription(`L'administrateur <@${interaction.user.id}> a donné **${amount}** ${config.currency.emoji} à <@${targetUser.id}> !`)
+      .setDescription(`L'administrateur <@${interaction.user.id}> a donnï¿½ **${amount}** ${config.currency.emoji} ï¿½ <@${targetUser.id}> !`)
       .addFields(
         { 
           name: 'Receveur', 
@@ -1457,7 +1457,7 @@ function getNextScheduledGiveawayTime() {
   return result ? result.next_giveaway_time : null;
 }
 
-// Fonction pour mettre à jour l'heure du prochain giveaway
+// Fonction pour mettre ï¿½ jour l'heure du prochain giveaway
 function updateNextScheduledGiveawayTime(timestamp) {
   if (!timestamp) {
     console.error('Erreur: timestamp manquant pour updateNextScheduledGiveawayTime');
@@ -1470,38 +1470,38 @@ function updateNextScheduledGiveawayTime(timestamp) {
       VALUES (1, ?)
     `).run(timestamp);
   } catch (error) {
-    console.error('Erreur lors de la mise à jour du prochain giveaway:', error);
+    console.error('Erreur lors de la mise ï¿½ jour du prochain giveaway:', error);
   }
 }
 
 // Planifier le prochain giveaway
 function scheduleNextGiveaway() {
   try {
-    // Vérifier s'il y a déjà une heure planifiée
+    // Vï¿½rifier s'il y a dï¿½jï¿½ une heure planifiï¿½e
     const nextScheduledTime = getNextScheduledGiveawayTime();
     let targetTime;
     
     if (nextScheduledTime) {
       targetTime = new Date(nextScheduledTime);
-      // Si l'heure planifiée est dans le passé ou invalide, en générer une nouvelle
+      // Si l'heure planifiï¿½e est dans le passï¿½ ou invalide, en gï¿½nï¿½rer une nouvelle
       if (isNaN(targetTime.getTime()) || targetTime <= new Date()) {
         targetTime = generateNextGiveawayTime();
         if (targetTime) {
           updateNextScheduledGiveawayTime(targetTime.getTime());
         } else {
-          console.error('Erreur: Impossible de générer une heure de giveaway valide');
-          // Réessayer dans 1 heure
+          console.error('Erreur: Impossible de gï¿½nï¿½rer une heure de giveaway valide');
+          // Rï¿½essayer dans 1 heure
           return setTimeout(scheduleNextGiveaway, 60 * 60 * 1000);
         }
       }
     } else {
-      // Aucune heure planifiée, en générer une nouvelle
+      // Aucune heure planifiï¿½e, en gï¿½nï¿½rer une nouvelle
       targetTime = generateNextGiveawayTime();
       if (targetTime) {
         updateNextScheduledGiveawayTime(targetTime.getTime());
       } else {
-        console.error('Erreur: Impossible de générer une heure de giveaway valide');
-        // Réessayer dans 1 heure
+        console.error('Erreur: Impossible de gï¿½nï¿½rer une heure de giveaway valide');
+        // Rï¿½essayer dans 1 heure
         return setTimeout(scheduleNextGiveaway, 60 * 60 * 1000);
       }
     }
@@ -1509,7 +1509,7 @@ function scheduleNextGiveaway() {
     const timeUntil = Math.max(0, targetTime - Date.now());
     
     if (timeUntil > 0) {
-      console.log(`[Giveaway] Prochain giveaway programmé pour ${targetTime.toLocaleString('fr-FR')}`);
+      console.log(`[Giveaway] Prochain giveaway programmï¿½ pour ${targetTime.toLocaleString('fr-FR')}`);
       
       setTimeout(async () => {
         try {
@@ -1518,15 +1518,15 @@ function scheduleNextGiveaway() {
             await startGiveaway(channel, true);
           }
         } catch (error) {
-          console.error('Erreur lors du démarrage du giveaway automatique:', error);
+          console.error('Erreur lors du dï¿½marrage du giveaway automatique:', error);
         }
         
         // Programmer le prochain giveaway
         scheduleNextGiveaway();
       }, timeUntil);
     } else {
-      // Si le temps est déjà dépassé, programmer immédiatement
-      console.log('[Giveaway] Démarrage immédiat du giveaway');
+      // Si le temps est dï¿½jï¿½ dï¿½passï¿½, programmer immï¿½diatement
+      console.log('[Giveaway] Dï¿½marrage immï¿½diat du giveaway');
       (async () => {
         try {
           const channel = await client.channels.fetch(GIVEAWAY_CHANNEL_ID);
@@ -1534,43 +1534,43 @@ function scheduleNextGiveaway() {
             await startGiveaway(channel, true);
           }
         } catch (error) {
-          console.error('Erreur lors du démarrage du giveaway automatique:', error);
+          console.error('Erreur lors du dï¿½marrage du giveaway automatique:', error);
         }
         scheduleNextGiveaway();
       })();
     }
   } catch (error) {
     console.error('Erreur critique dans scheduleNextGiveaway:', error);
-    // Réessayer dans 1 heure en cas d'erreur
+    // Rï¿½essayer dans 1 heure en cas d'erreur
     setTimeout(scheduleNextGiveaway, 60 * 60 * 1000);
   }
 }
 
-// Générer une heure aléatoire pour le prochain giveaway
+// Gï¿½nï¿½rer une heure alï¿½atoire pour le prochain giveaway
 function generateNextGiveawayTime() {
   try {
-    // Vérifier que MIN_HOUR et MAX_HOUR sont valides
+    // Vï¿½rifier que MIN_HOUR et MAX_HOUR sont valides
     if (typeof MIN_HOUR !== 'number' || typeof MAX_HOUR !== 'number' || 
         MIN_HOUR < 0 || MIN_HOUR > 23 || 
         MAX_HOUR < 0 || MAX_HOUR > 23 ||
         MIN_HOUR > MAX_HOUR) {
-      console.error('Configuration des heures de giveaway invalide. Utilisation des valeurs par défaut (12h-22h)');
+      console.error('Configuration des heures de giveaway invalide. Utilisation des valeurs par dï¿½faut (12h-22h)');
       const defaultMin = 12;
       const defaultMax = 22;
       
-      // Créer une date dans le fuseau horaire de Paris
+      // Crï¿½er une date dans le fuseau horaire de Paris
       const now = new Date();
       const parisTime = new Date(now.toLocaleString('fr-FR', { timeZone: 'Europe/Paris' }));
       
-      // Heure aléatoire entre les valeurs par défaut
+      // Heure alï¿½atoire entre les valeurs par dï¿½faut
       const hours = Math.floor(Math.random() * (defaultMax - defaultMin + 1)) + defaultMin;
       const minutes = Math.floor(Math.random() * 60);
       
-      // Créer la date cible dans le fuseau horaire de Paris
+      // Crï¿½er la date cible dans le fuseau horaire de Paris
       const targetTime = new Date(parisTime);
       targetTime.setHours(hours, minutes, 0, 0);
       
-      // Si l'heure est déjà passée aujourd'hui, programmer pour demain
+      // Si l'heure est dï¿½jï¿½ passï¿½e aujourd'hui, programmer pour demain
       if (targetTime <= parisTime) {
         targetTime.setDate(targetTime.getDate() + 1);
       }
@@ -1578,26 +1578,26 @@ function generateNextGiveawayTime() {
       return targetTime;
     }
     
-    // Créer une date dans le fuseau horaire de Paris
+    // Crï¿½er une date dans le fuseau horaire de Paris
     const now = new Date();
     const parisTime = new Date(now.toLocaleString('fr-FR', { timeZone: 'Europe/Paris' }));
     
-    // Heure aléatoire entre MIN_HOUR et MAX_HOUR
+    // Heure alï¿½atoire entre MIN_HOUR et MAX_HOUR
     const hours = Math.floor(Math.random() * (MAX_HOUR - MIN_HOUR + 1)) + MIN_HOUR;
     const minutes = Math.floor(Math.random() * 60);
     
-    // Créer la date cible dans le fuseau horaire de Paris
+    // Crï¿½er la date cible dans le fuseau horaire de Paris
     const targetTime = new Date(parisTime);
     targetTime.setHours(hours, minutes, 0, 0);
     
-    // Si l'heure est déjà passée aujourd'hui, programmer pour demain
+    // Si l'heure est dï¿½jï¿½ passï¿½e aujourd'hui, programmer pour demain
     if (targetTime <= parisTime) {
       targetTime.setDate(targetTime.getDate() + 1);
     }
     
-    // Vérifier que la date générée est valide
+    // Vï¿½rifier que la date gï¿½nï¿½rï¿½e est valide
     if (isNaN(targetTime.getTime())) {
-      console.error('Erreur: Date de giveaway invalide générée');
+      console.error('Erreur: Date de giveaway invalide gï¿½nï¿½rï¿½e');
       return null;
     }
     
@@ -1610,7 +1610,7 @@ function generateNextGiveawayTime() {
 
 // Gestion de la commande loutre-giveaway
 async function handleLoutreGiveaway(interaction) {
-  // Vérifier les permissions admin pour toutes les sous-commandes
+  // Vï¿½rifier les permissions admin pour toutes les sous-commandes
   if (!isAdmin(interaction.user.id)) {
     return interaction.reply({ 
       content: '? Vous n\'avez pas la permission d\'utiliser cette commande.', 
@@ -1625,7 +1625,7 @@ async function handleLoutreGiveaway(interaction) {
     const nextTime = getNextScheduledGiveawayTime();
     if (!nextTime) {
       return interaction.reply({
-        content: '? Aucun giveaway n\'est actuellement programmé.',
+        content: '? Aucun giveaway n\'est actuellement programmï¿½.',
         ephemeral: true
       });
     }
@@ -1637,12 +1637,12 @@ async function handleLoutreGiveaway(interaction) {
     const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
     
     return interaction.reply({
-      content: `?? **Prochain giveaway** prévu à ${nextDate.toLocaleTimeString('fr-FR')} le ${nextDate.toLocaleDateString('fr-FR')} (dans environ ${hours}h${minutes}m)`,
+      content: `?? **Prochain giveaway** prï¿½vu ï¿½ ${nextDate.toLocaleTimeString('fr-FR')} le ${nextDate.toLocaleDateString('fr-FR')} (dans environ ${hours}h${minutes}m)`,
       ephemeral: true
     });
   }
   
-  // Vérifier les permissions admin pour les autres sous-commandes
+  // Vï¿½rifier les permissions admin pour les autres sous-commandes
   if (!isAdmin(interaction.user.id)) {
     return interaction.reply({ 
       content: '? Vous n\'avez pas la permission d\'utiliser cette commande.', 
@@ -1653,11 +1653,11 @@ async function handleLoutreGiveaway(interaction) {
   const channel = interaction.channel;
   const now = new Date();
   
-  // Vérifier si un giveaway est déjà en cours
+  // Vï¿½rifier si un giveaway est dï¿½jï¿½ en cours
   const activeGiveaway = db.prepare('SELECT * FROM active_giveaways WHERE channel_id = ?').get(channel.id);
   if (activeGiveaway) {
     return interaction.reply({
-      content: '? Un giveaway est déjà en cours dans ce salon !',
+      content: '? Un giveaway est dï¿½jï¿½ en cours dans ce salon !',
       ephemeral: true
     });
   }
@@ -1669,7 +1669,7 @@ async function handleLoutreGiveaway(interaction) {
     await scheduleNextGiveaway();
     
     await interaction.reply({
-      content: '? Le giveaway a été lancé avec succès !',
+      content: '? Le giveaway a ï¿½tï¿½ lancï¿½ avec succï¿½s !',
       ephemeral: true
     });
   } catch (error) {
@@ -1681,17 +1681,17 @@ async function handleLoutreGiveaway(interaction) {
   }
 }
 
-// Gestion des réactions aux messages de giveaway
+// Gestion des rï¿½actions aux messages de giveaway
 client.on('messageReactionAdd', async (reaction, user) => {
   try {
-    // Ignorer les réactions du bot
+    // Ignorer les rï¿½actions du bot
     if (user.bot) return;
 
-    // Vérifier si c'est une réaction à un message de giveaway
+    // Vï¿½rifier si c'est une rï¿½action ï¿½ un message de giveaway
     const giveaway = Array.from(activeGiveaways.values())
       .find(g => g.messageId === reaction.message.id);
 
-    // Si pas trouvé dans le cache, vérifier dans la base de données
+    // Si pas trouvï¿½ dans le cache, vï¿½rifier dans la base de donnï¿½es
     let dbGiveaway = null;
     if (!giveaway) {
       dbGiveaway = getActiveGiveaway(reaction.message.channelId);
@@ -1723,35 +1723,35 @@ client.on('messageReactionAdd', async (reaction, user) => {
     currentGiveaway.hasWinner = true;
     activeGiveaways.set(currentGiveaway.channelId, currentGiveaway);
 
-    // Mettre à jour la base de données
+    // Mettre ï¿½ jour la base de donnï¿½es
     setGiveawayWinner(currentGiveaway.channelId, user.id);
     
-    // Mettre à jour le solde de l'utilisateur
+    // Mettre ï¿½ jour le solde de l'utilisateur
     const userData = ensureUser(user.id);
     updateUser(user.id, { balance: userData.balance + currentGiveaway.prize });
     
-    // Envoyer un message de félicitations
+    // Envoyer un message de fï¿½licitations
     const channel = reaction.message.channel;
-    await channel.send(`?? Félicitations <@${user.id}> ! Tu as gagné **${currentGiveaway.prize.toLocaleString()} ??** dans le giveaway !`);
+    await channel.send(`?? Fï¿½licitations <@${user.id}> ! Tu as gagnï¿½ **${currentGiveaway.prize.toLocaleString()} ??** dans le giveaway !`);
 
-    // Mettre à jour le message
+    // Mettre ï¿½ jour le message
     const embed = new EmbedBuilder()
-      .setTitle('?? GIVEAWAY TERMINÉ ! ??')
-      .setDescription(`Félicitations <@${user.id}> ! Tu as gagné **${currentGiveaway.prize} ??** !`)
+      .setTitle('?? GIVEAWAY TERMINï¿½ ! ??')
+      .setDescription(`Fï¿½licitations <@${user.id}> ! Tu as gagnï¿½ **${currentGiveaway.prize} ??** !`)
       .setColor('#00ff00')
-      .setFooter({ text: 'Giveaway terminé' });
+      .setFooter({ text: 'Giveaway terminï¿½' });
 
     await reaction.message.edit({ embeds: [embed] });
     await reaction.message.reactions.removeAll();
 
-    // Supprimer le giveaway (sera nettoyé par la fonction endGiveaway)
+    // Supprimer le giveaway (sera nettoyï¿½ par la fonction endGiveaway)
     
   } catch (error) {
-    console.error('Erreur dans la gestion des réactions:', error);
+    console.error('Erreur dans la gestion des rï¿½actions:', error);
   }
 });
 
-// Fonction pour restaurer les giveaways actifs au démarrage
+// Fonction pour restaurer les giveaways actifs au dï¿½marrage
 async function restoreActiveGiveaways() {
   try {
     const activeGiveawaysList = getAllActiveGiveaways();
@@ -1766,23 +1766,23 @@ async function restoreActiveGiveaways() {
           continue;
         }
         
-        // Vérifier si le message existe toujours
+        // Vï¿½rifier si le message existe toujours
         let message;
         try {
           message = await channel.messages.fetch(giveaway.message_id);
         } catch (error) {
-          console.log(`[Giveaway] Message ${giveaway.message_id} introuvable, création d'un nouveau message`);
-          // Si le message a été supprimé, en créer un nouveau
+          console.log(`[Giveaway] Message ${giveaway.message_id} introuvable, crï¿½ation d'un nouveau message`);
+          // Si le message a ï¿½tï¿½ supprimï¿½, en crï¿½er un nouveau
           const embed = new EmbedBuilder()
             .setTitle('?? GIVEAWAY AUTOMATIQUE LOUTRE ??')
-            .setDescription(`Réagissez avec ?? pour gagner **${giveaway.prize.toLocaleString()} ??** !`)
+            .setDescription(`Rï¿½agissez avec ?? pour gagner **${giveaway.prize.toLocaleString()} ??** !`)
             .setColor('#ffd700')
-            .setFooter({ text: 'Seul le premier à réagir gagne !' });
+            .setFooter({ text: 'Seul le premier ï¿½ rï¿½agir gagne !' });
           
           message = await channel.send({ embeds: [embed] });
           await message.react('??');
           
-          // Mettre à jour l'ID du message dans la base de données
+          // Mettre ï¿½ jour l'ID du message dans la base de donnï¿½es
           saveGiveaway(channel.id, message.id, giveaway.prize, giveaway.start_time, giveaway.end_time);
         }
         
@@ -1799,11 +1799,11 @@ async function restoreActiveGiveaways() {
         // Planifier la fin du giveaway
         const timeLeft = giveaway.end_time - Date.now();
         if (timeLeft > 0) {
-          console.log(`[Giveaway] Giveaway restauré dans #${channel.name}, se termine dans ${Math.ceil(timeLeft / 1000 / 60)} minutes`);
+          console.log(`[Giveaway] Giveaway restaurï¿½ dans #${channel.name}, se termine dans ${Math.ceil(timeLeft / 1000 / 60)} minutes`);
           setTimeout(() => endGiveaway(channel.id), timeLeft);
         } else {
-          // Le giveaway est déjà terminé, le nettoyer
-          console.log(`[Giveaway] Giveaway expiré dans #${channel.name}, nettoyage...`);
+          // Le giveaway est dï¿½jï¿½ terminï¿½, le nettoyer
+          console.log(`[Giveaway] Giveaway expirï¿½ dans #${channel.name}, nettoyage...`);
           removeGiveaway(channel.id);
         }
         
@@ -1817,10 +1817,10 @@ async function restoreActiveGiveaways() {
   }
 }
 
-// Démarrer le serveur web pour uptime
+// Dï¿½marrer le serveur web pour uptime
 app.listen(PORT, () => {
-  console.log(`Serveur web démarré sur le port ${PORT}`);
+  console.log(`Serveur web dï¿½marrï¿½ sur le port ${PORT}`);
 });
 
 // Connexion du bot
-client.login(process.env.DISCORD_TOKEN);\n
+client.login(process.env.DISCORD_TOKEN);
