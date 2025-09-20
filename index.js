@@ -282,114 +282,119 @@ async function handleSlashCommand(interaction) {
   
   try {
     switch (interaction.commandName) {
-      case 'de': {
+      case 'de':
         const diceResult = Math.floor(Math.random() * 6) + 1;
         await interaction.reply(`🎲 Le dé affiche : **${diceResult}**`);
         break;
-      }
       
-      case 'profil': {
-        console.log('[DEBUG] Commande /profil déclenchée');
-        console.log('[DEBUG] Options:', interaction.options.data);
-        console.log('[DEBUG] Utilisateur:', interaction.user.tag, `(${interaction.user.id})`);
-        
+      case 'profil':
         try {
-        console.log('[DEBUG] Récupération de l\'utilisateur cible...');
-        const targetUser = interaction.options.getUser('utilisateur') || interaction.user;
-        const isSelf = targetUser.id === interaction.user.id;
-        
-        console.log(`[DEBUG] Cible: ${targetUser.tag} (${targetUser.id}) - ${isSelf ? 'soi-même' : 'autre utilisateur'}`);
-        
-        console.log('[DEBUG] Vérification et récupération des données utilisateur...');
-        const user = ensureUser(targetUser.id);
-        console.log('[DEBUG] Données utilisateur récupérées:', JSON.stringify(user, null, 2));
-        
-        const xp = user.xp || 0;
-        console.log(`[DEBUG] XP de l'utilisateur: ${xp}`);
-        
-        console.log('[DEBUG] Calcul du niveau...');
-        const levelInfo = getLevelInfo(xp);
-        console.log('[DEBUG] Niveau calculé:', levelInfo);
-        
-        console.log('[DEBUG] Création de l\'embed...');
-        const embed = new EmbedBuilder()
-          .setTitle(`📊 Profil de ${targetUser.username}`)
-          .setThumbnail(targetUser.displayAvatarURL({ dynamic: true, size: 256 }))
-          .setColor(0x00bfff)
-          .addFields(
-            { name: 'Niveau', value: `Niveau **${levelInfo.level}**`, inline: true },
-            { name: 'XP', value: `${levelInfo.currentXp}/${levelInfo.xpForNextLevel} XP`, inline: true },
-            { name: 'Progression', value: `${levelInfo.progress.toFixed(1)}%`, inline: true },
-            { name: 'Solde', value: `**${user.balance || 0}** ${config.currency.emoji}`, inline: true },
-            { name: 'Inscrit le', value: `<t:${Math.floor((user.joined_at || Date.now()) / 1000)}:D>`, inline: true }
-          )
-          .setFooter({ 
-            text: isSelf ? 'Votre profil' : `Profil de ${targetUser.username}`,
-            iconURL: interaction.user.displayAvatarURL()
-          })
-          .setTimestamp();
-        
-        // Ajouter un champ supplémentaire si c'est le profil de l'utilisateur
-        if (isSelf) {
-          const xpNeeded = levelInfo.xpForNextLevel - levelInfo.currentXp;
-          console.log(`[DEBUG] XP nécessaire pour le prochain niveau: ${xpNeeded}`);
+          console.log('[DEBUG] Commande /profil déclenchée');
+          console.log('[DEBUG] Options:', interaction.options.data);
+          console.log('[DEBUG] Utilisateur:', interaction.user.tag, `(${interaction.user.id})`);
           
-          embed.addFields({
-            name: 'Prochain niveau',
-            value: `Encore **${xpNeeded} XP** pour le niveau ${levelInfo.level + 1}`,
-            inline: false
-          });
-        }
+          console.log('[DEBUG] Récupération de l\'utilisateur cible...');
+          const targetUser = interaction.options.getUser('utilisateur') || interaction.user;
+          const isSelf = targetUser.id === interaction.user.id;
         
-        console.log('[DEBUG] Envoi de la réponse...');
-        const replyOptions = { 
-          embeds: [embed],
-          ephemeral: isSelf // Le message est éphémère uniquement si c'est le profil de l'utilisateur
-        };
-        console.log('[DEBUG] Options de réponse:', JSON.stringify(replyOptions, null, 2));
+          console.log(`[DEBUG] Cible: ${targetUser.tag} (${targetUser.id}) - ${isSelf ? 'soi-même' : 'autre utilisateur'}`);
         
-        await interaction.reply(replyOptions);
-        console.log('[DEBUG] Réponse envoyée avec succès');
+          console.log('[DEBUG] Vérification et récupération des données utilisateur...');
+          const user = ensureUser(targetUser.id);
+          console.log('[DEBUG] Données utilisateur récupérées:', JSON.stringify(user, null, 2));
         
-      } catch (error) {
-        console.error('[ERREUR] Erreur dans la commande /profil:', error);
-        console.error(error.stack);
+          const xp = user.xp || 0;
+          console.log(`[DEBUG] XP de l'utilisateur: ${xp}`);
         
-        try {
-          const errorMessage = '❌ Une erreur est survenue lors de la récupération du profil. Veuillez réessayer plus tard.';
-          console.log(`[DEBUG] Tentative d'envoi d'un message d'erreur: "${errorMessage}"`);
+          console.log('[DEBUG] Calcul du niveau...');
+          const levelInfo = getLevelInfo(xp);
+          console.log('[DEBUG] Niveau calculé:', levelInfo);
           
-          await interaction.reply({
-            content: errorMessage,
-            ephemeral: true
-          });
+          console.log('[DEBUG] Création de l\'embed...');
+          const embed = new EmbedBuilder()
+            .setTitle(`📊 Profil de ${targetUser.username}`)
+            .setThumbnail(targetUser.displayAvatarURL({ dynamic: true, size: 256 }))
+            .setColor(0x00bfff)
+            .addFields(
+              { name: 'Niveau', value: `Niveau **${levelInfo.level}**`, inline: true },
+              { name: 'XP', value: `${levelInfo.currentXp}/${levelInfo.xpForNextLevel} XP`, inline: true },
+              { name: 'Progression', value: `${levelInfo.progress.toFixed(1)}%`, inline: true },
+              { name: 'Solde', value: `**${user.balance || 0}** ${config.currency.emoji}`, inline: true },
+              { name: 'Inscrit le', value: `<t:${Math.floor((user.joined_at || Date.now()) / 1000)}:D>`, inline: true }
+            )
+            .setFooter({ 
+              text: isSelf ? 'Votre profil' : `Profil de ${targetUser.username}`,
+              iconURL: interaction.user.displayAvatarURL()
+            })
+            .setTimestamp();
           
-          console.log('[DEBUG] Message d\'erreur envoyé avec succès');
-        } catch (replyError) {
-          console.error('[ERREUR CRITIQUE] Échec de l\'envoi du message d\'erreur:', replyError);
-          console.error(replyError.stack);
-        }
+          // Ajouter un champ supplémentaire si c'est le profil de l'utilisateur
+          if (isSelf) {
+            const xpNeeded = levelInfo.xpForNextLevel - levelInfo.currentXp;
+            console.log(`[DEBUG] XP nécessaire pour le prochain niveau: ${xpNeeded}`);
+            
+            embed.addFields({
+              name: 'Prochain niveau',
+              value: `Encore **${xpNeeded} XP** pour le niveau ${levelInfo.level + 1}`,
+              inline: false
+            });
+          }
+          
+          console.log('[DEBUG] Envoi de la réponse...');
+          const replyOptions = { 
+            embeds: [embed],
+            ephemeral: isSelf // Le message est éphémère uniquement si c'est le profil de l'utilisateur
+          };
+          console.log('[DEBUG] Options de réponse:', JSON.stringify(replyOptions, null, 2));
+          
+          await interaction.reply(replyOptions);
+          console.log('[DEBUG] Réponse envoyée avec succès');
+          
+        } catch (error) {
+          console.error('[ERREUR] Erreur dans la commande /profil:', error);
+          console.error(error.stack);
+          
+          try {
+            const errorMessage = '❌ Une erreur est survenue lors de la récupération du profil. Veuillez réessayer plus tard.';
+            console.log(`[DEBUG] Tentative d'envoi d'un message d'erreur: "${errorMessage}"`);
+          
+            await interaction.reply({
+              content: errorMessage,
+              ephemeral: true
+            });
+            
+            console.log('[DEBUG] Message d\'erreur envoyé avec succès');
+          } catch (replyError) {
+            console.error('[ERREUR CRITIQUE] Échec de l\'envoi du message d\'erreur:', replyError);
+            console.error(replyError.stack);
+          }
       }
       break;
       
     // Commandes de jeux
     case 'morpion':
-      await handleTicTacToe(interaction);
+      try {
+        await handleTicTacToe(interaction);
+      } catch (error) {
+        console.error('[ERREUR] Erreur dans la commande /morpion:', error);
+        await interaction.reply({
+          content: '❌ Une erreur est survenue lors du démarrage du jeu. Veuillez réessayer plus tard.',
+          ephemeral: true
+        });
+      }
       break;
       
     case 'crash':
       await startCrashGame(interaction);
       break;
       
-    case 'dailybdg': {
+    case 'dailybdg':
       await handleDailyBdg(interaction);
       break;
-    }
       
-    case 'reset-dailybdg': {
+    case 'reset-dailybdg':
       await handleResetDailyBdg(interaction);
       break;
-    }
       
     case 'tas':
       try {
@@ -938,11 +943,10 @@ async function handleSlashCommand(interaction) {
       await handleGive(interaction);
       break;
       
-    case 'mines': {
+    case 'mines':
       const { handleMinesCommand } = require('./games/mines');
       await handleMinesCommand(interaction);
       break;
-    }
   }
 }
 
@@ -1799,6 +1803,7 @@ async function restoreActiveGiveaways() {
     console.error('[Giveaway] Erreur lors de la restauration des giveaways:', error);
   }
 }
+
 
 // Démarrer le serveur web pour uptime
 app.listen(PORT, () => {
