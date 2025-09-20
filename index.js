@@ -95,12 +95,18 @@ client.once('ready', async () => {
   }
   
   // Démarrer le reset des missions, des limites quotidiennes et des récompenses BDG à minuit
-  scheduleMidnightReset(() => {
+  scheduleMidnightReset(async () => {
     console.log('🔄 Reset des missions, limites quotidiennes et récompenses BDG à minuit');
     const { generateDailyMissions } = require('./database');
     const missions = generateDailyMissions();
     const users = db.prepare('SELECT user_id FROM users').all();
     const currentTime = Math.floor(Date.now() / 1000);
+    
+    // Récupérer tous les membres du serveur pour éviter les appels répétés
+    const guild = client.guilds.cache.first();
+    if (guild) {
+      await guild.members.fetch(); // S'assurer que tous les membres sont en cache
+    }
     
     for (const user of users) {
       // Réinitialiser les missions quotidiennes et les récompenses BDG
@@ -114,6 +120,30 @@ client.once('ready', async () => {
         // Réinitialiser la récompense BDG quotidienne
         last_bdg_claim: 0
       });
+      
+      // Vérifier si l'utilisateur a un rôle BDG et lui envoyer un message
+      const member = client.guilds.cache.first()?.members.cache.get(user.user_id);
+      if (member) {
+        const bdgRoles = [
+          config.shop.bdgBaby.role,
+          config.shop.bdgPetit.role,
+          config.shop.bdgGros.role,
+          config.shop.bdgUltime.role
+        ];
+        
+        const memberRoles = member.roles.cache.map(role => role.name);
+        const hasBdgRole = bdgRoles.some(role => memberRoles.includes(role));
+        
+        if (hasBdgRole) {
+          try {
+            await member.send({
+              content: '🎉 **Nouvelle récompense BDG disponible !**\nUtilise la commande `/dailybdg` pour réclamer ta récompense quotidienne ! 🐚'
+            });
+          } catch (error) {
+            console.error(`Impossible d'envoyer un message à ${member.user.tag}:`, error);
+          }
+        }
+      }
     }
   });
 });
