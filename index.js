@@ -30,7 +30,8 @@ const {
   handleHighLow,
   handleSpecialHighLow,
   handleHighLowAction,
-  handleHighLowDecision
+  handleHighLowDecision,
+  handleMinesCommand
 } = require('./games');
 const { 
   startCrashGame, 
@@ -255,6 +256,10 @@ client.on('interactionCreate', async (interaction) => {
         } else {
           await handleHighLowAction(interaction);
         }
+      } else if (interaction.customId.startsWith('mines_') || interaction.customId === 'mines_cashout' || interaction.customId === 'mines_flag') {
+        // Gérer les actions du jeu des mines
+        const { handleMinesButtonInteraction } = require('./games/mines');
+        await handleMinesButtonInteraction(interaction);
       } else {
         await handleButtonInteraction(interaction);
       }
@@ -274,32 +279,21 @@ client.on('interactionCreate', async (interaction) => {
 
 async function handleSlashCommand(interaction) {
   console.log(`[COMMANDE] Commande reçue: ${interaction.commandName}`);
-  console.log(`[COMMANDE] Options:`, interaction.options.data);
   
-  const { commandName } = interaction;
-  
-  // Vérifier si la commande existe
-  const command = commands.find(cmd => cmd.name === commandName);
-  if (!command) {
-    console.error(`[ERREUR] Commande inconnue: ${commandName}`);
-    return interaction.reply({
-      content: '❌ Cette commande est inconnue ou n\'est pas encore implémentée.',
-      ephemeral: true
-    });
-  }
-  
-  switch (commandName) {
-    case 'de':
-      const diceResult = Math.floor(Math.random() * 6) + 1;
-      await interaction.reply(`🎲 Le dé affiche : **${diceResult}**`);
-      break;
+  try {
+    switch (interaction.commandName) {
+      case 'de': {
+        const diceResult = Math.floor(Math.random() * 6) + 1;
+        await interaction.reply(`🎲 Le dé affiche : **${diceResult}**`);
+        break;
+      }
       
-    case 'profil':
-      console.log('[DEBUG] Commande /profil déclenchée');
-      console.log('[DEBUG] Options:', interaction.options.data);
-      console.log('[DEBUG] Utilisateur:', interaction.user.tag, `(${interaction.user.id})`);
-      
-      try {
+      case 'profil': {
+        console.log('[DEBUG] Commande /profil déclenchée');
+        console.log('[DEBUG] Options:', interaction.options.data);
+        console.log('[DEBUG] Utilisateur:', interaction.user.tag, `(${interaction.user.id})`);
+        
+        try {
         console.log('[DEBUG] Récupération de l\'utilisateur cible...');
         const targetUser = interaction.options.getUser('utilisateur') || interaction.user;
         const isSelf = targetUser.id === interaction.user.id;
@@ -387,13 +381,15 @@ async function handleSlashCommand(interaction) {
       await startCrashGame(interaction);
       break;
       
-    case 'dailybdg':
+    case 'dailybdg': {
       await handleDailyBdg(interaction);
       break;
+    }
       
-    case 'reset-dailybdg':
+    case 'reset-dailybdg': {
       await handleResetDailyBdg(interaction);
       break;
+    }
       
     case 'tas':
       try {
@@ -941,6 +937,12 @@ async function handleSlashCommand(interaction) {
     case 'give':
       await handleGive(interaction);
       break;
+      
+    case 'mines': {
+      const { handleMinesCommand } = require('./games/mines');
+      await handleMinesCommand(interaction);
+      break;
+    }
   }
 }
 
@@ -1798,15 +1800,9 @@ async function restoreActiveGiveaways() {
   }
 }
 
-// Démarrer la planification des giveaways automatiques au démarrage du bot
-client.once('ready', async () => {
-  console.log(`Connecté en tant que ${client.user.tag}`);
-  
-  // Restaurer les giveaways actifs
-  await restoreActiveGiveaways();
-  
-  // Démarrer la planification des nouveaux giveaways
-  scheduleNextGiveaway();
+// Démarrer le serveur web pour uptime
+app.listen(PORT, () => {
+  console.log(`Serveur web démarré sur le port ${PORT}`);
 });
 
 // Connexion du bot
