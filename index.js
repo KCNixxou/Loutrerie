@@ -277,7 +277,7 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
-async function handleSlashCommand(interaction) 
+async function handleSlashCommand(interaction) {
   console.log(`[COMMANDE] Commande re�ue: ${interaction.commandName}`);
   
   try {
