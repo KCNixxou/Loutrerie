@@ -930,7 +930,7 @@ async function handleSlashCommand(interaction) {
     await handleGive(interaction);
     break;
     
-  default:
+  default: {
     console.log(`[COMMANDE] Commande inconnue: ${interaction.commandName}`);
     await interaction.reply({ content: 'Commande inconnue', ephemeral: true });
     break;
