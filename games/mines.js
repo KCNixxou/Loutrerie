@@ -263,11 +263,21 @@ async function handleMinesButtonInteraction(interaction) {
       }
       
       console.log('Mise à jour de l\'interface avec le cashout');
-      await interaction.update({
+      
+      // Préparer la réponse de cashout
+      const cashoutResponse = {
         embeds: [createGameEmbed(gameState, interaction)],
         components: createGridComponents(gameState, true)
-      });
+      };
       
+      // Envoyer la réponse en fonction de l'état actuel de l'interaction
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply(cashoutResponse);
+      } else {
+        await interaction.update(cashoutResponse);
+      }
+      
+      // Supprimer la partie de la mémoire
       activeMinesGames.delete(interaction.user.id);
       return;
     }
