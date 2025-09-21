@@ -881,7 +881,7 @@ async function handleSlashCommand(interaction) {
       await interaction.reply({ content: 'Commande inconnue', ephemeral: true });
       break;
     }
-} catch (error) {
+  } catch (error) {
   console.error(`Erreur lors de l'exécution de la commande ${interaction.commandName}:`, error);
   if (!interaction.replied && !interaction.deferred) {
     await interaction.reply({ 
