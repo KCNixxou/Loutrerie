@@ -30,9 +30,9 @@ const {
   handleHighLow,
   handleSpecialHighLow,
   handleHighLowAction,
-  handleHighLowDecision,
-  handleMinesCommand
+  handleHighLowDecision
 } = require('./games');
+const { handleMinesCommand, handleMinesButtonInteraction } = require('./games/mines');
 const { 
   startCrashGame, 
   handleButtonInteraction: handleCrashButton,
@@ -239,9 +239,7 @@ client.on('interactionCreate', async (interaction) => {
         } else {
           await handleHighLowAction(interaction);
         }
-      } else if (interaction.customId.startsWith('mines_') || interaction.customId === 'mines_cashout' || interaction.customId === 'mines_flag') {
-        // Gérer les actions du jeu des mines
-        const { handleMinesButtonInteraction } = require('./games/mines');
+      } else if (interaction.customId.startsWith('mines_')) {
         await handleMinesButtonInteraction(interaction);
       } else {
         await handleButtonInteraction(interaction);
@@ -838,7 +836,6 @@ async function handleSlashCommand(interaction) {
       break;
       
     case 'mines':
-      const { handleMinesCommand } = require('./games/mines');
       await handleMinesCommand(interaction);
       break;
       
