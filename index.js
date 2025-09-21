@@ -1,4 +1,4 @@
-﻿require('dotenv').config();
+require('dotenv').config();
 const { Client, GatewayIntentBits, Partials, REST, Routes, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const express = require('express');
 const { isMaintenanceMode, isAdmin, maintenanceMiddleware, setMaintenance } = require('./maintenance');
@@ -67,9 +67,69 @@ const client = new Client({
 });
 
 // �v�nement ready
-client.once('ready', () => {
-  console.log(` Le bot ${client.user.tag} est bien connect� � Discord !`);
-  // Toutes les autres initialisations sont temporairement d�sactiv�es pour le test.
+client.once('ready', async () => {
+  console.log(`? ${client.user.tag} est connect� !`);
+  
+  // Enregistrer les commandes
+  const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+  
+  try {
+    console.log('?? Enregistrement des commandes...');
+    await rest.put(
+      Routes.applicationCommands(client.user.id),
+      { body: commands }
+    );
+    console.log('? Commandes enregistr�es !');
+  } catch (error) {
+    console.error('? Erreur lors de l\'enregistrement des commandes:', error);
+  }
+  
+  // D�marrer le reset des missions � minuit
+  scheduleMidnightReset(async () => {
+    console.log('?? Reset des missions, limites quotidiennes et r�compenses BDG � minuit');
+    const { generateDailyMissions } = require('./database');
+    const missions = generateDailyMissions();
+    const users = db.prepare('SELECT user_id FROM users').all();
+    const currentTime = Math.floor(Date.now() / 1000);
+    
+    const guild = client.guilds.cache.first();
+    if (guild) {
+      await guild.members.fetch();
+    }
+    
+    for (const user of users) {
+      updateUser(user.user_id, {
+        daily_missions: JSON.stringify(missions),
+        daily_messages: 0,
+        last_mission_reset: currentTime,
+        daily_given: 0,
+        last_give_reset: currentTime,
+        last_bdg_claim: 0
+      });
+      
+      const member = guild?.members.cache.get(user.user_id);
+      if (member) {
+        const bdgRoles = [
+          config.shop.bdgBaby.role,
+          config.shop.bdgPetit.role,
+          config.shop.bdgGros.role,
+          config.shop.bdgUltime.role
+        ].map(r => r.name);
+        
+        const hasBdgRole = member.roles.cache.some(role => bdgRoles.includes(role.name));
+        
+        if (hasBdgRole) {
+          try {
+            await member.send({
+              content: '?? **Nouvelle r�compense BDG disponible !**\nUtilise la commande `/dailybdg` pour r�clamer ta r�compense quotidienne ! ??'
+            });
+          } catch (error) {
+            console.error(`Impossible d'envoyer un message � ${member.user.tag}:`, error);
+          }
+        }
+      }
+    }
+  });
 });
 
 // Gain d'XP sur les messages
