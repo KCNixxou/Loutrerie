@@ -547,14 +547,14 @@ async function handleSlashCommand(interaction) {
           // R�initialiser pour tous les utilisateurs
           resetTicTacToeStats();
           await interaction.reply({ 
-            content: '? Toutes les statistiques du morpion ont �t� r�initialis�es avec succ�s !', 
-            ephemerant: true 
+            content: '? Toutes les statistiques du morpion ont été réinitialisées avec succès !', 
+            ephemeral: true 
           });
         }
       } catch (error) {
-        console.error('Erreur lors de la r�initialisation des statistiques du morpion:', error);
+        console.error('Erreur lors de la réinitialisation des statistiques du morpion:', error);
         await interaction.reply({ 
-          content: '? Une erreur est survenue lors de la r�initialisation des statistiques.', 
+          content: '? Une erreur est survenue lors de la réinitialisation des statistiques.', 
           ephemeral: true 
         });
       }
@@ -775,7 +775,8 @@ async function handleSlashCommand(interaction) {
       break;
 
     case 'missions':
-      const missions = JSON.parse(user.daily_missions || '[]');
+      const userMissions = ensureUser(interaction.user.id);
+      const missions = JSON.parse(userMissions.daily_missions || '[]');
       let missionText = '';
       
       missions.forEach(mission => {
@@ -879,7 +880,7 @@ async function handleSlashCommand(interaction) {
       console.log(`[COMMANDE] Commande inconnue: ${interaction.commandName}`);
       await interaction.reply({ content: 'Commande inconnue', ephemeral: true });
       break;
-
+    }
 } catch (error) {
   console.error(`Erreur lors de l'exécution de la commande ${interaction.commandName}:`, error);
   if (!interaction.replied && !interaction.deferred) {
@@ -1742,4 +1743,5 @@ process.on('uncaughtException', error => {
 });
 
 // Connexion du bot
-client.login(process.env.DISCORD_TOKEN); }
+client.login(process.env.DISCORD_TOKEN);
+}
