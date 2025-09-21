@@ -3,6 +3,7 @@ const config = require('../config');
 const { ensureUser, updateUser } = require('../database');
 
 // Objet pour stocker les parties en cours
+// Utilise l'ID du message comme clé pour permettre plusieurs parties en même temps
 const activeMinesGames = new Map();
 
 // Constantes du jeu
@@ -188,36 +189,55 @@ async function handleMinesCommand(interaction) {
     return interaction.reply({ content: 'Le nombre de mines doit être compris entre 1 et 15.', ephemeral: true });
   }
 
-  if (activeMinesGames.has(interaction.user.id)) {
-    return interaction.reply({ content: 'Vous avez déjà une partie en cours. Terminez-la avant d\'en commencer une nouvelle.', ephemeral: true });
-  }
-
   try {
     updateUser(interaction.user.id, { balance: user.balance - bet });
 
+    // Créer un nouvel état de jeu
     const gameState = {
       userId: interaction.user.id,
-      bet: bet,
-      minesCount: minesCount,
+      bet,
+      minesCount,
       grid: createGameGrid(minesCount),
       revealed: Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill('hidden')),
       revealedCount: 0,
       gameOver: false,
-      won: false
+      won: false,
+      messageId: null,
+      // Ajout d'un timestamp pour le nettoyage automatique
+      createdAt: Date.now()
     };
 
-    activeMinesGames.set(interaction.user.id, gameState);
-
-    await interaction.reply({
+    // Envoyer le message de jeu d'abord
+    const message = await interaction.reply({
       embeds: [createGameEmbed(gameState, interaction)],
-      components: createGridComponents(gameState)
+      components: createGridComponents(gameState),
+      fetchReply: true
     });
+
+    // Stocker l'ID du message comme clé
+    gameState.messageId = message.id;
+    activeMinesGames.set(message.id, gameState);
+    
+    // Nettoyer les anciennes parties du même utilisateur
+    cleanupOldGames(interaction.user.id);
 
   } catch (error) {
     console.error('Erreur lors du démarrage du jeu des mines:', error);
     // Rembourser l'utilisateur en cas d'erreur
     updateUser(interaction.user.id, { balance: user.balance });
     interaction.reply({ content: 'Une erreur est survenue lors du démarrage du jeu. Veuillez réessayer.', ephemeral: true });
+  }
+}
+
+// Nettoyer les anciennes parties
+function cleanupOldGames(userId) {
+  const now = Date.now();
+  const ONE_HOUR = 60 * 60 * 1000; // 1 heure en millisecondes
+  
+  for (const [messageId, game] of activeMinesGames.entries()) {
+    if ((game.userId === userId && now - game.createdAt > ONE_HOUR) || game.gameOver) {
+      activeMinesGames.delete(messageId);
+    }
   }
 }
 
@@ -230,12 +250,14 @@ async function handleMinesButtonInteraction(interaction) {
 
   try {
     console.log('Bouton cliqué:', interaction.customId);
+    console.log('Message ID:', interaction.message.id);
     console.log('Parties actives:', Array.from(activeMinesGames.keys()));
     
-    const gameState = activeMinesGames.get(interaction.user.id);
+    // Trouver la partie par l'ID du message
+    const gameState = activeMinesGames.get(interaction.message.id);
     
     if (!gameState) {
-      console.log('Partie non trouvée pour l\'utilisateur:', interaction.user.id);
+      console.log('Partie non trouvée pour le message:', interaction.message.id);
       console.log('Contenu de activeMinesGames:', activeMinesGames);
       
       if (interaction.deferred) {
@@ -290,7 +312,7 @@ async function handleMinesButtonInteraction(interaction) {
       }
       
       // Supprimer la partie de la mémoire
-      activeMinesGames.delete(interaction.user.id);
+      activeMinesGames.delete(interaction.message.id);
       return;
     }
     
@@ -334,10 +356,10 @@ async function handleMinesButtonInteraction(interaction) {
       await interaction.update(response);
     }
     
-    // Si la partie est terminée, la supprimer de la liste des parties actives
+    // Si la partie est terminée, la marquer comme terminée
     if (gameState.gameOver) {
       console.log('Partie terminée');
-      activeMinesGames.delete(interaction.user.id);
+      // La partie sera nettoyée lors du prochain nettoyage
     }
   } catch (error) {
     console.error('Erreur dans handleMinesButtonInteraction:', error);

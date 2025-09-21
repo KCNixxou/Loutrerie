@@ -448,7 +448,7 @@ function getLotteryParticipants() {
 
 function drawLotteryWinner() {
   try {
-    console.log('[Lottery] Drawing a winner...');
+    console.log('[Lottery] Drawing a winner (random selection)...');
     const participants = getLotteryParticipants();
     
     if (participants.length === 0) {
@@ -456,9 +456,8 @@ function drawLotteryWinner() {
       return null;
     }
 
-    console.log(`[Lottery] Participants: ${participants.map(p => `${p.user_id}:${p.amount_contributed}`).join(', ')}`);
+    console.log(`[Lottery] Participants: ${participants.map(p => p.user_id).join(', ')}`);
     
-    const totalContributions = participants.reduce((sum, p) => sum + p.amount_contributed, 0);
     const pot = getCurrentPot();
     
     if (pot <= 0) {
@@ -466,22 +465,13 @@ function drawLotteryWinner() {
       return null;
     }
     
-    console.log(`[Lottery] Total contributions: ${totalContributions}, Pot: ${pot}`);
+    console.log(`[Lottery] Pot amount: ${pot}`);
     
-    let random = Math.random() * totalContributions;
-    let winner = null;
+    // Sélection aléatoire d'un gagnant parmi tous les participants
+    const randomIndex = Math.floor(Math.random() * participants.length);
+    const winner = participants[randomIndex];
     
-    console.log(`[Lottery] Random value: ${random}`);
-    
-    for (const p of participants) {
-      random -= p.amount_contributed;
-      console.log(`[Lottery] Testing participant ${p.user_id} (${p.amount_contributed}), remaining: ${random}`);
-      if (random <= 0) {
-        winner = p;
-        console.log(`[Lottery] Winner selected: ${winner.user_id}`);
-        break;
-      }
-    }
+    console.log(`[Lottery] Random index: ${randomIndex}, Winner selected: ${winner.user_id}`);
 
     if (!winner) {
       console.log('[Lottery] No winner could be determined');
