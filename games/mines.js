@@ -273,8 +273,11 @@ async function handleMinesButtonInteraction(interaction) {
     }
     
     // Si ce n'est pas un cashout, c'est un clic sur une case
-    const posX = parseInt(parts[2]);
-    const posY = parseInt(parts[3]);
+    // Le format est mines_X_Y où X est la ligne et Y la colonne
+    const posX = parseInt(parts[1]); // Première coordonnée après 'mines'
+    const posY = parseInt(parts[2]); // Deuxième coordonnée
+    
+    console.log('Coordonnées extraites:', {posX, posY, parts});
   
     // Vérifier que les coordonnées sont valides
     if (isNaN(posX) || isNaN(posY) || posX < 0 || posX >= GRID_SIZE || posY < 0 || posY >= GRID_SIZE) {
