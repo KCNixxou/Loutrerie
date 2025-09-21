@@ -59,10 +59,12 @@ function createGridComponents(gameState, showAll = false) {
       const cellValue = gameState.grid[i][j];
       const isRevealed = gameState.revealed[i][j] === 'revealed';
       
+      // Toujours utiliser l'émoji caché au démarrage, sauf si la case est révélée
       let emoji = HIDDEN_EMOJI;
       let style = ButtonStyle.Secondary;
 
-      if (isRevealed || showAll) {
+      // Afficher le contenu uniquement si la case est révélée ou si on force l'affichage
+      if (isRevealed || (showAll && gameState.gameOver)) {
         if (cellValue === 'mine') {
           emoji = MINE_EMOJI;
           style = ButtonStyle.Danger;
