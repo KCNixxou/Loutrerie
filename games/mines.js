@@ -282,11 +282,8 @@ async function handleMinesButtonInteraction(interaction) {
     // Vérifier que les coordonnées sont valides
     if (isNaN(posX) || isNaN(posY) || posX < 0 || posX >= GRID_SIZE || posY < 0 || posY >= GRID_SIZE) {
       console.error('Coordonnées invalides:', {posX, posY});
-      if (interaction.deferred) {
-        return interaction.editReply({ content: 'Coordonnées de case invalides.', ephemeral: true });
-      } else {
-        return interaction.reply({ content: 'Coordonnées de case invalides.', ephemeral: true });
-      }
+      await interaction.editReply({ content: 'Coordonnées de case invalides.', ephemeral: true });
+      return;
     }
   
     console.log('Case cliquée:', {posX, posY, state: gameState.revealed[posX][posY]});
@@ -300,22 +297,26 @@ async function handleMinesButtonInteraction(interaction) {
     console.log('Révélation de la case');
     revealCell(gameState, posX, posY);
     
-    if (gameState.gameOver) {
-      console.log('Partie terminée (mine trouvée)');
-      await interaction.update({
-        embeds: [createGameEmbed(gameState, interaction)],
-        components: createGridComponents(gameState, true)
-      });
-      
-      activeMinesGames.delete(interaction.user.id);
-      return;
-    }
-
-    console.log('Mise à jour de l\'interface avec la nouvelle grille');
-    await interaction.update({
+    // Préparer la réponse
+    const response = {
       embeds: [createGameEmbed(gameState, interaction)],
-      components: createGridComponents(gameState)
-    });
+      components: gameState.gameOver 
+        ? createGridComponents(gameState, true)
+        : createGridComponents(gameState)
+    };
+
+    // Mettre à jour le message avec la réponse appropriée
+    if (interaction.deferred || interaction.replied) {
+      await interaction.editReply(response);
+    } else {
+      await interaction.update(response);
+    }
+    
+    // Si la partie est terminée, la supprimer de la liste des parties actives
+    if (gameState.gameOver) {
+      console.log('Partie terminée');
+      activeMinesGames.delete(interaction.user.id);
+    }
   } catch (error) {
     console.error('Erreur dans handleMinesButtonInteraction:', error);
     try {
