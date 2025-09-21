@@ -280,18 +280,13 @@ const commands = [
   // Commande de maintenance
   new SlashCommandBuilder()
     .setName('mines')
-    .setDescription('Jouer au jeu des mines 💣')
+    .setDescription('Jouer au jeu des mines 💣 avec 3 mines')
     .addIntegerOption(option =>
       option.setName('mise')
         .setDescription('Montant à miser en coquillages')
         .setRequired(true)
-        .setMinValue(10))
-    .addIntegerOption(option =>
-      option.setName('mines')
-        .setDescription('Nombre de mines (1-15, 5 par défaut)')
-        .setRequired(false)
-        .setMinValue(1)
-        .setMaxValue(15))
+        .setMinValue(10)
+        .setMaxValue(100000))
     .setDMPermission(false),
 
   new SlashCommandBuilder()
