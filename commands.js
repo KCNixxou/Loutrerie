@@ -291,7 +291,8 @@ const commands = [
         .setDescription('Nombre de mines (1-15, 5 par défaut)')
         .setRequired(false)
         .setMinValue(1)
-        .setMaxValue(15)),
+        .setMaxValue(15))
+    .setDMPermission(false),
 
   new SlashCommandBuilder()
     .setName('reset-dailybdg')
