@@ -15,11 +15,18 @@ const GAME_OVER_EMBED_COLOR = 0xFF0000;
 
 // Multiplicateurs de base en fonction du nombre de mines
 const MULTIPLIERS = {
-  1: 1.05,
-  3: 1.15,
-  5: 1.25,
-  10: 1.5,
-  15: 2.0
+  1: 1.10,  // Augmenté pour compenser la réduction du nombre de mines
+  2: 1.20,
+  3: 1.35,
+  4: 1.50
+};
+
+// Multiplicateurs exponentiels par nombre de mines
+const EXPONENT_MULTIPLIERS = {
+  1: 1.08,
+  2: 1.10,
+  3: 1.12,
+  4: 1.15
 };
 
 // Créer une nouvelle grille de jeu simplifiée
@@ -155,15 +162,18 @@ function revealCell(gameState, x, y) {
 // Calculer les gains actuels
 function calculateCurrentWin(gameState) {
   if (gameState.revealedCount === 0) return 0;
-  const baseMultiplier = MULTIPLIERS[gameState.minesCount] || 1.25;
-  const revealedMultiplier = Math.pow(1.15, gameState.revealedCount);
+  const baseMultiplier = MULTIPLIERS[gameState.minesCount] || 1.10;
+  const expMultiplier = EXPONENT_MULTIPLIERS[gameState.minesCount] || 1.08;
+  const revealedMultiplier = Math.pow(expMultiplier, gameState.revealedCount);
   return Math.floor(gameState.bet * baseMultiplier * revealedMultiplier);
 }
 
 // Commande pour démarrer une nouvelle partie
 async function handleMinesCommand(interaction) {
   const bet = interaction.options.getInteger('mise');
-  const minesCount = interaction.options.getInteger('mines') || 5;
+  let minesCount = interaction.options.getInteger('mines') || 3;
+  // Limiter à 4 mines maximum
+  minesCount = Math.min(Math.max(1, minesCount), 4);
 
   if (bet < 10) {
     return interaction.reply({ content: `La mise minimale est de 10 ${config.currency.emoji}.`, ephemeral: true });
@@ -257,10 +267,13 @@ async function handleMinesButtonInteraction(interaction) {
       gameState.won = true;
       gameState.winAmount = winAmount;
       
-      if (winAmount > 0) {
-        const user = ensureUser(interaction.user.id);
-        updateUser(interaction.user.id, { balance: user.balance + winAmount + gameState.bet });
-      }
+      // Récupérer le solde actuel de l'utilisateur
+      const user = ensureUser(interaction.user.id);
+      // Calculer le gain total (mise initiale + gains)
+      const totalWin = winAmount + gameState.bet;
+      console.log(`Cashout: Remboursement de ${gameState.bet} + gains de ${winAmount} = ${totalWin}`);
+      // Mettre à jour le solde
+      updateUser(interaction.user.id, { balance: user.balance + totalWin });
       
       console.log('Mise à jour de l\'interface avec le cashout');
       
