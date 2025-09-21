@@ -124,15 +124,24 @@ function createGameEmbed(gameState, interaction) {
     });
     
   if (gameState.gameOver) {
+    // Récupérer le solde actuel de l'utilisateur
+    const user = ensureUser(interaction.user.id);
+    
     if (gameState.won) {
       embed.setTitle('🎉 Gains récupérés !')
-           .setDescription(`Vous avez empoché **${gameState.winAmount}** ${config.currency.emoji} !`)
+           .setDescription(
+             `Vous avez empoché **${gameState.winAmount}** ${config.currency.emoji} !\n` +
+             `💵 Votre solde actuel : **${user.balance}** ${config.currency.emoji}`
+           )
            .setFields([])
            .setColor(CASH_OUT_EMBED_COLOR);
     } else {
       const originalBet = gameState.originalBet || gameState.bet;
       embed.setTitle('💥 BOOM !')
-           .setDescription(`Vous avez cliqué sur une mine ! Votre mise de **${originalBet}** ${config.currency.emoji} est perdue.`)
+           .setDescription(
+             `Vous avez cliqué sur une mine ! Votre mise de **${originalBet}** ${config.currency.emoji} est perdue.\n` +
+             `💵 Votre solde actuel : **${user.balance}** ${config.currency.emoji}`
+           )
            .setFields([])
            .setColor(GAME_OVER_EMBED_COLOR);
     }

@@ -286,7 +286,7 @@ const commands = [
         .setDescription('Montant à miser en coquillages')
         .setRequired(true)
         .setMinValue(10)
-        .setMaxValue(100000))
+        .setMaxValue(10000)) // Limite de 10 000 coquillages
     .setDMPermission(false),
 
   new SlashCommandBuilder()
