@@ -33,6 +33,7 @@ const {
   handleHighLowDecision
 } = require('./games');
 const { handleMinesCommand, handleMinesButtonInteraction } = require('./games/mines');
+const { handleSpecialMinesCommand, handleSpecialMinesInteraction } = require('./games/special-mines');
 const { 
   startCrashGame, 
   handleButtonInteraction: handleCrashButton,
@@ -240,7 +241,29 @@ client.on('interactionCreate', async (interaction) => {
           await handleHighLowAction(interaction);
         }
       } else if (interaction.customId.startsWith('mines_')) {
+        if (isMaintenanceMode() && !isAdmin(interaction.user.id)) {
+          return interaction.reply({ content: '⛔ Le bot est en maintenance. Veuillez réessayer plus tard.', ephemeral: true });
+        }
         await handleMinesButtonInteraction(interaction);
+      } else if (interaction.customId.startsWith('special_mines_')) {
+        if (isMaintenanceMode() && !isAdmin(interaction.user.id)) {
+          return interaction.reply({ content: '⛔ Le bot est en maintenance. Veuillez réessayer plus tard.', ephemeral: true });
+        }
+        
+        // Vérifier si l'utilisateur est dans le bon salon et a les permissions
+        const { specialHighLow: specialConfig } = require('./config');
+        const isSpecialMinesUser = specialConfig.isAdmin(interaction.user.id) || 
+                                 interaction.user.id === specialConfig.specialUserId;
+        
+        if (!isSpecialMinesUser || interaction.channelId !== specialConfig.channelId) {
+          console.log(`[Security] Tentative d'accès non autorisé au jeu des mines spécial par ${interaction.user.id} dans le salon ${interaction.channelId}`);
+          return interaction.reply({
+            content: ' Cette fonctionnalité est réservée au salon spécial et aux utilisateurs autorisés.',
+            ephemeral: true
+          });
+        }
+        
+        await handleSpecialMinesInteraction(interaction);
       } else {
         await handleButtonInteraction(interaction);
       }
@@ -251,7 +274,7 @@ client.on('interactionCreate', async (interaction) => {
     console.error('Erreur lors du traitement de l\'interaction:', error);
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
-        content: 'Une erreur est survenue lors du traitement de votre demande.',
+        content: ' Une erreur est survenue lors du traitement de votre demande.',
         flags: 'Ephemeral'
       });
     }
@@ -837,6 +860,27 @@ async function handleSlashCommand(interaction) {
       
     case 'mines':
       await handleMinesCommand(interaction);
+      break;
+      
+    case 'special-mines':
+      if (isMaintenanceMode() && !isAdmin(interaction.user.id)) {
+        return interaction.reply({ content: '⛔ Le bot est en maintenance. Veuillez réessayer plus tard.', ephemeral: true });
+      }
+      
+      // Vérifier si l'utilisateur est dans le bon salon et a les permissions
+      const { specialHighLow: specialConfig } = require('./config');
+      const isSpecialMinesUser = specialConfig.isAdmin(interaction.user.id) || 
+                               interaction.user.id === specialConfig.specialUserId;
+      
+      if (!isSpecialMinesUser || interaction.channelId !== specialConfig.channelId) {
+        console.log(`[Security] Tentative d'accès non autorisé à /special-mines par ${interaction.user.id} dans le salon ${interaction.channelId}`);
+        return interaction.reply({
+          content: ' Cette commande est réservée au salon spécial et aux utilisateurs autorisés.',
+          ephemeral: true
+        });
+      }
+      
+      await handleSpecialMinesCommand(interaction);
       break;
       
     case 'bdg':

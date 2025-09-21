@@ -142,7 +142,7 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('pileface')
-    .setDescription('Jouer à pile ou face solo 🪙')
+    .setDescription('Jouer à pile ou face solo ')
     .addIntegerOption(option =>
       option.setName('mise')
         .setDescription('Montant à miser en coquillages')
@@ -161,7 +161,7 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('shop')
-    .setDescription('Voir la boutique 🛒'),
+    .setDescription('Voir la boutique '),
 
   new SlashCommandBuilder()
     .setName('acheter')
@@ -171,15 +171,15 @@ const commands = [
         .setDescription('Item à acheter')
         .setRequired(true)
         .addChoices(
-          { name: 'Bébé BDG (10,000 🐚)', value: 'bdg_baby' },
-          { name: 'Petit BDG (50,000 🐚)', value: 'bdg_petit' },
-          { name: 'Gros BDG (200,000 🐚)', value: 'bdg_gros' },
-          { name: 'BDG Ultime (1,000,000 🐚)', value: 'bdg_ultime' },
-          { name: 'VIP (10,000 🐚)', value: 'vip' },
-          { name: 'Super VIP (20,000 🐚)', value: 'super_vip' },
-          { name: 'Changement de couleurs (10,000 🐚)', value: 'color_change' },
-          { name: 'Surprise Mystère #1 (100,000 🐚)', value: 'surprise1' },
-          { name: 'Surprise Mystère #2 (100,000 🐚)', value: 'surprise2' }
+          { name: 'Bébé BDG (10,000 )', value: 'bdg_baby' },
+          { name: 'Petit BDG (50,000 )', value: 'bdg_petit' },
+          { name: 'Gros BDG (200,000 )', value: 'bdg_gros' },
+          { name: 'BDG Ultime (1,000,000 )', value: 'bdg_ultime' },
+          { name: 'VIP (10,000 )', value: 'vip' },
+          { name: 'Super VIP (20,000 )', value: 'super_vip' },
+          { name: 'Changement de couleurs (10,000 )', value: 'color_change' },
+          { name: 'Surprise Mystère #1 (100,000 )', value: 'surprise1' },
+          { name: 'Surprise Mystère #2 (100,000 )', value: 'surprise2' }
         )
     ),
 
@@ -280,7 +280,7 @@ const commands = [
   // Commande de maintenance
   new SlashCommandBuilder()
     .setName('mines')
-    .setDescription('Jouer au jeu des mines 💣 avec 3 mines')
+    .setDescription('Jouer au jeu des mines avec 3 mines')
     .addIntegerOption(option =>
       option.setName('mise')
         .setDescription('Montant à miser en coquillages')
@@ -288,6 +288,25 @@ const commands = [
         .setMinValue(10)
         .setMaxValue(10000)) // Limite de 10 000 coquillages
     .setDMPermission(false),
+
+  // Jeu des mines spécial avec solde spécial
+  new SlashCommandBuilder()
+    .setName('special-mines')
+    .setDescription('[SPÉCIAL] Jouer au jeu des mines avec le solde spécial')
+    .setDefaultMemberPermissions('0')
+    .setDMPermission(false)
+    .addIntegerOption(option =>
+      option.setName('mise')
+        .setDescription('Montant à miser en coquillages spéciaux')
+        .setRequired(true)
+        .setMinValue(10)
+        .setMaxValue(50000)) // Limite de 50 000 coquillages spéciaux
+    .addIntegerOption(option =>
+      option.setName('mines')
+        .setDescription('Nombre de mines (5 par défaut, max 10)')
+        .setRequired(false)
+        .setMinValue(3)
+        .setMaxValue(10)),
 
   new SlashCommandBuilder()
     .setName('reset-dailybdg')
