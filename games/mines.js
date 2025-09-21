@@ -202,62 +202,84 @@ async function handleMinesCommand(interaction) {
 
 // Gérer l'interaction des boutons du jeu
 async function handleMinesButtonInteraction(interaction) {
-  const gameState = activeMinesGames.get(interaction.user.id);
-  
-  if (!gameState) {
-    await interaction.update({ content: 'Partie introuvable ou terminée.', components: [] });
-    return;
-  }
-
-  if (gameState.userId !== interaction.user.id) {
-    return interaction.reply({ content: 'Ce n\'est pas votre partie !', ephemeral: true });
-  }
-
-  const [_, action, x, y] = interaction.customId.split('_');
-  
-  if (action === 'cashout') {
-    const winAmount = calculateCurrentWin(gameState);
-    gameState.gameOver = true;
-    gameState.won = true;
-    gameState.winAmount = winAmount;
+  try {
+    console.log('Bouton cliqué:', interaction.customId);
+    const gameState = activeMinesGames.get(interaction.user.id);
     
-    if (winAmount > 0) {
-      const user = ensureUser(interaction.user.id);
-      updateUser(interaction.user.id, { balance: user.balance + winAmount + gameState.bet });
+    if (!gameState) {
+      console.log('Partie non trouvée pour l\'utilisateur:', interaction.user.id);
+      await interaction.update({ content: 'Partie introuvable ou terminée.', components: [] });
+      return;
+    }
+
+    if (gameState.userId !== interaction.user.id) {
+      console.log('Tentative d\'accès à une partie qui ne vous appartient pas');
+      return interaction.reply({ content: 'Ce n\'est pas votre partie !', ephemeral: true });
+    }
+
+    const [_, action, x, y] = interaction.customId.split('_');
+    console.log('Action:', action, 'Coordonnées:', x, y);
+    
+    if (action === 'cashout') {
+      console.log('Cashout demandé');
+      const winAmount = calculateCurrentWin(gameState);
+      gameState.gameOver = true;
+      gameState.won = true;
+      gameState.winAmount = winAmount;
+      
+      if (winAmount > 0) {
+        const user = ensureUser(interaction.user.id);
+        updateUser(interaction.user.id, { balance: user.balance + winAmount + gameState.bet });
+      }
+      
+      console.log('Mise à jour de l\'interface avec le cashout');
+      await interaction.update({
+        embeds: [createGameEmbed(gameState, interaction)],
+        components: createGridComponents(gameState, true)
+      });
+      
+      activeMinesGames.delete(interaction.user.id);
+      return;
     }
     
+    const posX = parseInt(x);
+    const posY = parseInt(y);
+    
+    console.log('Case cliquée:', {posX, posY, state: gameState.revealed[posX][posY]});
+    
+    if (gameState.revealed[posX][posY] !== 'hidden') {
+      console.log('Case déjà révélée, mise à jour différée');
+      await interaction.deferUpdate();
+      return;
+    }
+
+    console.log('Révélation de la case');
+    revealCell(gameState, posX, posY);
+    
+    if (gameState.gameOver) {
+      console.log('Partie terminée (mine trouvée)');
+      await interaction.update({
+        embeds: [createGameEmbed(gameState, interaction)],
+        components: createGridComponents(gameState, true)
+      });
+      
+      activeMinesGames.delete(interaction.user.id);
+      return;
+    }
+
+    console.log('Mise à jour de l\'interface avec la nouvelle grille');
     await interaction.update({
       embeds: [createGameEmbed(gameState, interaction)],
-      components: createGridComponents(gameState, true)
+      components: createGridComponents(gameState)
     });
-    
-    activeMinesGames.delete(interaction.user.id);
-    return;
+  } catch (error) {
+    console.error('Erreur dans handleMinesButtonInteraction:', error);
+    try {
+      await interaction.reply({ content: 'Une erreur est survenue lors du traitement de votre action.', ephemeral: true });
+    } catch (e) {
+      console.error('Impossible d\'envoyer le message d\'erreur:', e);
+    }
   }
-  
-  const posX = parseInt(x);
-  const posY = parseInt(y);
-  
-  if (gameState.revealed[posX][posY] !== 'hidden') {
-    return interaction.deferUpdate();
-  }
-
-  revealCell(gameState, posX, posY);
-  
-  if (gameState.gameOver) {
-    await interaction.update({
-      embeds: [createGameEmbed(gameState, interaction)],
-      components: createGridComponents(gameState, true)
-    });
-    
-    activeMinesGames.delete(interaction.user.id);
-    return;
-  }
-
-  await interaction.update({
-    embeds: [createGameEmbed(gameState, interaction)],
-    components: createGridComponents(gameState)
-  });
 }
 
 module.exports = {
