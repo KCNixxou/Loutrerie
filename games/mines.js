@@ -14,21 +14,25 @@ const HIDDEN_EMOJI = '⬛';
 const CASH_OUT_EMBED_COLOR = 0x00FF00;
 const GAME_OVER_EMBED_COLOR = 0xFF0000;
 
-// Multiplicateurs de base en fonction du nombre de mines
-const MULTIPLIERS = {
-  1: 1.10,  // Augmenté pour compenser la réduction du nombre de mines
-  2: 1.20,
-  3: 1.35,
-  4: 1.50
-};
-
-// Multiplicateurs exponentiels par nombre de mines
-const EXPONENT_MULTIPLIERS = {
-  1: 1.08,
-  2: 1.10,
-  3: 1.12,
-  4: 1.15
-};
+// Tableau des multiplicateurs pour chaque gemme trouvée
+const MULTIPLIERS = [
+  1.00,  // 0 gemme (non utilisé)
+  1.15,  // 1 gemme
+  1.50,  // 2 gemmes
+  2.00,  // 3 gemmes
+  2.50,  // 4 gemmes
+  3.00,  // 5 gemmes
+  3.50,  // 6 gemmes
+  4.00,  // 7 gemmes
+  4.50,  // 8 gemmes
+  5.00,  // 9 gemmes
+  5.50,  // 10 gemmes
+  6.00,  // 11 gemmes
+  6.50,  // 12 gemmes
+  7.00,  // 13 gemmes
+  7.50,  // 14 gemmes
+  8.00   // 15 gemmes
+];
 
 // Créer une nouvelle grille de jeu simplifiée
 function createGameGrid(minesCount) {
@@ -166,18 +170,25 @@ function revealCell(gameState, x, y) {
 // Calculer les gains actuels
 function calculateCurrentWin(gameState) {
   if (gameState.revealedCount === 0) return 0;
-  const baseMultiplier = MULTIPLIERS[gameState.minesCount] || 1.10;
-  const expMultiplier = EXPONENT_MULTIPLIERS[gameState.minesCount] || 1.08;
-  const revealedMultiplier = Math.pow(expMultiplier, gameState.revealedCount);
-  return Math.floor(gameState.bet * baseMultiplier * revealedMultiplier);
+  
+  // Utiliser le multiplicateur du tableau s'il existe, sinon continuer avec +0.5 par gemme supplémentaire
+  let multiplier;
+  if (gameState.revealedCount < MULTIPLIERS.length) {
+    multiplier = MULTIPLIERS[gameState.revealedCount];
+  } else {
+    // Au-delà de la liste, on continue avec +0.5 par gemme
+    const baseIndex = MULTIPLIERS.length - 1;
+    const additionalGems = gameState.revealedCount - baseIndex;
+    multiplier = MULTIPLIERS[baseIndex] + (additionalGems * 0.5);
+  }
+  
+  return Math.floor(gameState.bet * multiplier);
 }
 
 // Commande pour démarrer une nouvelle partie
 async function handleMinesCommand(interaction) {
   const bet = interaction.options.getInteger('mise');
-  let minesCount = interaction.options.getInteger('mines') || 3;
-  // Limiter à 4 mines maximum
-  minesCount = Math.min(Math.max(1, minesCount), 4);
+  const minesCount = 3; // Nombre fixe de mines
 
   if (bet < 10) {
     return interaction.reply({ content: `La mise minimale est de 10 ${config.currency.emoji}.`, ephemeral: true });
@@ -188,9 +199,6 @@ async function handleMinesCommand(interaction) {
     return interaction.reply({ content: `Vous n'avez pas assez de ${config.currency.emoji} pour cette mise.`, ephemeral: true });
   }
 
-  if (minesCount < 1 || minesCount > 15) {
-    return interaction.reply({ content: 'Le nombre de mines doit être compris entre 1 et 15.', ephemeral: true });
-  }
 
   try {
     // Calculer la contribution au pot (1% de la mise, minimum 1)
