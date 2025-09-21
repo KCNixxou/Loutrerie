@@ -1,4 +1,4 @@
-﻿require('dotenv').config();
+require('dotenv').config();
 const { Client, GatewayIntentBits, Partials, REST, Routes, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const express = require('express');
 const { isMaintenanceMode, isAdmin, maintenanceMiddleware, setMaintenance } = require('./maintenance');
@@ -880,61 +880,6 @@ async function handleSlashCommand(interaction) {
       await interaction.reply({ content: 'Commande inconnue', ephemeral: true });
       break;
 
-  case 'roulette':
-    await handleRouletteStart(interaction);
-    break;
-
-  case 'slots':
-    await handleSlots(interaction);
-    break;
-
-  case 'pileface':
-    await handleCoinflipSolo(interaction);
-    break;
-
-  case 'pileface-multi':
-    await handleCoinflipMulti(interaction);
-    break;
-
-  case 'shop':
-    await handleShop(interaction);
-    break;
-
-  case 'acheter':
-    await handlePurchase(interaction);
-    break;
-
-  case 'givea':
-    await handleGiveAdmin(interaction);
-    break;
-
-  case 'set-balance':
-    if (interaction.user.id !== '314458846754111499') {
-      return interaction.reply({ content: '? Cette commande est réservée à l\'administrateur.', ephemeral: true });
-    }
-    
-    const balanceTarget = interaction.options.getUser('utilisateur');
-    const balanceAmount = interaction.options.getInteger('montant');
-    
-    // Vérifier que l'utilisateur existe dans la base de données et mettre à jour le solde
-    ensureUser(balanceTarget.id);
-    updateUser(balanceTarget.id, { balance: balanceAmount });
-    
-    await interaction.reply({
-      content: `? Le solde de ${balanceTarget.tag} a été défini à **${balanceAmount}** ${config.currency.emoji}`,
-      ephemeral: true
-    });
-    break;
-    
-  case 'give':
-    await handleGive(interaction);
-    break;
-    
-  default: {
-    console.log(`[COMMANDE] Commande inconnue: ${interaction.commandName}`);
-    await interaction.reply({ content: 'Commande inconnue', ephemeral: true });
-    break;
-  }
 } catch (error) {
   console.error(`Erreur lors de l'exécution de la commande ${interaction.commandName}:`, error);
   if (!interaction.replied && !interaction.deferred) {
