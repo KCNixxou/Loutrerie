@@ -2,7 +2,7 @@ require('dotenv').config();
 const { Client, GatewayIntentBits, Partials, REST, Routes, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const express = require('express');
 const { isMaintenanceMode, isAdmin, maintenanceMiddleware, setMaintenance } = require('./maintenance');
-// Modules personnalis�s
+// Modules personnalisés
 const config = require('./config');
 const { ensureUser, updateUser, updateMissionProgress, db, getSpecialBalance, updateSpecialBalance } = require('./database');
 const { random, now, getXpMultiplier, scheduleMidnightReset, calculateLevel, getLevelInfo } = require('./utils');
@@ -45,13 +45,13 @@ const { handleButtonInteraction, handleSelectMenuInteraction } = require('./hand
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// Route de base pour v�rifier que le serveur est en ligne
+// Route de base pour vérifier que le serveur est en ligne
 app.get('/', (req, res) => {
-  res.send('?? Bot Loutrerie en ligne !');
+  res.send('🦦 Bot Loutrerie en ligne !');
 });
 
 app.listen(PORT, () => {
-  console.log(`Serveur web d�marr� sur le port ${PORT}`);
+  console.log(`Serveur web démarré sur le port ${PORT}`);
 });
 
 // Client Discord
@@ -66,27 +66,27 @@ const client = new Client({
   partials: [Partials.Channel, Partials.Message, Partials.Reaction]
 });
 
-// �v�nement ready
+// Événement ready
 client.once('ready', async () => {
-  console.log(`? ${client.user.tag} est connect� !`);
+  console.log(`✅ ${client.user.tag} est connecté !`);
   
   // Enregistrer les commandes
   const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
   
   try {
-    console.log('?? Enregistrement des commandes...');
+    console.log('⏳ Enregistrement des commandes...');
     await rest.put(
       Routes.applicationCommands(client.user.id),
       { body: commands }
     );
-    console.log('? Commandes enregistr�es !');
+    console.log('✅ Commandes enregistrées !');
   } catch (error) {
-    console.error('? Erreur lors de l\'enregistrement des commandes:', error);
+    console.error('❌ Erreur lors de l\'enregistrement des commandes:', error);
   }
   
-  // D�marrer le reset des missions � minuit
+  // Démarrer le reset des missions à minuit
   scheduleMidnightReset(async () => {
-    console.log('?? Reset des missions, limites quotidiennes et r�compenses BDG � minuit');
+    console.log('🔄 Reset des missions, limites quotidiennes et récompenses BDG à minuit');
     const { generateDailyMissions } = require('./database');
     const missions = generateDailyMissions();
     const users = db.prepare('SELECT user_id FROM users').all();
@@ -136,9 +136,9 @@ client.once('ready', async () => {
 client.on('messageCreate', async (message) => {
   if (!message.guild || message.author.bot) return;
   
-  // V�rifier si le salon est dans la liste des exclus
+  // Vérifier si le salon est dans la liste des exclus
   if (config.xp.excludedChannels.includes(message.channelId)) {
-    console.log(`[XP] Message ignor� - Salon exclu: ${message.channel.name} (${message.channelId})`);
+    console.log(`[XP] Message ignoré - Salon exclu: ${message.channel.name} (${message.channelId})`);
     return;
   }
   
@@ -167,34 +167,34 @@ client.on('messageCreate', async (message) => {
   const levelInfo = getLevelInfo(newXp);
   
   console.log(`[XP DEBUG] Gain d'XP: +${xpGain} (x${multiplier} multiplicateur)`);
-  console.log(`[XP DEBUG] Nouvel XP: ${newXp}, Nouveau niveau: ${newLevel} (${levelUp ? 'NIVEAU SUP�RIEUR!' : 'Pas de changement de niveau'})`);
+  console.log(`[XP DEBUG] Nouvel XP: ${newXp}, Nouveau niveau: ${newLevel} (${levelUp ? 'NIVEAU SUPÉRIEUR!' : 'Pas de changement de niveau'})`);
   
-  // Mettre � jour les messages quotidiens et missions
+  // Mettre à jour les messages quotidiens et missions
   const newDailyMessages = (user.daily_messages || 0) + 1;
   const missionReward = updateMissionProgress(message.author.id, 'messages_30', 1) ||
                        updateMissionProgress(message.author.id, 'messages_50', 1);
   
   const updateData = {
     xp: newXp,
-    level: newLevel,  // D�j� une valeur num�rique
+    level: newLevel,  // Déjà une valeur numérique
     last_xp_gain: currentTime,
     daily_messages: newDailyMessages,
-    balance: (user.balance || 0) + (levelUp ? 100 : 0) + (missionReward || 0)  // Augment� de 50 � 100
+    balance: (user.balance || 0) + (levelUp ? 100 : 0) + (missionReward || 0)  // Augmenté de 50 à 100
   };
   
-  console.log('[XP DEBUG] Mise � jour de la base de donn�es:', JSON.stringify(updateData, null, 2));
+  console.log('[XP DEBUG] Mise à jour de la base de données:', JSON.stringify(updateData, null, 2));
   
   updateUser(message.author.id, updateData);
   
   if (levelUp) {
-    console.log(`[XP DEBUG] F�licitations! ${message.author.tag} est maintenant niveau ${newLevel}!`);
+    console.log(`[XP DEBUG] Félicitations! ${message.author.tag} est maintenant niveau ${newLevel}!`);
   }
   
   if (levelUp) {
     const levelInfo = getLevelInfo(newXp);
     const embed = new EmbedBuilder()
-      .setTitle('?? Niveau sup�rieur !')
-      .setDescription(`F�licitations <@${message.author.id}> ! Tu es maintenant niveau **${newLevel}** !\n+100 ${config.currency.emoji} de bonus !\nProgression: ${levelInfo.currentXp}/${levelInfo.xpForNextLevel} XP (${levelInfo.progress.toFixed(1)}%)`)
+      .setTitle('🎉 Niveau supérieur !')
+      .setDescription(`🎉 Félicitations <@${message.author.id}> ! Tu es maintenant niveau **${newLevel}** !\n+100 ${config.currency.emoji} de bonus !\nProgression: ${levelInfo.currentXp}/${levelInfo.xpForNextLevel} XP (${levelInfo.progress.toFixed(1)}%)`)
       .setColor(0x00ff00);
     
     message.channel.send({ embeds: [embed] });
@@ -204,10 +204,10 @@ client.on('messageCreate', async (message) => {
 // Gestion des interactions
 client.on('interactionCreate', async (interaction) => {
   try {
-    // V�rifier le mode maintenance pour toutes les interactions
+    // Vérifier le mode maintenance pour toutes les interactions
     if (isMaintenanceMode() && interaction.user.id !== '314458846754111499') {
       return interaction.reply({ 
-        content: '?? Le bot est actuellement en maintenance. Veuillez r�essayer plus tard.',
+        content: '🛠️ Le bot est actuellement en maintenance. Veuillez réessayer plus tard.',
         flags: 'Ephemeral'
       });
     }
@@ -226,21 +226,21 @@ client.on('interactionCreate', async (interaction) => {
       } else if (interaction.customId === 'cashout' || interaction.customId === 'next_multiplier') {
         await handleCrashButton(interaction);
       } else if (interaction.customId.startsWith('highlow_')) {
-        // G�rer les actions du High Low normal
+        // Gérer les actions du High Low normal
         if (interaction.customId.startsWith('highlow_continue_') || interaction.customId.startsWith('highlow_stop_')) {
           await handleHighLowDecision(interaction);
         } else {
           await handleHighLowAction(interaction);
         }
       } else if (interaction.customId.startsWith('special_highlow_')) {
-        // G�rer les actions du High Low sp�cial
+        // Gérer les actions du High Low spécial
         if (interaction.customId.startsWith('special_highlow_continue_') || interaction.customId.startsWith('special_highlow_stop_')) {
           await handleHighLowDecision(interaction);
         } else {
           await handleHighLowAction(interaction);
         }
       } else if (interaction.customId.startsWith('mines_') || interaction.customId === 'mines_cashout' || interaction.customId === 'mines_flag') {
-        // G�rer les actions du jeu des mines
+        // Gérer les actions du jeu des mines
         const { handleMinesButtonInteraction } = require('./games/mines');
         await handleMinesButtonInteraction(interaction);
       } else {
@@ -261,41 +261,41 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 async function handleSlashCommand(interaction) {
-  console.log(`[COMMANDE] Commande re�ue: ${interaction.commandName}`);
+  console.log(`[COMMANDE] Commande reçue: ${interaction.commandName}`);
   
   try {
     switch (interaction.commandName) {
       case 'de':
         const diceResult = Math.floor(Math.random() * 6) + 1;
-        await interaction.reply(`?? Le d� affiche : **${diceResult}**`);
+        await interaction.reply(`🎲 Le dé affiche : **${diceResult}**`);
         break;
       
       case 'profil':
         try {
-          console.log('[DEBUG] Commande /profil d�clench�e');
+          console.log('[DEBUG] Commande /profil déclenchée');
           console.log('[DEBUG] Options:', interaction.options.data);
           console.log('[DEBUG] Utilisateur:', interaction.user.tag, `(${interaction.user.id})`);
           
-          console.log('[DEBUG] R�cup�ration de l\'utilisateur cible...');
+          console.log('[DEBUG] Récupération de l\'utilisateur cible...');
           const targetUser = interaction.options.getUser('utilisateur') || interaction.user;
           const isSelf = targetUser.id === interaction.user.id;
         
-          console.log(`[DEBUG] Cible: ${targetUser.tag} (${targetUser.id}) - ${isSelf ? 'soi-m�me' : 'autre utilisateur'}`);
+          console.log(`[DEBUG] Cible: ${targetUser.tag} (${targetUser.id}) - ${isSelf ? 'soi-même' : 'autre utilisateur'}`);
         
-          console.log('[DEBUG] V�rification et r�cup�ration des donn�es utilisateur...');
+          console.log('[DEBUG] Vérification et récupération des données utilisateur...');
           const user = ensureUser(targetUser.id);
-          console.log('[DEBUG] Donn�es utilisateur r�cup�r�es:', JSON.stringify(user, null, 2));
+          console.log('[DEBUG] Données utilisateur récupérées:', JSON.stringify(user, null, 2));
         
           const xp = user.xp || 0;
           console.log(`[DEBUG] XP de l'utilisateur: ${xp}`);
         
           console.log('[DEBUG] Calcul du niveau...');
           const levelInfo = getLevelInfo(xp);
-          console.log('[DEBUG] Niveau calcul�:', levelInfo);
+          console.log('[DEBUG] Niveau calculé:', levelInfo);
           
-          console.log('[DEBUG] Cr�ation de l\'embed...');
+          console.log('[DEBUG] Création de l\'embed...');
           const embed = new EmbedBuilder()
-            .setTitle(`?? Profil de ${targetUser.username}`)
+            .setTitle(`👤 Profil de ${targetUser.username}`)
             .setThumbnail(targetUser.displayAvatarURL({ dynamic: true, size: 256 }))
             .setColor(0x00bfff)
             .addFields(
@@ -314,7 +314,7 @@ async function handleSlashCommand(interaction) {
           // Ajouter un champ suppl�mentaire si c'est le profil de l'utilisateur
           if (isSelf) {
             const xpNeeded = levelInfo.xpForNextLevel - levelInfo.currentXp;
-            console.log(`[DEBUG] XP n�cessaire pour le prochain niveau: ${xpNeeded}`);
+            console.log(`[DEBUG] XP nécessaire pour le prochain niveau: ${xpNeeded}`);
             
             embed.addFields({
               name: 'Prochain niveau',
@@ -323,22 +323,22 @@ async function handleSlashCommand(interaction) {
             });
           }
           
-          console.log('[DEBUG] Envoi de la r�ponse...');
+          console.log('[DEBUG] Envoi de la réponse...');
           const replyOptions = { 
             embeds: [embed],
-            ephemeral: isSelf // Le message est �ph�m�re uniquement si c'est le profil de l'utilisateur
+            ephemeral: isSelf // Le message est éphémère uniquement si c'est le profil de l'utilisateur
           };
-          console.log('[DEBUG] Options de r�ponse:', JSON.stringify(replyOptions, null, 2));
+          console.log('[DEBUG] Options de réponse:', JSON.stringify(replyOptions, null, 2));
           
           await interaction.reply(replyOptions);
-          console.log('[DEBUG] R�ponse envoy�e avec succ�s');
+          console.log('[DEBUG] Réponse envoyée avec succès');
           
         } catch (error) {
           console.error('[ERREUR] Erreur dans la commande /profil:', error);
           console.error(error.stack);
           
           try {
-            const errorMessage = '? Une erreur est survenue lors de la r�cup�ration du profil. Veuillez r�essayer plus tard.';
+            const errorMessage = ' Une erreur est survenue lors de la récupération du profil. Veuillez réessayer plus tard.';
             console.log(`[DEBUG] Tentative d'envoi d'un message d'erreur: "${errorMessage}"`);
           
             await interaction.reply({
@@ -346,9 +346,9 @@ async function handleSlashCommand(interaction) {
               ephemeral: true
             });
             
-            console.log('[DEBUG] Message d\'erreur envoy� avec succ�s');
+            console.log('[DEBUG] Message d\'erreur envoyé avec succès');
           } catch (replyError) {
-            console.error('[ERREUR CRITIQUE] �chec de l\'envoi du message d\'erreur:', replyError);
+            console.error('[ERREUR CRITIQUE] Échec de l\'envoi du message d\'erreur:', replyError);
             console.error(replyError.stack);
           }
       }
@@ -361,7 +361,7 @@ async function handleSlashCommand(interaction) {
       } catch (error) {
         console.error('[ERREUR] Erreur dans la commande /morpion:', error);
         await interaction.reply({
-          content: '? Une erreur est survenue lors du d�marrage du jeu. Veuillez r�essayer plus tard.',
+          content: ' Une erreur est survenue lors du démarrage du jeu. Veuillez réessayer plus tard.',
           ephemeral: true
         });
       }
@@ -386,7 +386,7 @@ async function handleSlashCommand(interaction) {
         if (!isAdmin(interaction.user.id)) {
           console.log(`[Lottery] Access denied for user ${interaction.user.id}`);
           return interaction.reply({ 
-            content: '? Seuls les administrateurs peuvent utiliser cette commande.', 
+            content: ' Seuls les administrateurs peuvent utiliser cette commande.', 
             ephemeral: true 
           });
         }
@@ -403,7 +403,7 @@ async function handleSlashCommand(interaction) {
           if (!winner) {
             console.log('[Lottery] No winner could be determined');
             return interaction.reply({
-              content: '? Aucun participant dans le pot commun pour le moment ou erreur lors du tirage.',
+              content: ' Aucun participant dans le pot commun pour le moment ou erreur lors du tirage.',
               ephemeral: true
             });
           }
@@ -427,7 +427,7 @@ async function handleSlashCommand(interaction) {
             winnerName = `Utilisateur (${winner.userId})`;
           }
           
-          const winMessage = `?? **TIRAGE AU SORT** ??\n` +
+          const winMessage = ` **TIRAGE AU SORT** \n` +
                           `Le gagnant du pot commun est **${winnerName}** !\n` +
                           `Il remporte **${winner.amount}** ${config.currency.emoji} !`;
           
@@ -446,13 +446,13 @@ async function handleSlashCommand(interaction) {
           console.log(`[Lottery] Pot amount: ${potAmount}, Participants: ${participants.length}`);
           
           const embed = new EmbedBuilder()
-            .setTitle('?? Pot Commun de la Loterie')
+            .setTitle(' Pot Commun de la Loterie')
             .setDescription(
               `Montant actuel du pot : **${potAmount}** ${config.currency.emoji}\n` +
               `Nombre de participants : **${participants.length}**`
             )
             .setColor(0x00ff00)
-            .setFooter({ text: '1% de chaque mise est ajout� au pot commun' });
+            .setFooter({ text: '1% de chaque mise est ajouté au pot commun' });
           
           if (participants.length > 0) {
             // Afficher le top 5 des contributeurs
@@ -477,7 +477,7 @@ async function handleSlashCommand(interaction) {
       } catch (error) {
         console.error('[Lottery] Error in /tas command:', error);
         await interaction.reply({
-          content: '? Une erreur est survenue lors du traitement de la commande.',
+          content: ' Une erreur est survenue lors du traitement de la commande.',
           ephemeral: true
         });
       }
@@ -498,7 +498,7 @@ async function handleSlashCommand(interaction) {
     case 'reset-morpion-stats':
       if (interaction.user.id !== '314458846754111499') {
         return interaction.reply({ 
-          content: '? Cette commande est r�serv�e � l\'administrateur.', 
+          content: ' Cette commande est réservée à l\'administrateur.', 
           ephemeral: true 
         });
       }
@@ -507,24 +507,24 @@ async function handleSlashCommand(interaction) {
         const targetUser = interaction.options.getUser('utilisateur');
         
         if (targetUser) {
-          // R�initialiser pour un utilisateur sp�cifique
+          // Réinitialiser pour un utilisateur spécifique
           resetTicTacToeStats(targetUser.id);
           await interaction.reply({ 
-            content: `? Les statistiques du morpion de ${targetUser.tag} ont �t� r�initialis�es avec succ�s !`, 
+            content: ` La statistique du morpion de ${targetUser.tag} a été réinitialisée avec succès !`, 
             ephemeral: true 
           });
         } else {
-          // R�initialiser pour tous les utilisateurs
+          // Réinitialiser pour tous les utilisateurs
           resetTicTacToeStats();
           await interaction.reply({ 
-            content: '? Toutes les statistiques du morpion ont été réinitialisées avec succès !', 
+            content: ' Toutes les statistiques du morpion ont été réinitialisées avec succès !', 
             ephemeral: true 
           });
         }
       } catch (error) {
         console.error('Erreur lors de la réinitialisation des statistiques du morpion:', error);
         await interaction.reply({ 
-          content: '? Une erreur est survenue lors de la réinitialisation des statistiques.', 
+          content: ' Une erreur est survenue lors de la réinitialisation des statistiques.', 
           ephemeral: true 
         });
       }
@@ -544,11 +544,11 @@ async function handleSlashCommand(interaction) {
       const isAdminOrSpecialUser = specialHighLow.isAdmin(interaction.user.id) || 
                                 interaction.user.id === specialHighLow.specialUserId;
       
-      // V�rification stricte : l'utilisateur doit �tre autoris� ET �tre dans le bon salon
+      // Vérification stricte : l'utilisateur doit être autorisé ET être dans le bon salon
       if (!isAdminOrSpecialUser || interaction.channelId !== specialHighLow.channelId) {
-        console.log(`[Security] Tentative d'acc�s non autoris�e � /solde-special par ${interaction.user.id} dans le salon ${interaction.channelId}`);
+        console.log(`[Security] Tentative d'accès non autorisé à /solde-special par ${interaction.user.id} dans le salon ${interaction.channelId}`);
         return interaction.reply({
-          content: '? Cette commande est r�serv�e au salon sp�cial et aux utilisateurs autoris�s.',
+          content: ' Cette commande est réservée au salon spécial et aux utilisateurs autorisés.',
           ephemeral: true
         });
       }
@@ -556,13 +556,13 @@ async function handleSlashCommand(interaction) {
       const specialBalance = getSpecialBalance(interaction.user.id);
       
       const embed = new EmbedBuilder()
-        .setTitle('?? Solde Sp�cial High Low')
-        .setDescription(`Votre solde sp�cial est de **${specialBalance}** ${config.currency.emoji}`)
+        .setTitle(' Solde Spécial High Low')
+        .setDescription(`Votre solde spécial est de **${specialBalance}** ${config.currency.emoji}`)
         .setColor(0x9b59b6);
         
       if (isAdminOrSpecialUser) {
         embed.addFields(
-          { name: 'Statut', value: '?? Utilisateur sp�cial', inline: true }
+          { name: 'Statut', value: ' Utilisateur spécial', inline: true }
         );
       }
       
@@ -570,21 +570,21 @@ async function handleSlashCommand(interaction) {
       break;
       
     case 'admin-solde-special':
-      // V�rifier si l'utilisateur est admin
+      // Vérifier si l'utilisateur est admin
       const { specialHighLow: configHighLow } = require('./config');
       if (!configHighLow.isAdmin(interaction.user.id)) {
-        console.log(`[Security] Tentative d'acc�s non autoris�e � /admin-solde-special par ${interaction.user.id}`);
+        console.log(`[Security] Tentative d'accès non autorisé à /admin-solde-special par ${interaction.user.id}`);
         return interaction.reply({
-          content: '? Cette commande est r�serv�e aux administrateurs.',
+          content: ' Cette commande est réservée aux administrateurs.',
           ephemeral: true
         });
       }
       
-      // V�rifier que la commande est utilis�e dans le bon salon
+      // Vérifier que la commande est utilisée dans le bon salon
       if (interaction.channelId !== configHighLow.channelId) {
         console.log(`[Security] Tentative d'utilisation de /admin-solde-special dans le mauvais salon par ${interaction.user.id}`);
         return interaction.reply({
-          content: `? Cette commande ne peut �tre utilis�e que dans le salon d�di�.`,
+          content: ` Cette commande ne peut être utilisée que dans le salon dédié.`,
           ephemeral: true
         });
       }
@@ -598,14 +598,14 @@ async function handleSlashCommand(interaction) {
             const amount = interaction.options.getInteger('montant');
             if (amount <= 0) {
               return interaction.reply({
-                content: '? Le montant doit �tre sup�rieur � z�ro.',
+                content: ' Le montant doit être supérieur à zéro.',
                 ephemeral: true
               });
             }
             
             const newBalance = updateSpecialBalance(adminTargetUser.id, amount);
             await interaction.reply({
-              content: `? **${amount}** ${config.currency.emoji} ont �t� ajout�s au solde sp�cial de ${adminTargetUser.tag}.\nNouveau solde: **${newBalance}** ${config.currency.emoji}`,
+              content: ` **${amount}** ${config.currency.emoji} ont été ajoutés au solde spécial de ${adminTargetUser.tag}.\nNouveau solde: **${newBalance}** ${config.currency.emoji}`,
               ephemeral: true
             });
             break;
@@ -615,18 +615,18 @@ async function handleSlashCommand(interaction) {
             const amount = interaction.options.getInteger('montant');
             if (amount < 0) {
               return interaction.reply({
-                content: '? Le montant ne peut pas �tre n�gatif.',
+                content: ' Le montant ne peut pas être négatif.',
                 ephemeral: true
               });
             }
             
-            // Pour d�finir un solde sp�cifique, on utilise updateSpecialBalance avec la diff�rence
+            // Pour définir un solde spécifique, on utilise updateSpecialBalance avec la différence
             const currentBalance = getSpecialBalance(adminTargetUser.id);
             const difference = amount - currentBalance;
             const newBalance = updateSpecialBalance(adminTargetUser.id, difference);
             
             await interaction.reply({
-              content: `? Le solde sp�cial de ${adminTargetUser.tag} a �t� d�fini � **${newBalance}** ${config.currency.emoji}`,
+              content: ` Le solde spécial de ${adminTargetUser.tag} a été défini à **${newBalance}** ${config.currency.emoji}`,
               ephemeral: true
             });
             break;
@@ -635,11 +635,11 @@ async function handleSlashCommand(interaction) {
           case 'voir': {
             const balance = getSpecialBalance(adminTargetUser.id);
             const embed = new EmbedBuilder()
-              .setTitle(`?? Solde Sp�cial de ${adminTargetUser.username}`)
+              .setTitle(` Solde Spécial de ${adminTargetUser.username}`)
               .setDescription(`**${balance}** ${config.currency.emoji}`)
               .setColor(0x9b59b6)
               .setThumbnail(adminTargetUser.displayAvatarURL())
-              .setFooter({ text: `Demand� par ${interaction.user.username}`, iconURL: interaction.user.displayAvatarURL() })
+              .setFooter({ text: `Demandé par ${interaction.user.username}`, iconURL: interaction.user.displayAvatarURL() })
               .setTimestamp();
               
             await interaction.reply({ embeds: [embed], ephemeral: true });
@@ -649,7 +649,7 @@ async function handleSlashCommand(interaction) {
       } catch (error) {
         console.error('Erreur lors de la gestion de la commande admin-solde-special:', error);
         await interaction.reply({
-          content: '? Une erreur est survenue lors du traitement de la commande.',
+          content: ' Une erreur est survenue lors du traitement de la commande.',
           ephemeral: true
         });
       }
@@ -669,7 +669,7 @@ async function handleSlashCommand(interaction) {
     case 'reset-daily':
       if (interaction.user.id !== '314458846754111499') {
         return interaction.reply({
-          content: '? Cette commande est r�serv�e � l\'administrateur.',
+          content: ' Cette commande est réservée à l\'administrateur.',
           flags: 'Ephemeral'
         });
       }
@@ -678,7 +678,7 @@ async function handleSlashCommand(interaction) {
       updateUser(targetUserId, { last_daily_claim: 0 });
       
       await interaction.reply({
-        content: `? Date de derni�re r�cup�ration r�initialis�e pour <@${targetUserId}>`,
+        content: ` La date de dernière réclamation a été réinitialisée pour <@${targetUserId}>`,
         flags: 'Ephemeral'
       });
       break;
@@ -691,13 +691,13 @@ async function handleSlashCommand(interaction) {
       const today = new Date(now);
       today.setHours(0, 0, 0, 0);
       
-      // V�rifier si le timestamp est valide (entre 2000 et 2100)
+      // Vérifier si le timestamp est valide (entre 2000 et 2100)
       const lastClaimDate = new Date(lastClaim * 1000);
       const currentYear = now.getFullYear();
       
       if (lastClaimDate.getFullYear() < 2000 || lastClaimDate.getFullYear() > 2100) {
-        // Timestamp invalide, on le r�initialise
-        console.log('Timestamp invalide d�tect�, r�initialisation...');
+        // Timestamp invalide, on le réinitialise
+        console.log('Timestamp invalide détecté, réinitialisation...');
         lastClaim = 0;
       }
       
@@ -705,9 +705,9 @@ async function handleSlashCommand(interaction) {
       const todayTimestamp = today.getTime();
       
       if (lastClaim > 0 && lastClaimTimestamp >= todayTimestamp) {
-        // Log pour d�bogage
-        console.log('Derni�re r�cup�ration aujourd\'hui, calcul du temps restant...');
-        // Calculer le temps jusqu'� minuit prochain
+        // Log pour débogage
+        console.log('Dernière réclamation aujourd\'hui, calcul du temps restant...');
+        // Calculer le temps jusqu\'à minuit prochain
         const nextMidnight = new Date(today);
         nextMidnight.setDate(nextMidnight.getDate() + 1);
         const timeLeftMs = nextMidnight - now;
@@ -722,7 +722,7 @@ async function handleSlashCommand(interaction) {
         timeLeftText += `${minutes} minute${minutes !== 1 ? 's' : ''}`;
         
         await interaction.reply({ 
-          content: `? Tu as d�j� r�cup�r� ta r�compense aujourd'hui ! La prochaine r�compense sera disponible � minuit dans ${timeLeftText}.`,
+          content: ` Tu as déjà réclamé ta récompense aujourd'hui ! La prochaine récompense sera disponible à minuit dans ${timeLeftText}.`,
           ephemeral: true
         });
         return;
@@ -736,7 +736,7 @@ async function handleSlashCommand(interaction) {
       });
       
       await interaction.reply({
-        content: `?? Tu as re�u ta r�compense journali�re de **${config.currency.dailyReward}** ${config.currency.emoji} !\nNouveau solde: **${newBalance}** ${config.currency.emoji}`
+        content: ` Tu as reçu ta récompense journalière de **${config.currency.dailyReward}** ${config.currency.emoji} !\nNouveau solde: **${newBalance}** ${config.currency.emoji}`
       });
       break;
       
@@ -757,7 +757,7 @@ async function handleSlashCommand(interaction) {
       });
       
       const missionEmbed = new EmbedBuilder()
-        .setTitle('🎯 Missions Journalières')
+        .setTitle(' Missions Journalières')
         .setDescription(missionText || 'Aucune mission disponible')
         .setColor(0xffaa00);
       
@@ -776,8 +776,8 @@ async function handleSlashCommand(interaction) {
       });
       
       const leaderboardEmbed = new EmbedBuilder()
-        .setTitle(`?? Classement ${type.toUpperCase()}`)
-        .setDescription(leaderboardText || 'Aucun utilisateur trouv�')
+        .setTitle(` Classement ${type.toUpperCase()}`)
+        .setDescription(leaderboardText || 'Aucun utilisateur trouvé')
         .setColor(0xffd700);
       
       await interaction.reply({ embeds: [leaderboardEmbed] });
@@ -817,18 +817,18 @@ async function handleSlashCommand(interaction) {
 
     case 'set-balance':
       if (interaction.user.id !== '314458846754111499') {
-        return interaction.reply({ content: '? Cette commande est r�serv�e � l\'administrateur.', ephemeral: true });
+        return interaction.reply({ content: ' Cette commande est réservée à l\'administrateur.', ephemeral: true });
       }
       
       const targetUser = interaction.options.getUser('utilisateur');
       const amount = interaction.options.getInteger('montant');
       
-      // V�rifier que l'utilisateur existe dans la base de donn�es et mettre � jour le solde
+      // Vérifier que l'utilisateur existe dans la base de données et mettre à jour le solde
       ensureUser(targetUser.id);
       updateUser(targetUser.id, { balance: amount });
       
       await interaction.reply({
-        content: `? Le solde de ${targetUser.tag} a �t� d�fini � **${amount}** ${config.currency.emoji}`,
+        content: ` Le solde de ${targetUser.tag} a été défini à **${amount}** ${config.currency.emoji}`,
         ephemeral: true
       });
       break;
@@ -873,7 +873,7 @@ async function handleResetDailyBdg(interaction) {
     // Vérifier les permissions d'administration
     if (!isAdmin(interaction.user.id)) {
       return interaction.reply({
-        content: '? Vous n\'avez pas la permission d\'utiliser cette commande.',
+        content: ' Vous n\'avez pas la permission d\'utiliser cette commande.',
         ephemeral: true
       });
     }
@@ -881,18 +881,18 @@ async function handleResetDailyBdg(interaction) {
     const targetUser = interaction.options.getUser('utilisateur');
     if (!targetUser) {
       return interaction.reply({
-        content: '? Utilisateur non trouv�.',
+        content: ' Utilisateur non trouvé.',
         ephemeral: true
       });
     }
     
-    // R�initialiser la derni�re r�clamation BDG
+    // Réinitialiser la dernière réclamation BDG
     updateUser(targetUser.id, {
       last_bdg_claim: 0
     });
     
     await interaction.reply({
-      content: `? La r�compense BDG quotidienne de <@${targetUser.id}> a �t� r�initialis�e.`,
+      content: ` La récompense BDG quotidienne de <@${targetUser.id}> a été réinitialisée.`,
       ephemeral: true
     });
     
@@ -900,14 +900,14 @@ async function handleResetDailyBdg(interaction) {
     console.error('Erreur dans handleResetDailyBdg:', error);
     if (!interaction.replied) {
       await interaction.reply({
-        content: '? Une erreur est survenue lors de la r�initialisation de la r�compense BDG.',
+        content: '❌ Une erreur est survenue lors de la réinitialisation de la récompense BDG.',
         ephemeral: true
       });
     }
   }
 }
 
-// Fonction pour g�rer la r�compense quotidienne BDG
+// Fonction pour gérer la récompense quotidienne BDG
 async function handleDailyBdg(interaction) {
   try {
     const userId = interaction.user.id;
@@ -915,7 +915,24 @@ async function handleDailyBdg(interaction) {
     const currentTime = Math.floor(Date.now() / 1000);
     const oneDayInSeconds = 24 * 60 * 60;
     
-    // V�rifier si l'utilisateur a d�j� r�clam� sa r�compense aujourd'hui
+    // Vérifier si l'utilisateur a un rôle BDG
+    const bdgRoleNames = [
+      config.shop.bdgBaby.role,
+      config.shop.bdgPetit.role,
+      config.shop.bdgGros.role,
+      config.shop.bdgUltime.role
+    ];
+    
+    const hasBdgRole = member.roles.cache.some(role => bdgRoleNames.includes(role.name));
+    
+    if (!hasBdgRole) {
+      return interaction.reply({
+        content: `❌ Tu dois avoir un rôle BDG (${bdgRoleNames.join(', ')}) pour utiliser cette commande.`,
+        ephemeral: true
+      });
+    }
+    
+    // Vérifier si l'utilisateur a déjà réclamé sa récompense aujourd'hui
     const user = ensureUser(userId);
     const lastClaim = user.last_bdg_claim || 0;
     
@@ -926,18 +943,51 @@ async function handleDailyBdg(interaction) {
       const minutes = Math.floor((timeLeft % 3600) / 60);
       
       return interaction.reply({
-        content: `? Tu as d�j� r�clam� ta r�compense BDG aujourd'hui. Tu pourras � nouveau r�clamer dans ${hours}h${minutes}m.`,
+        content: `❌ Tu as déjà réclamé ta récompense BDG aujourd'hui. Tu pourras à nouveau réclamer dans ${hours}h${minutes}m.`,
         ephemeral: true
       });
     }
 
-    await interaction.reply({ embeds: [embed] });
+    // Définir le montant de la récompense en fonction du rôle BDG
+    let rewardAmount = 0;
+    if (member.roles.cache.some(role => role.name === config.shop.bdgBaby.role)) {
+      rewardAmount = config.shop.bdgBaby.dailyReward;
+    } else if (member.roles.cache.some(role => role.name === config.shop.bdgPetit.role)) {
+      rewardAmount = config.shop.bdgPetit.dailyReward;
+    } else if (member.roles.cache.some(role => role.name === config.shop.bdgGros.role)) {
+      rewardAmount = config.shop.bdgGros.dailyReward;
+    } else if (member.roles.cache.some(role => role.name === config.shop.bdgUltime.role)) {
+      rewardAmount = config.shop.bdgUltime.dailyReward;
+    }
+
+    // Mettre à jour le solde de l'utilisateur
+    const newBalance = (user.balance || 0) + rewardAmount;
+    updateUser(userId, { 
+      balance: newBalance,
+      last_bdg_claim: currentTime 
+    });
+
+    // Créer l'embed de confirmation
+    const embed = new EmbedBuilder()
+      .setTitle('🎉 Récompense BDG quotidienne')
+      .setDescription(`Tu as reçu ta récompense BDG quotidienne de **${rewardAmount}** ${config.currency.emoji} !`)
+      .addFields(
+        { name: 'Nouveau solde', value: `${newBalance} ${config.currency.emoji}`, inline: true },
+        { name: 'Prochaine récompense', value: `<t:${currentTime + oneDayInSeconds}:R>`, inline: true }
+      )
+      .setColor(0x00ff00)
+      .setFooter({ text: 'Reviens demain pour une nouvelle récompense !' });
+
+    await interaction.reply({ 
+      embeds: [embed],
+      ephemeral: false
+    });
     
   } catch (error) {
     console.error('Erreur dans handleDailyBdg:', error);
     if (!interaction.replied) {
       await interaction.reply({
-        content: '? Une erreur est survenue lors du traitement de ta demande.',
+        content: '❌ Une erreur est survenue lors du traitement de ta demande. Réessaye plus tard ou contacte un administrateur.',
         ephemeral: true
       });
     }
@@ -953,7 +1003,7 @@ async function handleGive(interaction) {
     // V�rifications de base
     if (!targetUser || !amount) {
       await interaction.reply({ 
-        content: '? Param�tres invalides. Utilisation: `/give @utilisateur montant`', 
+        content: '❌ Paramètres invalides. Utilisation: `/give @utilisateur montant`', 
         ephemeral: true 
       });
       return;
@@ -961,7 +1011,7 @@ async function handleGive(interaction) {
 
     if (targetUser.bot) {
       await interaction.reply({ 
-        content: '? Tu ne peux pas donner de coquillages � un bot !', 
+        content: '❌ Tu ne peux pas donner de coquillages à un bot !', 
         ephemeral: true 
       });
       return;
@@ -969,7 +1019,7 @@ async function handleGive(interaction) {
 
     if (targetUser.id === giverId) {
       await interaction.reply({ 
-        content: '? Tu ne peux pas te donner des coquillages � toi-m�me !', 
+        content: '❌ Tu ne peux pas te donner des coquillages à toi-même !', 
         ephemeral: true 
       });
       return;
@@ -977,7 +1027,7 @@ async function handleGive(interaction) {
 
     if (amount <= 0) {
       await interaction.reply({ 
-        content: '? Le montant doit �tre sup�rieur � 0 !', 
+        content: '❌ Le montant doit être supérieur à 0 !', 
         ephemeral: true 
       });
       return;
@@ -1241,14 +1291,14 @@ async function handleGiveAdmin(interaction) {
 
     if (targetUser.bot) {
       return interaction.reply({ 
-        content: '? Tu ne peux pas donner de coquillages � un bot !', 
+        content: '❌ Tu ne peux pas donner de coquillages à un bot !', 
         ephemeral: true 
       });
     }
 
     if (amount <= 0) {
       return interaction.reply({ 
-        content: '? Le montant doit �tre sup�rieur � 0 !', 
+        content: '❌ Le montant doit être supérieur à 0 !', 
         ephemeral: true 
       });
     }
@@ -1451,7 +1501,7 @@ async function handleLoutreGiveaway(interaction) {
   // V�rifier les permissions admin pour toutes les sous-commandes
   if (!isAdmin(interaction.user.id)) {
     return interaction.reply({ 
-      content: '? Vous n\'avez pas la permission d\'utiliser cette commande.', 
+      content: '🔒 Vous n\'avez pas la permission d\'utiliser cette commande.', 
       ephemeral: true 
     });
   }
@@ -1483,7 +1533,7 @@ async function handleLoutreGiveaway(interaction) {
   // V�rifier les permissions admin pour les autres sous-commandes
   if (!isAdmin(interaction.user.id)) {
     return interaction.reply({ 
-      content: '? Vous n\'avez pas la permission d\'utiliser cette commande.', 
+      content: '🔒 Vous n\'avez pas la permission d\'utiliser cette commande.', 
       ephemeral: true 
     });
   }
