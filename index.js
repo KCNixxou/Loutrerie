@@ -41,6 +41,19 @@ const {
 } = require('./crash');
 const { handleButtonInteraction, handleSelectMenuInteraction } = require('./handlers');
 
+// Initialisation du serveur web pour uptime
+const app = express();
+const PORT = process.env.PORT || 8080;
+
+// Route de base pour v�rifier que le serveur est en ligne
+app.get('/', (req, res) => {
+  res.send('?? Bot Loutrerie en ligne !');
+});
+
+app.listen(PORT, () => {
+  console.log(`Serveur web d�marr� sur le port ${PORT}`);
+});
+
 // Client Discord
 const client = new Client({
   intents: [
@@ -758,97 +771,7 @@ async function handleSlashCommand(interaction) {
       break;
       
     case 'dailybdg':
-      const bdgUserId = interaction.user.id;
-      const bdgUser = ensureUser(bdgUserId);
-      const bdgNow = new Date();
-      let lastBdgClaim = bdgUser.last_bdg_claim || 0;
-      const bdgToday = new Date(bdgNow);
-      bdgToday.setHours(0, 0, 0, 0);
-      
-      // V�rifier si l'utilisateur a un r�le BDG
-      const member = await interaction.guild.members.fetch(bdgUserId);
-      const bdgRoles = [
-        config.shop.bdgBaby.role,
-        config.shop.bdgPetit.role,
-        config.shop.bdgGros.role,
-        config.shop.bdgUltime.role
-      ];
-      
-      const hasBdgRole = member.roles.cache.some(role => bdgRoles.includes(role.name));
-      
-      if (!hasBdgRole) {
-        await interaction.reply({
-          content: '? Vous devez avoir un r�le BDG (B�b� BDG, Petit BDG, Gros BDG ou BDG Ultime) pour utiliser cette commande !',
-          ephemeral: true
-        });
-        return;
-      }
-      
-      // V�rifier si le timestamp est valide (entre 2000 et 2100)
-      const lastBdgClaimDate = new Date(lastBdgClaim * 1000);
-      
-      if (lastBdgClaimDate.getFullYear() < 2000 || lastBdgClaimDate.getFullYear() > 2100) {
-        // Timestamp invalide, on le r�initialise
-        console.log('Timestamp BDG invalide d�tect�, r�initialisation...');
-        lastBdgClaim = 0;
-      }
-      
-      const lastBdgClaimTimestamp = lastBdgClaim * 1000;
-      const bdgTodayTimestamp = bdgToday.getTime();
-      
-      if (lastBdgClaim > 0 && lastBdgClaimTimestamp >= bdgTodayTimestamp) {
-        // Calculer le temps jusqu'� minuit prochain
-        const nextDay = new Date(bdgToday);
-        nextDay.setDate(nextDay.getDate() + 1);
-        const timeUntilReset = nextDay - bdgNow;
-        const hours = Math.floor(timeUntilReset / (1000 * 60 * 60));
-        const minutes = Math.floor((timeUntilReset % (1000 * 60 * 60)) / (1000 * 60));
-        
-        await interaction.reply({
-          content: `? Tu as d�j� r�cup�r� ta r�compense BDG aujourd'hui ! Reviens dans ${hours}h${minutes}m.`,
-          ephemeral: true
-        });
-        return;
-      }
-      
-      // D�terminer le montant de la r�compense en fonction du r�le le plus �lev�
-      let reward = 0;
-      let roleName = '';
-      
-      if (member.roles.cache.some(r => r.name === config.shop.bdgUltime.role)) {
-        reward = config.shop.bdgUltime.dailyReward;
-        roleName = config.shop.bdgUltime.role;
-      } else if (member.roles.cache.some(r => r.name === config.shop.bdgGros.role)) {
-        reward = config.shop.bdgGros.dailyReward;
-        roleName = config.shop.bdgGros.role;
-      } else if (member.roles.cache.some(r => r.name === config.shop.bdgPetit.role)) {
-        reward = config.shop.bdgPetit.dailyReward;
-        roleName = config.shop.bdgPetit.role;
-      } else if (member.roles.cache.some(r => r.name === config.shop.bdgBaby.role)) {
-        reward = config.shop.bdgBaby.dailyReward;
-        roleName = config.shop.bdgBaby.role;
-      }
-      
-      // Mettre � jour le solde de l'utilisateur
-      const newBdgBalance = (bdgUser.balance || 0) + reward;
-      
-      updateUser(bdgUserId, {
-        balance: newBdgBalance,
-        last_bdg_claim: Math.floor(bdgNow.getTime() / 1000)
-      });
-      
-      // Envoyer la r�ponse
-      const bdgEmbed = new EmbedBuilder()
-        .setTitle('?? R�compense BDG journali�re')
-        .setDescription(`F�licitations ! En tant que **${roleName}**, tu as re�u ta r�compense quotidienne de **${reward.toLocaleString()}** ${config.currency.emoji} !`)
-        .addFields(
-          { name: 'Nouveau solde', value: `${newBdgBalance.toLocaleString()} ${config.currency.emoji}`, inline: true },
-          { name: 'Prochaine r�compense', value: 'Demain � minuit', inline: true }
-        )
-        .setColor(0x00ff00)
-        .setTimestamp();
-      
-      await interaction.reply({ embeds: [bdgEmbed] });
+      await handleDailyBdg(interaction);
       break;
 
     case 'missions':
@@ -856,14 +779,14 @@ async function handleSlashCommand(interaction) {
       let missionText = '';
       
       missions.forEach(mission => {
-        const status = mission.completed ? '?' : `${mission.progress}/${mission.goal}`;
-        const emoji = mission.completed ? '?' : '??';
+        const status = mission.completed ? '✅' : `${mission.progress || 0}/${mission.goal}`;
+        const emoji = mission.completed ? '✅' : '❌';
         missionText += `${emoji} **${mission.description}**\n`;
-        missionText += `   Progression: ${status} ? R�compense: ${mission.reward} ${config.currency.emoji}\n\n`;
+        missionText += `   Progression: ${status} • Récompense: ${mission.reward} ${config.currency.emoji}\n\n`;
       });
       
       const missionEmbed = new EmbedBuilder()
-        .setTitle('?? Missions Journali�res')
+        .setTitle('🎯 Missions Journalières')
         .setDescription(missionText || 'Aucune mission disponible')
         .setColor(0xffaa00);
       
@@ -947,38 +870,149 @@ async function handleSlashCommand(interaction) {
       const { handleMinesCommand } = require('./games/mines');
       await handleMinesCommand(interaction);
       break;
+      
+    case 'bdg':
+      await handleDailyBdg(interaction);
+      break;
+    
+    // D�terminer le montant de la r�compense en fonction du r�le le plus �lev�
+    let reward = 0;
+    let roleName = '';
+    
+    if (member.roles.cache.some(r => r.name === config.shop.bdgUltime.role)) {
+      reward = config.shop.bdgUltime.dailyReward;
+      roleName = config.shop.bdgUltime.role;
+    } else if (member.roles.cache.some(r => r.name === config.shop.bdgGros.role)) {
+      reward = config.shop.bdgGros.dailyReward;
+      roleName = config.shop.bdgGros.role;
+    } else if (member.roles.cache.some(r => r.name === config.shop.bdgPetit.role)) {
+      reward = config.shop.bdgPetit.dailyReward;
+      roleName = config.shop.bdgPetit.role;
+    } else if (member.roles.cache.some(r => r.name === config.shop.bdgBaby.role)) {
+      reward = config.shop.bdgBaby.dailyReward;
+      roleName = config.shop.bdgBaby.role;
+    }
+    
+    // Mettre � jour le solde de l'utilisateur
+    const newBdgBalance = (bdgUser.balance || 0) + reward;
+    
+    updateUser(bdgUserId, {
+      balance: newBdgBalance,
+      last_bdg_claim: Math.floor(bdgNow.getTime() / 1000)
+    });
+    
+    // Envoyer la r�ponse
+    const bdgEmbed = new EmbedBuilder()
+      .setTitle('?? R�compense BDG journali�re')
+      .setDescription(`F�licitations ! En tant que **${roleName}**, tu as re�u ta r�compense quotidienne de **${reward.toLocaleString()}** ${config.currency.emoji} !`)
+      .addFields(
+        { name: 'Nouveau solde', value: `${newBdgBalance.toLocaleString()} ${config.currency.emoji}`, inline: true },
+        { name: 'Prochaine r�compense', value: 'Demain � minuit', inline: true }
+      )
+      .setColor(0x00ff00)
+      .setTimestamp();
+    
+    await interaction.reply({ embeds: [bdgEmbed] });
+    break;
+
+
+  case 'classement':
+    const classementType = interaction.options.getString('type');
+    const classementOrderBy = classementType === 'xp' ? 'xp DESC' : 'balance DESC';
+    const topRankedUsers = db.prepare(`SELECT * FROM users ORDER BY ${classementOrderBy} LIMIT 10`).all();
+    
+    let rankingText = '';
+    topRankedUsers.forEach((user, index) => {
+      const value = classementType === 'xp' ? `${user.xp} XP` : `${user.balance} ${config.currency.emoji}`;
+      rankingText += `**${index + 1}.** <@${user.user_id}> - ${value}\n`;
+    });
+    
+    const rankingEmbed = new EmbedBuilder()
+      .setTitle(`?? Classement ${classementType.toUpperCase()}`)
+      .setDescription(rankingText || 'Aucun utilisateur trouvé')
+      .setColor(0xffd700);
+    
+    await interaction.reply({ embeds: [rankingEmbed] });
+    break;
+
+  case 'blackjack':
+    await handleBlackjackStart(interaction);
+    break;
+
+  case 'roulette':
+    await handleRouletteStart(interaction);
+    break;
+
+  case 'slots':
+    await handleSlots(interaction);
+    break;
+
+  case 'pileface':
+    await handleCoinflipSolo(interaction);
+    break;
+
+  case 'pileface-multi':
+    await handleCoinflipMulti(interaction);
+    break;
+
+  case 'shop':
+    await handleShop(interaction);
+    break;
+
+  case 'acheter':
+    await handlePurchase(interaction);
+    break;
+
+  case 'givea':
+    await handleGiveAdmin(interaction);
+    break;
+
+  case 'set-balance':
+    if (interaction.user.id !== '314458846754111499') {
+      return interaction.reply({ content: '? Cette commande est réservée à l\'administrateur.', ephemeral: true });
+    }
+    
+    const balanceTarget = interaction.options.getUser('utilisateur');
+    const balanceAmount = interaction.options.getInteger('montant');
+    
+    // Vérifier que l'utilisateur existe dans la base de données et mettre à jour le solde
+    ensureUser(balanceTarget.id);
+    updateUser(balanceTarget.id, { balance: balanceAmount });
+    
+    await interaction.reply({
+      content: `? Le solde de ${balanceTarget.tag} a été défini à **${balanceAmount}** ${config.currency.emoji}`,
+      ephemeral: true
+    });
+    break;
+    
+  case 'give':
+    await handleGive(interaction);
+    break;
+    
+  default:
+    console.log(`[COMMANDE] Commande inconnue: ${interaction.commandName}`);
+    await interaction.reply({ content: 'Commande inconnue', ephemeral: true });
+    break;
   }
 } catch (error) {
-  console.error('Erreur dans la commande slash:', error);
+  console.error(`Erreur lors de l'exécution de la commande ${interaction.commandName}:`, error);
   if (!interaction.replied && !interaction.deferred) {
     await interaction.reply({ 
-      content: '? Une erreur est survenue lors du traitement de la commande.', 
+      content: 'Une erreur est survenue lors de l\'exécution de cette commande.', 
       ephemeral: true 
-    }).catch(console.error);
-  } else {
-    await interaction.followUp({ 
-      content: '? Une erreur est survenue lors du traitement de la commande.', 
-      ephemeral: true 
-    }).catch(console.error);
+    });
+  } else if (interaction.deferred) {
+    await interaction.editReply({
+      content: 'Une erreur est survenue lors de l\'exécution de cette commande.',
+      ephemeral: true
+    });
   }
 }
 
-// Serveur web pour uptime
-const app = express();
-const PORT = process.env.PORT || 8080;
-
-app.get('/', (req, res) => {
-  res.send('?? Bot Loutrerie en ligne !');
-});
-
-app.listen(PORT, () => {
-  console.log(`?? Serveur web d�marr� sur le port ${PORT}`);
-});
-
-// Fonction pour r�initialiser la r�compense BDG d'un utilisateur
+// Fonction pour réinitialiser la récompense BDG d'un utilisateur
 async function handleResetDailyBdg(interaction) {
   try {
-    // V�rifier les permissions d'administration
+    // Vérifier les permissions d'administration
     if (!isAdmin(interaction.user.id)) {
       return interaction.reply({
         content: '? Vous n\'avez pas la permission d\'utiliser cette commande.',
@@ -1745,9 +1779,10 @@ client.on('messageReactionAdd', async (reaction, user) => {
     await reaction.message.reactions.removeAll();
 
     // Supprimer le giveaway (sera nettoy� par la fonction endGiveaway)
+    removeGiveaway(currentGiveaway.channelId);
     
   } catch (error) {
-    console.error('Erreur dans la gestion des r�actions:', error);
+    console.error('Erreur dans la gestion des réactions:', error);
   }
 });
 
@@ -1808,13 +1843,5 @@ async function restoreActiveGiveaways() {
   }
 }
 
-// D�marrer le serveur web pour uptime
-app.listen(PORT, () => {
-  console.log(`Serveur web d�marr� sur le port ${PORT}`);
-});
-
 // Connexion du bot
 client.login(process.env.DISCORD_TOKEN);
-}
-
-
