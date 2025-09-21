@@ -269,11 +269,10 @@ async function handleMinesButtonInteraction(interaction) {
       
       // Récupérer le solde actuel de l'utilisateur
       const user = ensureUser(interaction.user.id);
-      // Calculer le gain total (mise initiale + gains)
-      const totalWin = winAmount + gameState.bet;
-      console.log(`Cashout: Remboursement de ${gameState.bet} + gains de ${winAmount} = ${totalWin}`);
-      // Mettre à jour le solde
-      updateUser(interaction.user.id, { balance: user.balance + totalWin });
+      // Les gains sont déjà calculés dans winAmount (qui inclut la mise initiale)
+      console.log(`Cashout: Gains de ${winAmount} (déjà inclus la mise initiale)`);
+      // Mettre à jour le solde (ne pas ajouter la mise deux fois)
+      updateUser(interaction.user.id, { balance: user.balance + winAmount });
       
       console.log('Mise à jour de l\'interface avec le cashout');
       
