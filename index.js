@@ -1,4 +1,4 @@
-require('dotenv').config();
+﻿require('dotenv').config();
 const { Client, GatewayIntentBits, Partials, REST, Routes, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const express = require('express');
 const { isMaintenanceMode, isAdmin, maintenanceMiddleware, setMaintenance } = require('./maintenance');
@@ -874,70 +874,11 @@ async function handleSlashCommand(interaction) {
     case 'bdg':
       await handleDailyBdg(interaction);
       break;
-    
-    // D�terminer le montant de la r�compense en fonction du r�le le plus �lev�
-    let reward = 0;
-    let roleName = '';
-    
-    if (member.roles.cache.some(r => r.name === config.shop.bdgUltime.role)) {
-      reward = config.shop.bdgUltime.dailyReward;
-      roleName = config.shop.bdgUltime.role;
-    } else if (member.roles.cache.some(r => r.name === config.shop.bdgGros.role)) {
-      reward = config.shop.bdgGros.dailyReward;
-      roleName = config.shop.bdgGros.role;
-    } else if (member.roles.cache.some(r => r.name === config.shop.bdgPetit.role)) {
-      reward = config.shop.bdgPetit.dailyReward;
-      roleName = config.shop.bdgPetit.role;
-    } else if (member.roles.cache.some(r => r.name === config.shop.bdgBaby.role)) {
-      reward = config.shop.bdgBaby.dailyReward;
-      roleName = config.shop.bdgBaby.role;
-    }
-    
-    // Mettre � jour le solde de l'utilisateur
-    const newBdgBalance = (bdgUser.balance || 0) + reward;
-    
-    updateUser(bdgUserId, {
-      balance: newBdgBalance,
-      last_bdg_claim: Math.floor(bdgNow.getTime() / 1000)
-    });
-    
-    // Envoyer la r�ponse
-    const bdgEmbed = new EmbedBuilder()
-      .setTitle('?? R�compense BDG journali�re')
-      .setDescription(`F�licitations ! En tant que **${roleName}**, tu as re�u ta r�compense quotidienne de **${reward.toLocaleString()}** ${config.currency.emoji} !`)
-      .addFields(
-        { name: 'Nouveau solde', value: `${newBdgBalance.toLocaleString()} ${config.currency.emoji}`, inline: true },
-        { name: 'Prochaine r�compense', value: 'Demain � minuit', inline: true }
-      )
-      .setColor(0x00ff00)
-      .setTimestamp();
-    
-    await interaction.reply({ embeds: [bdgEmbed] });
-    break;
 
-
-  case 'classement':
-    const classementType = interaction.options.getString('type');
-    const classementOrderBy = classementType === 'xp' ? 'xp DESC' : 'balance DESC';
-    const topRankedUsers = db.prepare(`SELECT * FROM users ORDER BY ${classementOrderBy} LIMIT 10`).all();
-    
-    let rankingText = '';
-    topRankedUsers.forEach((user, index) => {
-      const value = classementType === 'xp' ? `${user.xp} XP` : `${user.balance} ${config.currency.emoji}`;
-      rankingText += `**${index + 1}.** <@${user.user_id}> - ${value}\n`;
-    });
-    
-    const rankingEmbed = new EmbedBuilder()
-      .setTitle(`?? Classement ${classementType.toUpperCase()}`)
-      .setDescription(rankingText || 'Aucun utilisateur trouvé')
-      .setColor(0xffd700);
-    
-    await interaction.reply({ embeds: [rankingEmbed] });
-    break;
-
-  case 'blackjack':
-    await handleBlackjackStart(interaction);
-    break;
+    default:
+      console.log(`[COMMANDE] Commande inconnue: ${interaction.commandName}`);
+      await interaction.reply({ content: 'Commande inconnue', ephemeral: true });
+      break;
 
   case 'roulette':
     await handleRouletteStart(interaction);
@@ -1843,5 +1784,17 @@ async function restoreActiveGiveaways() {
   }
 }
 
+// Restaurer les giveaways actifs au démarrage
+restoreActiveGiveaways();
+
+// Gestion des erreurs non capturées
+process.on('unhandledRejection', error => {
+  console.error('Erreur non gérée dans une promesse:', error);
+});
+
+process.on('uncaughtException', error => {
+  console.error('Erreur non capturée:', error);
+});
+
 // Connexion du bot
-client.login(process.env.DISCORD_TOKEN);
+client.login(process.env.DISCORD_TOKEN); }
