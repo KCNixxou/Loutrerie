@@ -1,4 +1,4 @@
-﻿require('dotenv').config();
+require('dotenv').config();
 const { Client, GatewayIntentBits, Partials, REST, Routes, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const express = require('express');
 const { isMaintenanceMode, isAdmin, maintenanceMiddleware, setMaintenance } = require('./maintenance');
@@ -60,106 +60,16 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMessageReactions
+    GatewayIntentBits.GuildMessageReactions,
+    GatewayIntentBits.GuildMembers
   ],
   partials: [Partials.Channel, Partials.Message, Partials.Reaction]
 });
 
 // �v�nement ready
-client.once('ready', async () => {
-  console.log(`? ${client.user.tag} est connect� !`);
-  
-  // Afficher les commandes charg�es
-  console.log('Commandes disponibles:', client.commands?.map(cmd => cmd.name).join(', ') || 'Aucune commande charg�e');
-  console.log('Commandes � enregistrer depuis commands.js:', commands.map(cmd => cmd.name).join(', '));
-  
-  // V�rifier la commande /profil
-  const profilCmd = commands.find(cmd => cmd.name === 'profil');
-  console.log('Commande /profil trouv�e:', profilCmd ? 'Oui' : 'Non');
-  
-  // Enregistrer les commandes
-  const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
-  
-  try {
-    console.log('?? Enregistrement des commandes...');
-    console.log('Commandes � enregistrer:', commands.map(cmd => cmd.name).join(', '));
-    
-    // Enregistrement global des commandes
-    const result = await rest.put(
-      Routes.applicationCommands(client.user.id),
-      { body: commands }
-    );
-    console.log('Commandes enregistr�es avec succ�s:', result.map(cmd => cmd.name).join(', '));
-    
-    // Enregistrement pour chaque serveur (en cas de mise en cache)
-    for (const guild of client.guilds.cache.values()) {
-      try {
-        await rest.put(
-          Routes.applicationGuildCommands(client.user.id, guild.id),
-          { body: commands }
-        );
-      } catch (error) {
-        console.error(`Erreur lors de l'enregistrement des commandes pour le serveur ${guild.name}:`, error);
-      }
-    }
-    
-    console.log('? Commandes enregistr�es !');
-  } catch (error) {
-    console.error('? Erreur lors de l\'enregistrement des commandes:', error);
-  }
-  
-  // D�marrer le reset des missions, des limites quotidiennes et des r�compenses BDG � minuit
-  scheduleMidnightReset(async () => {
-    console.log('?? Reset des missions, limites quotidiennes et r�compenses BDG � minuit');
-    const { generateDailyMissions } = require('./database');
-    const missions = generateDailyMissions();
-    const users = db.prepare('SELECT user_id FROM users').all();
-    const currentTime = Math.floor(Date.now() / 1000);
-    
-    // R�cup�rer tous les membres du serveur pour �viter les appels r�p�t�s
-    const guild = client.guilds.cache.first();
-    if (guild) {
-      await guild.members.fetch(); // S'assurer que tous les membres sont en cache
-    }
-    
-    for (const user of users) {
-      // R�initialiser les missions quotidiennes et les r�compenses BDG
-      updateUser(user.user_id, {
-        daily_missions: JSON.stringify(missions),
-        daily_messages: 0,
-        last_mission_reset: currentTime,
-        // R�initialiser le compteur de dons quotidiens
-        daily_given: 0,
-        last_give_reset: currentTime,
-        // R�initialiser la r�compense BDG quotidienne
-        last_bdg_claim: 0
-      });
-      
-      // V�rifier si l'utilisateur a un r�le BDG et lui envoyer un message
-      const member = client.guilds.cache.first()?.members.cache.get(user.user_id);
-      if (member) {
-        const bdgRoles = [
-          config.shop.bdgBaby.role,
-          config.shop.bdgPetit.role,
-          config.shop.bdgGros.role,
-          config.shop.bdgUltime.role
-        ];
-        
-        const memberRoles = member.roles.cache.map(role => role.name);
-        const hasBdgRole = bdgRoles.some(role => memberRoles.includes(role));
-        
-        if (hasBdgRole) {
-          try {
-            await member.send({
-              content: '?? **Nouvelle r�compense BDG disponible !**\nUtilise la commande `/dailybdg` pour r�clamer ta r�compense quotidienne ! ??'
-            });
-          } catch (error) {
-            console.error(`Impossible d'envoyer un message � ${member.user.tag}:`, error);
-          }
-        }
-      }
-    }
-  });
+client.once('ready', () => {
+  console.log(` Le bot ${client.user.tag} est bien connect� � Discord !`);
+  // Toutes les autres initialisations sont temporairement d�sactiv�es pour le test.
 });
 
 // Gain d'XP sur les messages
