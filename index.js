@@ -941,8 +941,6 @@ async function handleDailyBdg(interaction) {
       });
     }
   }
-    }
-  }
 }
 
 async function handleGive(interaction) {
@@ -1662,3 +1660,4 @@ process.on('uncaughtException', error => {
 
 // Connexion du bot
 client.login(process.env.DISCORD_TOKEN);
+}
