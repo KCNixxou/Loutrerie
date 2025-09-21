@@ -26,6 +26,7 @@ const MULTIPLIERS = {
 function createGameGrid(minesCount) {
   const grid = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill('gem'));
   let minesPlaced = 0;
+  
   while (minesPlaced < minesCount) {
     const x = Math.floor(Math.random() * GRID_SIZE);
     const y = Math.floor(Math.random() * GRID_SIZE);
@@ -34,18 +35,21 @@ function createGameGrid(minesCount) {
       minesPlaced++;
     }
   }
+  
   return grid;
 }
 
 // Créer les composants de la grille (boutons)
 function createGridComponents(gameState, showAll = false) {
   const rows = [];
+  
+  // Créer 5 rangées de 5 boutons
   for (let i = 0; i < GRID_SIZE; i++) {
     const row = new ActionRowBuilder();
     for (let j = 0; j < GRID_SIZE; j++) {
       const cellValue = gameState.grid[i][j];
       const isRevealed = gameState.revealed[i][j] === 'revealed';
-
+      
       let emoji = HIDDEN_EMOJI;
       let style = ButtonStyle.Secondary;
 
@@ -69,8 +73,8 @@ function createGridComponents(gameState, showAll = false) {
     }
     rows.push(row);
   }
-
-  // Bouton pour prendre les gains
+  
+  // Ajouter la rangée d'actions (bouton de retrait)
   const actionRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('mines_cashout')
@@ -101,28 +105,28 @@ function createGameEmbed(gameState, interaction) {
       text: `Joueur: ${interaction.user.username}`, 
       iconURL: interaction.user.displayAvatarURL() 
     });
-
+    
   if (gameState.gameOver) {
     if (gameState.won) {
       embed.setTitle('🎉 Gains récupérés !')
-        .setDescription(`Vous avez empoché **${gameState.winAmount}** ${config.currency.emoji} !`)
-        .setFields([])
-        .setColor(CASH_OUT_EMBED_COLOR);
+           .setDescription(`Vous avez empoché **${gameState.winAmount}** ${config.currency.emoji} !`)
+           .setFields([])
+           .setColor(CASH_OUT_EMBED_COLOR);
     } else {
       embed.setTitle('💥 BOOM !')
-        .setDescription(`Vous avez cliqué sur une mine ! Votre mise de **${gameState.bet}** ${config.currency.emoji} est perdue.`)
-        .setFields([])
-        .setColor(GAME_OVER_EMBED_COLOR);
+           .setDescription(`Vous avez cliqué sur une mine ! Votre mise de **${gameState.bet}** ${config.currency.emoji} est perdue.`)
+           .setFields([])
+           .setColor(GAME_OVER_EMBED_COLOR);
     }
   }
-
+  
   return embed;
 }
 
 // Gérer la révélation d'une case
 function revealCell(gameState, x, y) {
   if (gameState.revealed[x][y] !== 'hidden') return;
-
+  
   gameState.revealed[x][y] = 'revealed';
 
   if (gameState.grid[x][y] === 'mine') {
@@ -130,7 +134,7 @@ function revealCell(gameState, x, y) {
     gameState.won = false;
     return;
   }
-
+  
   gameState.revealedCount++;
 }
 
@@ -138,7 +142,6 @@ function revealCell(gameState, x, y) {
 function calculateCurrentWin(gameState) {
   if (gameState.revealedCount === 0) return 0;
   const baseMultiplier = MULTIPLIERS[gameState.minesCount] || 1.25;
-  // Formule de gain exponentielle pour rendre la prise de risque plus gratifiante
   const revealedMultiplier = Math.pow(1.15, gameState.revealedCount);
   return Math.floor(gameState.bet * baseMultiplier * revealedMultiplier);
 }
@@ -176,15 +179,14 @@ async function handleMinesCommand(interaction) {
       revealed: Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill('hidden')),
       revealedCount: 0,
       gameOver: false,
-      won: false,
+      won: false
     };
 
     activeMinesGames.set(interaction.user.id, gameState);
 
     await interaction.reply({
       embeds: [createGameEmbed(gameState, interaction)],
-      components: createGridComponents(gameState),
-      fetchReply: true
+      components: createGridComponents(gameState)
     });
 
   } catch (error) {
@@ -198,7 +200,7 @@ async function handleMinesCommand(interaction) {
 // Gérer l'interaction des boutons du jeu
 async function handleMinesButtonInteraction(interaction) {
   const gameState = activeMinesGames.get(interaction.user.id);
-
+  
   if (!gameState) {
     await interaction.update({ content: 'Partie introuvable ou terminée.', components: [] });
     return;
@@ -209,68 +211,53 @@ async function handleMinesButtonInteraction(interaction) {
   }
 
   const [_, action, x, y] = interaction.customId.split('_');
-
+  
   if (action === 'cashout') {
     const winAmount = calculateCurrentWin(gameState);
     gameState.gameOver = true;
     gameState.won = true;
     gameState.winAmount = winAmount;
-
+    
     if (winAmount > 0) {
       const user = ensureUser(interaction.user.id);
       // On rend la mise de départ + les gains
       updateUser(interaction.user.id, { balance: user.balance + winAmount + gameState.bet }); 
     }
-
+    
     await interaction.update({
       embeds: [createGameEmbed(gameState, interaction)],
       components: createGridComponents(gameState, true) // Affiche la grille complète
     });
-
+    
     activeMinesGames.delete(interaction.user.id);
     return;
   }
-
+  
   const posX = parseInt(x);
   const posY = parseInt(y);
-
+  
   if (gameState.revealed[posX][posY] !== 'hidden') {
     return interaction.deferUpdate();
   }
 
   revealCell(gameState, posX, posY);
-
+  
   if (gameState.gameOver) {
     // Le joueur a perdu, la mise est déjà déduite, on ne fait rien au solde
     await interaction.update({
       embeds: [createGameEmbed(gameState, interaction)],
       components: createGridComponents(gameState, true) // Affiche la grille complète
     });
+    
     activeMinesGames.delete(interaction.user.id);
-
-  } else if (gameState.revealedCount === (GRID_SIZE * GRID_SIZE - gameState.minesCount)) {
-    // Victoire parfaite, toutes les gemmes trouvées
-    const winAmount = calculateCurrentWin(gameState);
-    gameState.gameOver = true;
-    gameState.won = true;
-    gameState.winAmount = winAmount;
-
-    const user = ensureUser(interaction.user.id);
-    updateUser(interaction.user.id, { balance: user.balance + winAmount + gameState.bet });
-
-    await interaction.update({
-      embeds: [createGameEmbed(gameState, interaction)],
-      components: createGridComponents(gameState, true)
-    });
-    activeMinesGames.delete(interaction.user.id);
-
-  } else {
-    // La partie continue
-    await interaction.update({
-      embeds: [createGameEmbed(gameState, interaction)],
-      components: createGridComponents(gameState)
-    });
+    return;
   }
+
+  // Mettre à jour le message avec la nouvelle grille
+  await interaction.update({
+    embeds: [createGameEmbed(gameState, interaction)],
+    components: createGridComponents(gameState)
+  });
 }
 
 module.exports = {
