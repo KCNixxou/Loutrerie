@@ -437,12 +437,35 @@ function getCurrentPot() {
 
 function getLotteryParticipants() {
   try {
-    const participants = db.prepare('SELECT * FROM lottery_participants WHERE amount_contributed > 0').all();
+    const participants = db.prepare('SELECT user_id, amount_contributed FROM lottery_participants').all();
     console.log(`[Lottery] Found ${participants.length} participants`);
     return participants;
   } catch (error) {
     console.error('Error in getLotteryParticipants:', error);
     return [];
+  }
+}
+
+// Ajouter des fonds au pot commun
+function addToPot(amount, userId = 'system') {
+  if (amount <= 0) return 0;
+  
+  try {
+    // Ajouter au pot
+    db.prepare('UPDATE lottery_pot SET current_amount = current_amount + ? WHERE id = 1').run(amount);
+    
+    // Enregistrer la contribution si c'est un utilisateur spécifique
+    if (userId !== 'system') {
+      db.prepare('INSERT INTO lottery_participants (user_id, amount_contributed) VALUES (?, ?)')
+        .run(userId, amount);
+    }
+    
+    const newAmount = db.prepare('SELECT current_amount FROM lottery_pot WHERE id = 1').get().current_amount;
+    console.log(`[Pot Commun] Ajout de ${amount} par ${userId}. Nouveau total: ${newAmount}`);
+    return newAmount;
+  } catch (error) {
+    console.error('Erreur lors de l\'ajout au pot commun:', error);
+    return 0;
   }
 }
 

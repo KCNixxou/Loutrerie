@@ -107,7 +107,7 @@ function createGameEmbed(gameState, interaction) {
     .setDescription(`Cliquez sur les cases pour trouver des gemmes !\nChaque gemme augmente vos gains, mais attention aux mines...`)
     .setColor(0x0099FF)
     .addFields(
-      { name: 'Mise', value: `${gameState.bet} ${config.currency.emoji}`, inline: true },
+      { name: 'Mise', value: `${gameState.originalBet || gameState.bet} ${config.currency.emoji}`, inline: true },
       { name: 'Mines', value: `${gameState.minesCount}`, inline: true },
       { name: 'Gemmes trouvées', value: `${gameState.revealedCount}`, inline: true },
       { name: 'Gains potentiels', value: `**${winAmount}** ${config.currency.emoji}` }
@@ -124,8 +124,9 @@ function createGameEmbed(gameState, interaction) {
            .setFields([])
            .setColor(CASH_OUT_EMBED_COLOR);
     } else {
+      const originalBet = gameState.originalBet || gameState.bet;
       embed.setTitle('💥 BOOM !')
-           .setDescription(`Vous avez cliqué sur une mine ! Votre mise de **${gameState.bet}** ${config.currency.emoji} est perdue.`)
+           .setDescription(`Vous avez cliqué sur une mine ! Votre mise de **${originalBet}** ${config.currency.emoji} est perdue.`)
            .setFields([])
            .setColor(GAME_OVER_EMBED_COLOR);
     }
@@ -190,12 +191,22 @@ async function handleMinesCommand(interaction) {
   }
 
   try {
+    // Calculer la contribution au pot (1% de la mise, minimum 1)
+    const potContribution = Math.max(1, Math.floor(bet * 0.01));
+    const userBet = bet - potContribution;
+    
+    // Mettre à jour le solde de l'utilisateur (soustraire la mise complète)
     updateUser(interaction.user.id, { balance: user.balance - bet });
+    
+    // Ajouter la contribution au pot commun
+    const { addToPot } = require('../database');
+    addToPot(potContribution, interaction.user.id);
 
-    // Créer un nouvel état de jeu
+    // Créer un nouvel état de jeu avec la mise réelle (après prélèvement)
     const gameState = {
       userId: interaction.user.id,
-      bet,
+      bet: userBet,  // Utiliser la mise après prélèvement du pot commun
+      originalBet: bet,  // Conserver la mise originale pour l'affichage
       minesCount,
       grid: createGameGrid(minesCount),
       revealed: Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill('hidden')),
