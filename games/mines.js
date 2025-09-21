@@ -128,17 +128,28 @@ function createGameEmbed(gameState, interaction) {
 
 // Gérer la révélation d'une case
 function revealCell(gameState, x, y) {
-  if (gameState.revealed[x][y] !== 'hidden') return;
+  console.log('Révélation de la case:', {x, y, currentState: gameState.revealed[x][y]});
   
+  if (gameState.revealed[x][y] !== 'hidden') {
+    console.log('Case déjà révélée ou invalide');
+    return;
+  }
+  
+  // Marquer la case comme révélée
   gameState.revealed[x][y] = 'revealed';
+  console.log('Nouvel état de la case:', gameState.revealed[x][y]);
 
+  // Vérifier si c'est une mine
   if (gameState.grid[x][y] === 'mine') {
+    console.log('Mine trouvée! Fin de la partie.');
     gameState.gameOver = true;
     gameState.won = false;
     return;
   }
   
+  // Incrémenter le compteur de cases révélées
   gameState.revealedCount++;
+  console.log('Nombre de cases révélées:', gameState.revealedCount);
 }
 
 // Calculer les gains actuels
@@ -202,23 +213,42 @@ async function handleMinesCommand(interaction) {
 
 // Gérer l'interaction des boutons du jeu
 async function handleMinesButtonInteraction(interaction) {
+  // Répondre immédiatement à l'interaction pour éviter l'erreur "interaction failed"
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferUpdate().catch(console.error);
+  }
+
   try {
     console.log('Bouton cliqué:', interaction.customId);
+    console.log('Parties actives:', Array.from(activeMinesGames.keys()));
+    
     const gameState = activeMinesGames.get(interaction.user.id);
     
     if (!gameState) {
       console.log('Partie non trouvée pour l\'utilisateur:', interaction.user.id);
-      await interaction.update({ content: 'Partie introuvable ou terminée.', components: [] });
+      console.log('Contenu de activeMinesGames:', activeMinesGames);
+      
+      if (interaction.deferred) {
+        await interaction.editReply({ content: 'Partie introuvable ou terminée. Utilisez la commande /mines pour commencer une nouvelle partie.', components: [] });
+      } else {
+        await interaction.update({ content: 'Partie introuvable ou terminée. Utilisez la commande /mines pour commencer une nouvelle partie.', components: [] });
+      }
       return;
     }
 
     if (gameState.userId !== interaction.user.id) {
       console.log('Tentative d\'accès à une partie qui ne vous appartient pas');
-      return interaction.reply({ content: 'Ce n\'est pas votre partie !', ephemeral: true });
+      if (interaction.deferred) {
+        return interaction.editReply({ content: 'Ce n\'est pas votre partie !', ephemeral: true });
+      } else {
+        return interaction.reply({ content: 'Ce n\'est pas votre partie !', ephemeral: true });
+      }
     }
 
-    const [_, action, x, y] = interaction.customId.split('_');
-    console.log('Action:', action, 'Coordonnées:', x, y);
+    const parts = interaction.customId.split('_');
+    const action = parts[1];
+    
+    console.log('Action:', action, 'Custom ID:', interaction.customId);
     
     if (action === 'cashout') {
       console.log('Cashout demandé');
@@ -242,11 +272,22 @@ async function handleMinesButtonInteraction(interaction) {
       return;
     }
     
-    const posX = parseInt(x);
-    const posY = parseInt(y);
-    
+    // Si ce n'est pas un cashout, c'est un clic sur une case
+    const posX = parseInt(parts[2]);
+    const posY = parseInt(parts[3]);
+  
+    // Vérifier que les coordonnées sont valides
+    if (isNaN(posX) || isNaN(posY) || posX < 0 || posX >= GRID_SIZE || posY < 0 || posY >= GRID_SIZE) {
+      console.error('Coordonnées invalides:', {posX, posY});
+      if (interaction.deferred) {
+        return interaction.editReply({ content: 'Coordonnées de case invalides.', ephemeral: true });
+      } else {
+        return interaction.reply({ content: 'Coordonnées de case invalides.', ephemeral: true });
+      }
+    }
+  
     console.log('Case cliquée:', {posX, posY, state: gameState.revealed[posX][posY]});
-    
+  
     if (gameState.revealed[posX][posY] !== 'hidden') {
       console.log('Case déjà révélée, mise à jour différée');
       await interaction.deferUpdate();
