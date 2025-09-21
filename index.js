@@ -929,61 +929,7 @@ async function handleDailyBdg(interaction) {
         ephemeral: true
       });
     }
-    
-    // V�rifier si l'utilisateur a un r�le BDG
-    const bdgRoles = [
-      config.shop.bdgBaby.role,
-      config.shop.bdgPetit.role,
-      config.shop.bdgGros.role,
-      config.shop.bdgUltime.role
-    ];
-    
-    const memberRoles = member.roles.cache.map(role => role.name);
-    const hasBdgRole = bdgRoles.some(role => memberRoles.includes(role));
-    
-    if (!hasBdgRole) {
-      return interaction.reply({
-        content: '? Tu dois avoir un r�le BDG pour r�clamer cette r�compense !',
-        ephemeral: true
-      });
-    }
-    
-    // D�terminer la r�compense en fonction du r�le BDG
-    let reward = 0;
-    let roleName = '';
-    
-    if (memberRoles.includes(config.shop.bdgUltime.role)) {
-      reward = config.shop.bdgUltime.dailyReward;
-      roleName = config.shop.bdgUltime.name;
-    } else if (memberRoles.includes(config.shop.bdgGros.role)) {
-      reward = config.shop.bdgGros.dailyReward;
-      roleName = config.shop.bdgGros.name;
-    } else if (memberRoles.includes(config.shop.bdgPetit.role)) {
-      reward = config.shop.bdgPetit.dailyReward;
-      roleName = config.shop.bdgPetit.name;
-    } else if (memberRoles.includes(config.shop.bdgBaby.role)) {
-      reward = config.shop.bdgBaby.dailyReward;
-      roleName = config.shop.bdgBaby.name;
-    }
-    
-    // Mettre � jour le solde de l'utilisateur
-    const newBalance = (user.balance || 0) + reward;
-    updateUser(userId, {
-      balance: newBalance,
-      last_bdg_claim: currentTime
-    });
-    
-    // Envoyer un message de confirmation
-    const embed = new EmbedBuilder()
-      .setTitle('?? R�compense BDG quotidienne')
-      .setDescription(`Tu as re�u ta r�compense quotidienne en tant que **${roleName}** !`)
-      .addFields(
-        { name: 'R�compense', value: `+${reward} ${config.currency.emoji}`, inline: true },
-        { name: 'Nouveau solde', value: `${newBalance} ${config.currency.emoji}`, inline: true }
-      )
-      .setColor(0x00ff00)
-      .setFooter({ text: 'Reviens demain pour une nouvelle r�compense !' });
-    
+
     await interaction.reply({ embeds: [embed] });
     
   } catch (error) {
@@ -993,6 +939,8 @@ async function handleDailyBdg(interaction) {
         content: '? Une erreur est survenue lors du traitement de ta demande.',
         ephemeral: true
       });
+    }
+  }
     }
   }
 }
