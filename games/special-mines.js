@@ -164,7 +164,7 @@ function calculateCurrentWin(gameState) {
 // Commande pour démarrer une nouvelle partie
 async function handleSpecialMinesCommand(interaction) {
   const bet = interaction.options.getInteger('mise');
-  const minesCount = interaction.options.getInteger('mines') || 5; // Par défaut 5 mines
+  const minesCount = 3; // Nombre fixe de 3 mines, comme dans le jeu classique
   const userId = interaction.user.id;
   
   // Vérifier si l'utilisateur a déjà une partie en cours
