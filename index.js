@@ -865,6 +865,7 @@ async function handleSlashCommand(interaction) {
     });
   }
 }
+}
 
 // Fonction pour réinitialiser la récompense BDG d'un utilisateur
 async function handleResetDailyBdg(interaction) {
@@ -1660,4 +1661,3 @@ process.on('uncaughtException', error => {
 
 // Connexion du bot
 client.login(process.env.DISCORD_TOKEN);
-}
