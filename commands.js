@@ -289,10 +289,10 @@ const commands = [
         .setMaxValue(10000)) // Limite de 10 000 coquillages
     .setDMPermission(false),
 
-  // Jeu des mines spécial avec solde spécial
+  // Jeu des mines spécial avec solde spécial (3 mines fixes)
   new SlashCommandBuilder()
     .setName('special-mines')
-    .setDescription('[SPÉCIAL] Jouer au jeu des mines avec le solde spécial')
+    .setDescription('[SPÉCIAL] Jouer au jeu des mines avec le solde spécial (3 mines)')
     .setDefaultMemberPermissions('0')
     .setDMPermission(false)
     .addIntegerOption(option =>
@@ -300,13 +300,7 @@ const commands = [
         .setDescription('Montant à miser en coquillages spéciaux')
         .setRequired(true)
         .setMinValue(10)
-        .setMaxValue(50000)) // Limite de 50 000 coquillages spéciaux
-    .addIntegerOption(option =>
-      option.setName('mines')
-        .setDescription('Nombre de mines (5 par défaut, max 10)')
-        .setRequired(false)
-        .setMinValue(3)
-        .setMaxValue(10)),
+        .setMaxValue(50000)), // Limite de 50 000 coquillages spéciaux
 
   new SlashCommandBuilder()
     .setName('reset-dailybdg')

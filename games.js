@@ -1225,6 +1225,7 @@ async function handleTicTacToeMove(interaction) {
   }
   
   try {
+    const isGameOver = winner || isDraw;
     const content = isGameOver 
       ? (winner 
           ? `🎉 **${winner === 'X' ? player1.username : player2.username}** a gagné la partie !` 
@@ -1234,15 +1235,41 @@ async function handleTicTacToeMove(interaction) {
     console.log('[MORPION] Mise à jour du message avec contenu:', content);
     console.log('[MORPION] Nombre de rangées de boutons:', rows.length);
     
-    await interaction.update({ 
-      embeds: [embed],
-      components: rows,
-      content: content
-    });
+    // Vérifier si l'interaction a déjà été répondue
+    if (interaction.deferred || interaction.replied) {
+      await interaction.editReply({ 
+        embeds: [embed],
+        components: rows,
+        content: content
+      });
+    } else {
+      await interaction.update({ 
+        embeds: [embed],
+        components: rows,
+        content: content
+      });
+    }
     
     console.log('[MORPION] Message mis à jour avec succès');
   } catch (error) {
     console.error('Erreur lors de la mise à jour du message:', error);
+    
+    // Essayer d'envoyer un message d'erreur à l'utilisateur
+    try {
+      if (interaction.deferred || interaction.replied) {
+        await interaction.followUp({ 
+          content: '❌ Une erreur est survenue lors de la mise à jour du jeu. Veuillez réessayer.', 
+          ephemeral: true 
+        });
+      } else {
+        await interaction.reply({ 
+          content: '❌ Une erreur est survenue lors de la mise à jour du jeu. Veuillez réessayer.', 
+          ephemeral: true 
+        });
+      }
+    } catch (e) {
+      console.error('Impossible d\'envoyer le message d\'erreur:', e);
+    }
   }
 }
 
