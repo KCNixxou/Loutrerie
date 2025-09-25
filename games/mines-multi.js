@@ -223,64 +223,135 @@ async function handleMinesMultiInteraction(interaction) {
     
     // Si c'est une action de clic (déjà analysée)
     if (action === 'click') {
+      console.log(`=== DÉBUT DU TRAITEMENT DU CLIC ===`);
+      console.log(`Clic sur la case (${x}, ${y}) par l'utilisateur ${interaction.user.id}`);
+      console.log(`Joueur actuel: ${gameState.currentPlayer}, Statut de la partie: ${gameState.status}`);
+      console.log(`Type d'interaction: ${interaction.type}`);
+      console.log(`Message ID: ${interaction.message?.id}`);
+      console.log(`Composants du message:`, interaction.message?.components?.length || 'inconnu');
+      
       // Différer la mise à jour immédiatement pour éviter les erreurs de délai
       try {
+        console.log('Tentative de différé de l\'interaction...');
         await interaction.deferUpdate();
+        console.log('Interaction différée avec succès');
       } catch (error) {
         console.error('Erreur lors du différé de l\'interaction:', error);
+        console.error('Détails de l\'erreur:', error.stack);
         return;
       }
       
       // Vérifier que les coordonnées sont valides
+      console.log(`Vérification des coordonnées: x=${x}, y=${y}, GRID_SIZE=${GRID_SIZE}`);
       if (isNaN(x) || isNaN(y) || x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) {
         console.log(`Coordonnées invalides: x=${x}, y=${y}`);
+        try {
+          await interaction.followUp({
+            content: `❌ Coordonnées invalides (${x}, ${y}). Veuillez réessayer.`,
+            ephemeral: true
+          });
+        } catch (e) {
+          console.error('Erreur lors de l\'envoi du message d\'erreur:', e);
+        }
         return;
       }
       
       console.log(`Traitement du clic sur la case (${x}, ${y})`);
       
       // Vérifier si la case a déjà été révélée
+      console.log(`Vérification de l'état de la case (${x}, ${y}):`);
+      console.log(`- Révélée: ${gameState.revealed[x][y].revealed}`);
+      console.log(`- Marquée par: ${gameState.revealed[x][y].markedBy || 'personne'}`);
+      
       if (gameState.revealed[x][y].revealed || gameState.revealed[x][y].markedBy) {
         console.log('Case déjà révélée ou marquée');
+        try {
+          await interaction.followUp({
+            content: '❌ Cette case a déjà été jouée !',
+            ephemeral: true
+          });
+        } catch (e) {
+          console.error('Erreur lors de l\'envoi du message d\'erreur:', e);
+        }
         return;
       }
       
       // Vérifier que c'est bien le tour du joueur
+      console.log(`Vérification du tour: utilisateur=${interaction.user.id}, joueur actuel=${gameState.currentPlayer}`);
       if (interaction.user.id !== gameState.currentPlayer) {
         console.log(`Ce n'est pas le tour de ce joueur (tour de ${gameState.currentPlayer})`);
+        try {
+          await interaction.followUp({
+            content: `❌ Ce n'est pas votre tour ! C'est au tour de <@${gameState.currentPlayer}>.`,
+            ephemeral: true
+          });
+        } catch (e) {
+          console.error('Erreur lors de l\'envoi du message d\'erreur:', e);
+        }
         return;
       }
       
       // Marquer la case comme révélée par le joueur actuel
+      console.log(`Marquage de la case (${x}, ${y}) comme révélée par ${interaction.user.id}`);
       gameState.revealed[x][y].markedBy = interaction.user.id;
       
       // Révéler la case
+      console.log('Appel de revealCell...');
       const isSafe = revealCell(gameState, x, y, interaction.user.id);
+      console.log(`revealCell retourné: ${isSafe}, Statut de la partie: ${gameState.status}`);
       
       // Si la partie n'est pas terminée, changer de joueur
       if (gameState.status !== 'finished') {
+        const previousPlayer = gameState.currentPlayer;
         gameState.currentPlayer = gameState.currentPlayer === gameState.player1.id ? 
           gameState.player2.id : gameState.player1.id;
+        console.log(`Changement de joueur: ${previousPlayer} -> ${gameState.currentPlayer}`);
+      } else {
+        console.log(`La partie est terminée, pas de changement de joueur`);
       }
       
       // Mettre à jour l'interface
-      await updateGameInterface(interaction, gameState);
+      console.log('Mise à jour de l\'interface...');
+      try {
+        await updateGameInterface(interaction, gameState);
+        console.log('Interface mise à jour avec succès');
+      } catch (error) {
+        console.error('Erreur lors de la mise à jour de l\'interface:', error);
+        console.error('Détails de l\'erreur:', error.stack);
+        throw error; // Propager l'erreur pour qu'elle soit capturée par le try/catch externe
+      }
       
       // Si un joueur a gagné, mettre à jour les soldes
       if (gameState.status === 'finished' && gameState.winner) {
+        console.log(`Fin de partie détectée, vainqueur: ${gameState.winner}`);
         const winner = gameState.winner === gameState.player1.id ? gameState.player1 : gameState.player2;
         
-        // Mettre à jour les soldes dans la base de données
-        await updateUserBalance(winner.id, gameState.bet * 2); // Le gagnant récupère la mise totale
-        
-        // Envoyer un message de fin de partie
         try {
+          // Mettre à jour les soldes dans la base de données
+          console.log(`Mise à jour du solde du gagnant (${winner.id})...`);
+          await updateUserBalance(winner.id, gameState.bet * 2); // Le gagnant récupère la mise totale
+          console.log('Solde mis à jour avec succès');
+          
+          // Envoyer un message de fin de partie
+          console.log('Envoi du message de félicitations...');
           await interaction.followUp({
             content: `🎉 Félicitations <@${winner.id}> ! Vous avez gagné ${gameState.bet * 2} ${config.currency.emoji} !`,
             ephemeral: false
           });
+          console.log('Message de félicitations envoyé');
         } catch (error) {
-          console.error('Erreur lors de l\'envoi du message de félicitations:', error);
+          console.error('Erreur lors de la finalisation de la partie:', error);
+          console.error('Détails de l\'erreur:', error.stack);
+          
+          // Essayer d'envoyer un message d'erreur
+          try {
+            await interaction.followUp({
+              content: '❌ Une erreur est survenue lors de la finalisation de la partie. Veuillez contacter un administrateur.',
+              ephemeral: true
+            });
+          } catch (e) {
+            console.error('Impossible d\'envoyer le message d\'erreur:', e);
+          }
         }
       }
       
@@ -294,12 +365,42 @@ async function handleMinesMultiInteraction(interaction) {
     }
     
   } catch (error) {
-    console.error('Erreur dans handleMinesMultiInteraction:', error);
+    console.error('=== ERREUR DANS handleMinesMultiInteraction ===');
+    console.error('Type d\'erreur:', error.name);
+    console.error('Message d\'erreur:', error.message);
+    console.error('Stack trace:', error.stack);
+    console.error('Détails de l\'interaction:', {
+      id: interaction.id,
+      type: interaction.type,
+      customId: interaction.customId,
+      user: interaction.user?.id,
+      messageId: interaction.message?.id,
+      channelId: interaction.channel?.id
+    });
+    
     try {
-      await interaction.reply({
-        content: '❌ Une erreur est survenue lors du traitement de votre action.',
-        ephemeral: true
-      }).catch(console.error);
+      // Essayer de répondre à l'interaction si elle n'a pas encore été répondue
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+          content: '❌ Une erreur est survenue lors du traitement de votre action. (Erreur 1)',
+          ephemeral: true
+        });
+      } 
+      // Si l'interaction a été différée mais pas encore répondue
+      else if (interaction.deferred && !interaction.replied) {
+        await interaction.editReply({
+          content: '❌ Une erreur est survenue lors du traitement de votre action. (Erreur 2)',
+          embeds: [],
+          components: []
+        });
+      }
+      // Si l'interaction a déjà reçu une réponse
+      else {
+        await interaction.followUp({
+          content: '❌ Une erreur est survenue lors du traitement de votre action. (Erreur 3)',
+          ephemeral: true
+        }).catch(console.error);
+      }
     } catch (e) {
       console.error('Impossible d\'envoyer le message d\'erreur:', e);
     }
@@ -695,8 +796,11 @@ function createGameEmbed(gameState) {
 
 // Gérer la révélation d'une case
 function revealCell(gameState, x, y, userId) {
+  console.log(`Révélation de la case (${x}, ${y}) par l'utilisateur ${userId}`);
+  
   // Vérifier si la case est déjà révélée
   if (gameState.revealed[x][y].revealed) {
+    console.log(`La case (${x}, ${y}) est déjà révélée`);
     return true; // La case est déjà révélée, on ne fait rien
   }
 
@@ -706,9 +810,11 @@ function revealCell(gameState, x, y, userId) {
   
   // Vérifier si c'est une mine
   if (gameState.grid[x][y] === 'mine') {
+    console.log(`La case (${x}, ${y}) est une mine !`);
     // Le joueur a trouvé une mine, il a perdu
     gameState.status = 'finished';
     gameState.winner = userId === gameState.player1.id ? gameState.player2.id : gameState.player1.id;
+    console.log(`La partie est terminée, le gagnant est: ${gameState.winner}`);
     
     // Révéler toutes les mines pour la fin de partie
     for (let i = 0; i < GRID_SIZE; i++) {
@@ -725,10 +831,14 @@ function revealCell(gameState, x, y, userId) {
   
   // Si c'est une case sûre, incrémenter le compteur
   gameState.revealedCount++;
+  console.log(`Case sûre révélée. Total révélé: ${gameState.revealedCount}`);
   
   // Vérifier si le joueur a gagné (toutes les cases non-mines ont été révélées)
   const totalSafeCells = GRID_SIZE * GRID_SIZE - gameState.minesCount;
+  console.log(`Cases sûres totales: ${totalSafeCells}, révélées: ${gameState.revealedCount}`);
+  
   if (gameState.revealedCount >= totalSafeCells) {
+    console.log(`Toutes les cases sûres ont été révélées ! Le joueur ${userId} a gagné !`);
     gameState.status = 'finished';
     gameState.winner = userId; // Le joueur actuel gagne
     return true;
@@ -855,6 +965,7 @@ async function updateGameInterface(interaction, gameState) {
 
 // Créer les composants de la grille (boutons)
 function createGridComponents(gameState, interaction = null) {
+  console.log(`Création des composants de la grille. Interaction utilisateur: ${interaction?.user?.id || 'aucune'}`);
   const components = [];
   
   for (let x = 0; x < GRID_SIZE; x++) {
@@ -869,20 +980,25 @@ function createGridComponents(gameState, interaction = null) {
       if (cell.revealed) {
         emoji = isMine ? MINE_EMOJI : GEM_EMOJI;
         style = isMine ? ButtonStyle.Danger : ButtonStyle.Success;
+        console.log(`Case (${x}, ${y}): Révélée (${isMine ? 'Mine' : 'Sûre'})`);
       } else if (cell.markedBy) {
         emoji = cell.markedBy === gameState.player1.id ? PLAYER1_EMOJI : PLAYER2_EMOJI;
         style = ButtonStyle.Primary;
+        console.log(`Case (${x}, ${y}): Marquée par ${cell.markedBy}`);
+      } else {
+        console.log(`Case (${x}, ${y}): Cachée`);
       }
       
       // Désactiver le bouton si :
       // 1. La partie est terminée
       // 2. La case est déjà révélée
       // 3. Ce n'est pas au tour du joueur actuel
+      const isCurrentPlayer = interaction && gameState.currentPlayer === interaction.user.id;
       const shouldDisable = gameState.status === 'finished' || 
                           cell.revealed ||
-                          (gameState.status === 'playing' && 
-                           interaction && 
-                           gameState.currentPlayer !== interaction.user.id);
+                          (gameState.status === 'playing' && !isCurrentPlayer);
+      
+      console.log(`Case (${x}, ${y}): Statut=${gameState.status}, Révélée=${cell.revealed}, TourJoueur=${isCurrentPlayer}, Désactivée=${shouldDisable}`);
       
       row.addComponents(
         new ButtonBuilder()
