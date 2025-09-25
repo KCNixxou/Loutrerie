@@ -27,7 +27,7 @@ async function handleMinesMultiCommand(interaction) {
         .setCustomId(`mines_multi_join_${gameState.id}`)
         .setLabel('Rejoindre la partie')
         .setEmoji('🎮')
-        .setStyle(ButtonStyle.primary)
+        .setStyle(ButtonStyle.Primary)
     )
   ];
   const embed = createGameEmbed(gameState);
