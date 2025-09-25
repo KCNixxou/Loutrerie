@@ -193,19 +193,34 @@ function cleanupOldGames(userId) {
   const now = Date.now();
   const timeout = 30 * 60 * 1000; // 30 minutes d'inactivité
   
-  for (const [gameId, game] of activeMultiMinesGames.entries()) {
+  // Créer une copie de la map pour éviter les problèmes d'itération
+  const games = new Map(activeMultiMinesGames);
+  
+  for (const [gameId, game] of games.entries()) {
+    // Ne pas nettoyer la partie si elle est en cours d'utilisation
+    if (game.lastActivity && now - game.lastActivity < 5000) { // 5 secondes de grâce
+      continue;
+    }
+    
     // Supprimer les parties inactives depuis plus de 30 minutes
     if (now - game.lastActivity > timeout) {
+      console.log(`Nettoyage de la partie ${gameId} inutilisée depuis plus de 30 minutes`);
       // Rembourser les joueurs si la partie n'a pas commencé
       if (game.status === 'waiting' && game.player1) {
-        updateUser(game.player1.id, { balance: game.player1.balance + game.bet });
+        const player = ensureUser(game.player1.id);
+        updateUser(game.player1.id, { balance: player.balance + game.bet });
+        console.log(`Remboursement de ${game.bet} à ${game.player1.username} pour la partie ${gameId}`);
       }
       activeMultiMinesGames.delete(gameId);
     }
-    // Supprimer les parties du même utilisateur
-    else if (game.player1?.id === userId || game.player2?.id === userId) {
+    // Supprimer les anciennes parties du même utilisateur
+    else if ((game.player1?.id === userId || game.player2?.id === userId) && 
+             gameId !== activeMultiMinesGames.keys().next().value) {
+      console.log(`Nettoyage de l'ancienne partie ${gameId} de l'utilisateur ${userId}`);
       if (game.status === 'waiting' && game.player1) {
-        updateUser(game.player1.id, { balance: game.player1.balance + game.bet });
+        const player = ensureUser(game.player1.id);
+        updateUser(game.player1.id, { balance: player.balance + game.bet });
+        console.log(`Remboursement de ${game.bet} à ${game.player1.username} pour l'ancienne partie`);
       }
       activeMultiMinesGames.delete(gameId);
     }
