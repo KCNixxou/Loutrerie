@@ -110,6 +110,18 @@ async function handleHighLowAction(interaction) {
   // Mettre à jour le multiplicateur
   if (result === 'win') {
     gameState.multiplier *= 1.5;
+    
+    // Afficher les boutons de décision (continuer ou s'arrêter)
+    const embed = createHighLowEmbed(gameState, interaction.user, false, true);
+    const components = createHighLowComponents(gameId, true);
+    
+    await interaction.update({
+      embeds: [embed],
+      components: [components]
+    });
+    
+    return; // On s'arrête ici pour attendre la décision du joueur
+    
   } else if (result === 'lose') {
     // Fin de la partie
     const winnings = Math.floor(gameState.bet * gameState.multiplier);
@@ -172,10 +184,10 @@ async function handleHighLowDecision(interaction) {
     });
     
     activeHighLowGames.delete(gameId);
-  } else {
-    // Le joueur choisit de continuer
+  } else if (action === 'continue') {
+    // Le joueur choisit de continuer, on affiche les boutons pour le prochain tour
     const embed = createHighLowEmbed(gameState, interaction.user);
-    const components = createHighLowComponents(gameId, true);
+    const components = createHighLowComponents(gameId, false);
     
     await interaction.update({
       embeds: [embed],
@@ -185,26 +197,37 @@ async function handleHighLowDecision(interaction) {
 }
 
 // Fonction pour créer l'embed du jeu High Low
-function createHighLowEmbed(gameState, user, isGameOver = false, isStopped = false) {
+function createHighLowEmbed(gameState, user, isGameOver = false, showDecision = false) {
   const embed = new EmbedBuilder()
     .setTitle('🃏 HIGH LOW')
     .setColor(0x0099FF);
     
   if (isGameOver) {
-    if (isStopped) {
+    if (showDecision) {
+      // Le joueur a choisi de s'arrêter
       embed.setDescription(
         `🎉 **${user.username} a choisi de s'arrêter !**\n` +
         `💰 **Gains :** ${Math.floor(gameState.bet * gameState.multiplier)} ${config.currency.emoji} (x${gameState.multiplier.toFixed(2)})\n` +
         `💳 **Mise initiale :** ${gameState.bet} ${config.currency.emoji}`
       );
     } else {
+      // Le joueur a perdu
       embed.setDescription(
         `💥 **Dommage !**\n` +
         `💰 **Mise perdue :** ${gameState.bet} ${config.currency.emoji}\n` +
         `📉 **Multiplicateur final :** x${gameState.multiplier.toFixed(2)}`
       );
     }
+  } else if (showDecision) {
+    // Le joueur doit décider de continuer ou de s'arrêter
+    embed.setDescription(
+      `**Dernière carte :** ${formatCard(gameState.currentCard)}\n` +
+      `**Multiplicateur actuel :** x${gameState.multiplier.toFixed(2)}\n` +
+      `**Gains potentiels :** ${Math.floor(gameState.bet * gameState.multiplier * 1.5)} ${config.currency.emoji}\n\n` +
+      `Voulez-vous continuer ou vous arrêter et empocher vos gains ?`
+    );
   } else {
+    // Nouveau tour
     embed.setDescription(
       `**Carte actuelle :** ${formatCard(gameState.currentCard)}\n` +
       `**Multiplicateur actuel :** x${gameState.multiplier.toFixed(2)}\n` +
@@ -219,6 +242,7 @@ function createHighLowEmbed(gameState, user, isGameOver = false, isStopped = fal
 // Fonction pour créer les composants du jeu High Low
 function createHighLowComponents(gameId, showDecision = false) {
   if (showDecision) {
+    // Boutons pour décider de continuer ou de s'arrêter
     return new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`highlow_${gameId}_continue`)
@@ -230,14 +254,15 @@ function createHighLowComponents(gameId, showDecision = false) {
         .setStyle(ButtonStyle.Danger)
     );
   } else {
+    // Boutons pour choisir plus haut/plus bas/égal
     return new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`highlow_${gameId}_higher`)
-        .setLabel('Plus haute')
+        .setLabel('Envoie la next')
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId(`highlow_${gameId}_lower`)
-        .setLabel('Plus basse')
+        .setLabel('Petite couille')
         .setStyle(ButtonStyle.Danger),
       new ButtonBuilder()
         .setCustomId(`highlow_${gameId}_equal`)
