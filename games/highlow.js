@@ -127,26 +127,55 @@ async function handleHighLowAction(interaction) {
     const embed = createHighLowEmbed(gameState, interaction.user, false, true);
     const components = createHighLowComponents(gameId, true);
     
-    await interaction.update({
-      embeds: [embed],
-      components: components
-    });
+    try {
+      await interaction.update({
+        embeds: [embed],
+        components: components
+      });
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du message (victoire):', error);
+      // Essayer d'envoyer un message d'erreur
+      try {
+        await interaction.followUp({
+          content: 'Une erreur est survenue lors de la mise à jour du jeu. Veuillez réessayer.',
+          flags: 1 << 6
+        });
+      } catch (e) {
+        console.error('Impossible d\'envoyer le message d\'erreur:', e);
+      }
+      return;
+    }
     
     return; // On s'arrête ici pour attendre la décision du joueur
     
   } else if (result === 'lose') {
     // Fin de la partie
     const winnings = Math.floor(gameState.bet * gameState.multiplier);
-    updateUser(gameState.userId, { balance: ensureUser(gameState.userId).balance + winnings });
+    const user = ensureUser(gameState.userId);
+    updateUser(gameState.userId, { balance: user.balance + winnings });
     
     const embed = createHighLowEmbed(gameState, interaction.user, true);
     
-    await interaction.update({
-      embeds: [embed],
-      components: []
-    });
-    
-    activeHighLowGames.delete(gameId);
+    try {
+      await interaction.update({
+        embeds: [embed],
+        components: []
+      });
+      
+      activeHighLowGames.delete(gameId);
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du message (défaite):', error);
+      // Essayer d'envoyer un message d'erreur
+      try {
+        await interaction.followUp({
+          content: `Vous avez perdu, mais une erreur est survenue. Votre gain de ${winnings} ${config.currency.emoji} a été crédité.`,
+          flags: 1 << 6
+        });
+      } catch (e) {
+        console.error('Impossible d\'envoyer le message d\'erreur:', e);
+      }
+      activeHighLowGames.delete(gameId);
+    }
     return;
   } else {
     // Égalité, on ne change pas le multiplicateur
@@ -182,29 +211,43 @@ async function handleHighLowDecision(interaction) {
     return interaction.deferUpdate();
   }
   
-  if (action === 'stop') {
-    // Le joueur choisit de s'arrêter (bouton 'Petite couille')
-    const winnings = Math.floor(gameState.bet * gameState.multiplier);
-    updateUser(gameState.userId, { balance: ensureUser(gameState.userId).balance + winnings });
-    
-    const embed = createHighLowEmbed(gameState, interaction.user, true, true);
-    
-    await interaction.update({
-      content: `✅ Vous avez choisi de vous arrêter et de gagner ${winnings} ${config.currency.emoji} !`,
-      embeds: [embed],
-      components: []
-    });
-    
-    activeHighLowGames.delete(gameId);
-  } else if (action === 'continue') {
-    // Le joueur choisit de continuer (bouton 'Envoie la next')
-    const embed = createHighLowEmbed(gameState, interaction.user);
-    const components = createHighLowComponents(gameId, false);
-    
-    await interaction.update({
-      embeds: [embed],
-      components: components
-    });
+  try {
+    if (action === 'stop') {
+      // Le joueur choisit de s'arrêter (bouton 'Petite couille')
+      const winnings = Math.floor(gameState.bet * gameState.multiplier);
+      const user = ensureUser(gameState.userId);
+      updateUser(gameState.userId, { balance: user.balance + winnings });
+      
+      const embed = createHighLowEmbed(gameState, interaction.user, true, true);
+      
+      await interaction.update({
+        content: `✅ Vous avez choisi de vous arrêter et de gagner ${winnings} ${config.currency.emoji} !`,
+        embeds: [embed],
+        components: []
+      });
+      
+      activeHighLowGames.delete(gameId);
+    } else if (action === 'continue') {
+      // Le joueur choisit de continuer (bouton 'Envoie la next')
+      const embed = createHighLowEmbed(gameState, interaction.user);
+      const components = createHighLowComponents(gameId, false);
+      
+      await interaction.update({
+        embeds: [embed],
+        components: components
+      });
+    }
+  } catch (error) {
+    console.error('Erreur lors de la gestion de la décision:', error);
+    // Essayer d'envoyer un message d'erreur
+    try {
+      await interaction.followUp({
+        content: 'Une erreur est survenue lors du traitement de votre décision. Veuillez réessayer.',
+        flags: 1 << 6
+      });
+    } catch (e) {
+      console.error('Impossible d\'envoyer le message d\'erreur:', e);
+    }
   }
 }
 
