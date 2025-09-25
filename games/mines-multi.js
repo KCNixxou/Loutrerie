@@ -5,6 +5,15 @@ const { ensureUser, updateUser } = require('../database');
 // Objet pour stocker les parties en cours
 const activeMultiMinesGames = new Map();
 
+// Constantes du jeu
+const GRID_SIZE = 4; // Taille de la grille de jeu (4x4)
+const MINE_EMOJI = '💣';
+const GEM_EMOJI = '💎';
+const HIDDEN_EMOJI = '⬛';
+const PLAYER1_EMOJI = '🔴';
+const PLAYER2_EMOJI = '🔵';
+const WAITING_EMOJI = '⏳';
+
 // Commande pour démarrer une nouvelle partie
 async function handleMinesMultiCommand(interaction) {
   const bet = interaction.options.getInteger('mise');
@@ -179,15 +188,6 @@ module.exports = {
   handleMinesMultiInteraction
 };
 
-// Constantes du jeu
-const GRID_SIZE = 4;
-const MINE_EMOJI = '💣';
-const GEM_EMOJI = '💎';
-const HIDDEN_EMOJI = '⬛';
-const PLAYER1_EMOJI = '🔴';
-const PLAYER2_EMOJI = '🔵';
-const WAITING_EMOJI = '⏳';
-
 // Nettoyer les anciennes parties
 function cleanupOldGames(userId) {
   const now = Date.now();
@@ -249,7 +249,7 @@ async function createGame(interaction, bet) {
   
   const gameState = {
     id: gameId,
-    player1: { id: userId, balance: user.balance },
+    player1: { id: userId, username: interaction.user.username, balance: user.balance },
     player2: null,
     bet: bet,
     grid: grid,
@@ -261,7 +261,9 @@ async function createGame(interaction, bet) {
     lastActivity: Date.now()
   };
   
+  // Stocker la partie avec l'ID comme clé
   activeMultiMinesGames.set(gameId, gameState);
+  console.log(`Nouvelle partie créée avec l'ID: ${gameId}`);
   
   // Nettoyer les anciennes parties
   cleanupOldGames(userId);
@@ -271,9 +273,12 @@ async function createGame(interaction, bet) {
 
 // Rejoindre une partie existante
 async function joinGame(interaction, gameId) {
+  console.log(`Tentative de rejoindre la partie ${gameId} par ${interaction.user.username}`);
+  
   const gameState = activeMultiMinesGames.get(gameId);
   
   if (!gameState) {
+    console.log('Partie non trouvée');
     await interaction.reply({ 
       content: '❌ Cette partie n\'existe plus ou est déjà terminée !', 
       ephemeral: true 
@@ -282,6 +287,7 @@ async function joinGame(interaction, gameId) {
   }
   
   if (gameState.status !== 'waiting') {
+    console.log('Partie déjà commencée ou terminée');
     await interaction.reply({ 
       content: '❌ Cette partie a déjà commencé !', 
       ephemeral: true 
@@ -292,6 +298,7 @@ async function joinGame(interaction, gameId) {
   const userId = interaction.user.id;
   
   if (gameState.player1.id === userId) {
+    console.log('Tentative de rejoindre sa propre partie');
     await interaction.reply({ 
       content: '❌ Vous ne pouvez pas rejoindre votre propre partie !', 
       ephemeral: true 
@@ -302,6 +309,7 @@ async function joinGame(interaction, gameId) {
   const user = ensureUser(userId);
   
   if (gameState.bet > user.balance) {
+    console.log('Solde insuffisant pour rejoindre la partie');
     await interaction.reply({ 
       content: `❌ Vous n'avez pas assez de ${config.currency.emoji} pour rejoindre cette partie !`, 
       ephemeral: true 
@@ -309,19 +317,35 @@ async function joinGame(interaction, gameId) {
     return null;
   }
   
-  // Bloquer la mise du joueur 2
-  updateUser(userId, { balance: user.balance - gameState.bet });
-  
-  // Mettre à jour l'état de la partie avec le solde mis à jour du joueur 2
-  gameState.player2 = { 
-    id: userId, 
-    balance: ensureUser(userId).balance // Récupérer le solde mis à jour
-  };
-  gameState.status = 'playing';
-  gameState.currentPlayer = Math.random() < 0.5 ? gameState.player1.id : gameState.player2.id; // Premier joueur aléatoire
-  gameState.lastActivity = Date.now();
-  
-  return gameState;
+  try {
+    // Bloquer la mise du joueur 2
+    updateUser(userId, { balance: user.balance - gameState.bet });
+    
+    // Mettre à jour l'état de la partie avec le solde mis à jour du joueur 2
+    gameState.player2 = { 
+      id: userId,
+      username: interaction.user.username,
+      balance: ensureUser(userId).balance // Récupérer le solde mis à jour
+    };
+    gameState.status = 'playing';
+    gameState.currentPlayer = Math.random() < 0.5 ? gameState.player1.id : gameState.player2.id; // Premier joueur aléatoire
+    gameState.lastActivity = Date.now();
+    
+    // Mettre à jour la partie dans la Map
+    activeMultiMinesGames.set(gameId, gameState);
+    
+    console.log(`Joueur ${interaction.user.username} a rejoint la partie ${gameId}`);
+    console.log('État de la partie après ajout du joueur 2:', gameState);
+    
+    return gameState;
+  } catch (error) {
+    console.error('Erreur lors de la jonction à la partie:', error);
+    await interaction.reply({ 
+      content: '❌ Une erreur est survenue lors de la jonction à la partie.', 
+      ephemeral: true 
+    });
+    return null;
+  }
 }
 
 // Tableau des multiplicateurs pour chaque case révélée
