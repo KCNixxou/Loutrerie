@@ -8,6 +8,25 @@ const { ensureUser, updateUser, updateMissionProgress, db, getSpecialBalance, up
 const { random, now, getXpMultiplier, scheduleMidnightReset, calculateLevel, getLevelInfo } = require('./utils');
 const commands = require('./commands');
 const { 
+  // Mines
+  handleMinesCommand,
+  handleMinesButtonInteraction,
+  
+  // Mines Multijoueur
+  handleMinesMultiCommand,
+  handleMinesMultiInteraction,
+  
+  // Mines Spéciales
+  handleSpecialMinesCommand,
+  handleSpecialMinesInteraction,
+  
+  // High Low
+  handleHighLow,
+  handleSpecialHighLow,
+  handleHighLowAction,
+  handleHighLowDecision,
+  
+  // Autres jeux
   activeBlackjackGames, 
   activeCoinflipGames,
   activeTicTacToeGames,
@@ -26,15 +45,8 @@ const {
   handleConnectFourMove,
   getTicTacToeLeaderboard,
   handleTicTacToeLeaderboard,
-  resetTicTacToeStats,
-  handleHighLow,
-  handleSpecialHighLow,
-  handleHighLowAction,
-  handleHighLowDecision
+  resetTicTacToeStats
 } = require('./games');
-const { handleMinesCommand, handleMinesButtonInteraction } = require('./games/mines');
-const { handleMinesMultiCommand, handleMinesMultiInteraction } = require('./games/mines-multi');
-const { handleSpecialMinesCommand, handleSpecialMinesInteraction } = require('./games/special-mines');
 const { 
   startCrashGame, 
   handleButtonInteraction: handleCrashButton,
@@ -241,6 +253,11 @@ client.on('interactionCreate', async (interaction) => {
         } else {
           await handleHighLowAction(interaction);
         }
+      } else if (interaction.customId.startsWith('blackjack_')) {
+        if (isMaintenanceMode() && !isAdmin(interaction.user.id)) {
+          return interaction.reply({ content: '⛔ Le bot est en maintenance. Veuillez réessayer plus tard.', ephemeral: true });
+        }
+        await handleBlackjackAction(interaction);
       } else if (interaction.customId.startsWith('mines_multi_')) {
         if (isMaintenanceMode() && !isAdmin(interaction.user.id)) {
           return interaction.reply({ content: '⛔ Le bot est en maintenance. Veuillez réessayer plus tard.', ephemeral: true });
@@ -1194,13 +1211,9 @@ const ADMIN_IDS = new Set([
 const GIVEAWAY_CHANNEL_ID = '1410687939947532401'; // ID du salon o� les giveaways seront envoy�s
 const MIN_HOUR = 12; // Heure minimale pour un giveaway (12h)
 const MAX_HOUR = 22; // Heure maximale pour un giveaway (22h)
-const GIVEAWAY_PRIZES = [500, 750, 1000, 1500, 2000]; // Valeurs possibles des prix
-const GIVEAWAY_DURATION = 60 * 60 * 1000; // Dur�e du giveaway en millisecondes (1 heure)
+const GIVEAWAY_PRIZES = [500, 750, 1000, 1500, 2000]; // Jeux
+const activeGiveaway = new Map(); // Stocke les giveaways en cours
 
-// Cache en m�moire des giveaways actifs
-const activeGiveaways = new Map();
-
-// Fonction pour d�marrer un giveaway
 async function startGiveaway(channel, isAuto = false) {
   try {
     // V�rifier s'il y a d�j� un giveaway en cours dans la base de donn�es

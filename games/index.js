@@ -1,13 +1,59 @@
-// Exportations des jeux
+// Importation des jeux
+const { handleMinesCommand, handleMinesButtonInteraction } = require('./mines');
+const { handleMinesMultiCommand, handleMinesMultiInteraction } = require('./mines-multi');
+const { handleSpecialMinesCommand, handleSpecialMinesInteraction } = require('./special-mines');
+const { 
+  handleHighLow, 
+  handleSpecialHighLow, 
+  handleHighLowAction, 
+  handleHighLowDecision 
+} = require('./highlow');
+const {
+  handleRouletteStart,
+  handleRouletteChoice
+} = require('./roulette');
 
-// Exportations des autres jeux (ajoutez-les au fur et à mesure)
+const {
+  handleSlots
+} = require('./slots');
+
+const {
+  handleBlackjackStart,
+  handleBlackjackAction,
+  resolveBlackjack
+} = require('./blackjack');
+
+// Exportation de tous les jeux
 module.exports = {
-  // Autres jeux (à ajouter plus tard)
-  handleBlackjackStart: () => {},
-  resolveBlackjack: () => {},
-  handleRouletteStart: () => {},
-  handleRouletteChoice: () => {},
-  handleSlots: () => {},
+  // Mines
+  handleMinesCommand,
+  handleMinesButtonInteraction,
+  
+  // Mines Multijoueur
+  handleMinesMultiCommand,
+  handleMinesMultiInteraction,
+  
+  // Mines Spéciales
+  handleSpecialMinesCommand,
+  handleSpecialMinesInteraction,
+  
+  // High Low
+  handleHighLow,
+  handleSpecialHighLow,
+  handleHighLowAction,
+  handleHighLowDecision,
+  
+  // Roulette
+  handleRouletteStart,
+  handleRouletteChoice,
+  
+  // Machine à sous
+  handleSlots,
+  
+  // Blackjack
+  handleBlackjackStart,
+  handleBlackjackAction,
+  resolveBlackjack,
   handleCoinflipSolo: () => {},
   handleCoinflipMulti: () => {},
   handleConnectFour: () => {},
@@ -18,9 +64,5 @@ module.exports = {
   handleConnectFourMove: () => {},
   getTicTacToeLeaderboard: () => {},
   handleTicTacToeLeaderboard: () => {},
-  resetTicTacToeStats: () => {},
-  handleHighLow: () => {},
-  handleSpecialHighLow: () => {},
-  handleHighLowAction: () => {},
-  handleHighLowDecision: () => {}
+  resetTicTacToeStats: () => {}
 };
