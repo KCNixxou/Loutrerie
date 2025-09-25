@@ -59,21 +59,22 @@ async function handleMinesMultiInteraction(interaction) {
     const parts = interaction.customId.split('_');
     console.log('Parts du custom ID:', parts);
     
-    if (parts.length < 3) {
+    // Le format attendu est: mines_multi_join_<gameId>
+    if (parts.length < 4) {
       console.log('Format de custom ID invalide:', interaction.customId);
       return;
     }
     
-    const action = parts[1];
-    const gameId = parts[2];
-    const rest = parts.slice(3);
+    const action = parts[2]; // 'join' est à l'index 2
+    const gameId = parts[3]; // L'ID est à l'index 3
+    const rest = parts.slice(4);
     
     if (!gameId) {
       console.log('Aucun ID de jeu fourni');
       return;
     }
     
-    console.log(`Action: ${action}, Game ID: ${gameId}`);
+    console.log(`Action: ${action}, Game ID: ${gameId} (type: ${typeof gameId})`);
     
     // Gérer la demande de rejoindre une partie
     if (action === 'join') {
