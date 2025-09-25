@@ -135,6 +135,9 @@ async function handleHighLowAction(interaction) {
     const embed = createHighLowEmbed(gameState, interaction.user, false, true);
     const components = createHighLowComponents(gameId, true);
     
+    // Sauvegarder l'état actuel du jeu
+    activeHighLowGames.set(gameId, gameState);
+    
     try {
       await interaction.update({
         embeds: [embed],
@@ -240,18 +243,45 @@ async function handleHighLowDecision(interaction) {
       const winnings = Math.floor(gameState.bet * gameState.multiplier);
       const user = ensureUser(gameState.userId);
       
-      // Créditer le joueur
-      updateUser(gameState.userId, { balance: user.balance + winnings });
+      // Calculer le nouveau solde
+      const newBalance = user.balance + winnings;
+      
+      // Mettre à jour le solde du joueur
+      updateUser(gameState.userId, { balance: newBalance });
       
       // Créer l'embed de fin de partie
-      const embed = createHighLowEmbed(gameState, interaction.user, true, true);
+      const embed = new EmbedBuilder()
+        .setTitle('🏁 Partie terminée - Cashout réussi !')
+        .setColor(0x57F287) // Vert Discord
+        .setDescription(
+          `✅ **Cashout effectué avec succès !**\n` +
+          `💰 **Gains :** ${winnings} ${config.currency.emoji}\n` +
+          `📈 **Multiplicateur final :** x${gameState.multiplier.toFixed(2)}\n` +
+          `💵 **Nouveau solde :** ${newBalance} ${config.currency.emoji}`
+        )
+        .setFooter({ 
+          text: `Joueur: ${interaction.user.username} | Mise initiale: ${gameState.bet} ${config.currency.emoji}`,
+          iconURL: interaction.user.displayAvatarURL()
+        });
       
-      // Mettre à jour le message avec les gains
-      await interaction.update({
-        content: `💰 Vous avez choisi de vous arrêter et de gagner **${winnings}** ${config.currency.emoji} !`,
-        embeds: [embed],
-        components: []
-      });
+      try {
+        // Mettre à jour le message avec les gains
+        await interaction.update({
+          content: `💰 **${interaction.user.username}** a choisi de s'arrêter et empoche **${winnings}** ${config.currency.emoji} !`,
+          embeds: [embed],
+          components: []
+        });
+      } catch (error) {
+        console.error('Erreur lors de la mise à jour du message (cashout):', error);
+        try {
+          await interaction.followUp({
+            content: `✅ Cashout réussi ! Vous avez gagné **${winnings}** ${config.currency.emoji}`,
+            flags: 1 << 6
+          });
+        } catch (e) {
+          console.error('Impossible d\'envoyer le message de confirmation:', e);
+        }
+      }
       
       // Supprimer la partie
       activeHighLowGames.delete(gameId);
@@ -271,6 +301,9 @@ async function handleHighLowDecision(interaction) {
         components: components,
         content: '🔄 En attente de votre prochain choix...' // Message de transition
       });
+      
+      // Sauvegarder l'état actuel du jeu
+      activeHighLowGames.set(gameId, gameState);
     }
   } catch (error) {
     console.error('Erreur lors de la gestion de la décision:', error);
