@@ -303,8 +303,12 @@ function cleanupOldHighLowGames() {
 // Nettoyer les anciennes parties toutes les 5 minutes
 setInterval(cleanupOldHighLowGames, 5 * 60 * 1000);
 
+// Alias pour la compatibilité avec le code existant
+const handleSpecialHighLow = handleHighLow;
+
 module.exports = {
   handleHighLow,
+  handleSpecialHighLow,
   handleHighLowAction,
   handleHighLowDecision
 };
