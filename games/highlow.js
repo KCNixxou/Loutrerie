@@ -120,18 +120,16 @@ async function handleHighLowAction(interaction) {
     result = nextValue === currentValue ? 'win' : 'lose';
   }
   
-  // Mettre à jour la carte courante
+  // Mettre à jour la carte précédente
   gameState.previousCard = gameState.currentCard;
-  gameState.currentCard = gameState.nextCard;
-  gameState.nextCard = null;
   
   if (result === 'win') {
-    // Augmenter le multiplicateur uniquement si ce n'est pas le premier tour
-    if (gameState.multiplier > 1) {
-      gameState.multiplier *= 1.5;
-    } else {
-      gameState.multiplier = 1.5;
-    }
+    // Mettre à jour le multiplicateur
+    gameState.multiplier = gameState.multiplier > 1 ? gameState.multiplier * 1.5 : 1.5;
+    
+    // Mettre à jour la carte courante pour le prochain tour
+    gameState.currentCard = gameState.nextCard;
+    gameState.nextCard = null;
     
     // Afficher les boutons de décision (continuer ou cashout)
     const embed = createHighLowEmbed(gameState, interaction.user, false, true);
@@ -160,12 +158,16 @@ async function handleHighLowAction(interaction) {
     const winnings = Math.floor(gameState.bet * gameState.multiplier);
     const user = ensureUser(gameState.userId);
     
-    // Ne pas créditer si le joueur a perdu dès le premier tour
+    // Mettre à jour la carte courante pour afficher la dernière carte
+    gameState.currentCard = gameState.nextCard;
+    gameState.nextCard = null;
+    
+    // Créditer le joueur s'il a gagné au moins un tour
     if (gameState.multiplier > 1) {
       updateUser(gameState.userId, { balance: user.balance + winnings });
     }
     
-    const embed = createHighLowEmbed(gameState, interaction.user, true);
+    const embed = createHighLowEmbed(gameState, interaction.user, true, false);
     
     try {
       await interaction.update({
@@ -189,14 +191,18 @@ async function handleHighLowAction(interaction) {
     return;
   } else {
     // En cas d'égalité, on ne change pas le multiplicateur
-    // et on permet au joueur de rejouer avec la même carte
-    const embed = createHighLowEmbed(gameState, interaction.user);
+    // mais on met quand même à jour la carte courante
+    gameState.currentCard = gameState.nextCard;
+    gameState.nextCard = null;
+    
+    const embed = createHighLowEmbed(gameState, interaction.user, false, false);
     const components = createHighLowComponents(gameId, false);
     
     try {
       await interaction.update({
         embeds: [embed],
-        components: components
+        components: components,
+        content: '✨ Égalité ! La partie continue avec la même carte.'
       });
     } catch (error) {
       console.error('Erreur lors de la mise à jour du message (égalité):', error);
@@ -413,15 +419,15 @@ function createHighLowComponents(gameId, showDecision = false) {
         new ButtonBuilder()
           .setCustomId(`highlow_${gameId}_higher`)
           .setLabel('Haut')
-          .setStyle(ButtonStyle.Primary),
-        new ButtonBuilder()
-          .setCustomId(`highlow_${gameId}_lower`)
-          .setLabel('Bas')
-          .setStyle(ButtonStyle.Primary),
+          .setStyle(ButtonStyle.Success), // Vert pour plus haut
         new ButtonBuilder()
           .setCustomId(`highlow_${gameId}_equal`)
           .setLabel('=')
-          .setStyle(ButtonStyle.Secondary)
+          .setStyle(ButtonStyle.Secondary), // Gris pour égal
+        new ButtonBuilder()
+          .setCustomId(`highlow_${gameId}_lower`)
+          .setLabel('Bas')
+          .setStyle(ButtonStyle.Danger) // Rouge pour plus bas
       )
     ];
   }
