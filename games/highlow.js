@@ -306,9 +306,20 @@ setInterval(cleanupOldHighLowGames, 5 * 60 * 1000);
 // Alias pour la compatibilité avec le code existant
 const handleSpecialHighLow = handleHighLow;
 
-module.exports = {
+// Débogage
+console.log('[HighLow] Exportation des fonctions:');
+console.log('- handleHighLow:', typeof handleHighLow);
+console.log('- handleSpecialHighLow:', typeof handleSpecialHighLow);
+console.log('- handleHighLowAction:', typeof handleHighLowAction);
+console.log('- handleHighLowDecision:', typeof handleHighLowDecision);
+
+const exportsObj = {
   handleHighLow,
   handleSpecialHighLow,
   handleHighLowAction,
   handleHighLowDecision
 };
+
+console.log('[HighLow] Objet d\'exportation:', Object.keys(exportsObj));
+
+module.exports = exportsObj;

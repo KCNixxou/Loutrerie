@@ -2,10 +2,14 @@ const {
   activeBlackjackGames, 
   activeCoinflipGames, 
   resolveBlackjack, 
-  handleRouletteChoice,
-  handleHighLowAction,
-  handleHighLowDecision
+  handleRouletteChoice
 } = require('./games');
+
+// Importer les fonctions High Low directement depuis le fichier
+const { 
+  handleHighLowAction, 
+  handleHighLowDecision 
+} = require('./games/highlow');
 const { calculateHandValue, formatHand } = require('./utils');
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
@@ -28,7 +32,7 @@ async function handleButtonInteraction(interaction) {
   // Gestion de la clôture par un administrateur
   if (interaction.customId.startsWith('admin_close_')) {
     const gameId = interaction.customId.replace('admin_close_', '');
-    const { endHighLowGame } = require('./games');
+    const { endHighLowGame } = require('./games/highlow');
     
     // Vérifier si l'utilisateur est un administrateur
     if (interaction.user.id !== '314458846754111499') { // Remplacez par l'ID de l'admin

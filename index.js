@@ -8,19 +8,41 @@ const { ensureUser, updateUser, updateMissionProgress, db, getSpecialBalance, up
 const { random, now, getXpMultiplier, scheduleMidnightReset, calculateLevel, getLevelInfo } = require('./utils');
 const commands = require('./commands');
 
-// DEBUG: Vérifier les fonctions importées depuis le dossier games
+// Importer les fonctions de gestion des interactions
+const { handleButtonInteraction, handleSelectMenuInteraction } = require('./handlers');
+
+// Importer les fonctions utilitaires des jeux
+const gameUtils = require('./game-utils');
+
+// Importer les fonctions de jeux
 const gameFunctions = require('./games');
+
+// Debug: Afficher les fonctions de jeux importées
 console.log('--- Fonctions de jeux importées ---');
-console.log(gameFunctions);
-console.log('Type de handleHighLow:', typeof gameFunctions.handleHighLow);
+console.log('Type de gameFunctions:', typeof gameFunctions);
+console.log('gameFunctions contient handleHighLow?', 'handleHighLow' in gameFunctions);
+console.log('Propriétés de gameFunctions:', Object.keys(gameFunctions));
 console.log('------------------------------------');
+
+// Importer les fonctions spécifiques au crash
 const { 
   startCrashGame, 
   handleButtonInteraction: handleCrashButton,
   handleNextMultiplier, 
   activeGames 
 } = require('./crash');
-const { handleButtonInteraction, handleSelectMenuInteraction } = require('./handlers');
+
+// Debug: Afficher les fonctions de jeux importées
+console.log('--- Fonctions de jeux importées ---');
+console.log('Type de handleHighLow:', typeof gameFunctions.handleHighLow);
+console.log('Toutes les propriétés de gameFunctions:', Object.getOwnPropertyNames(gameFunctions));
+console.log('Propriétés énumérables:', Object.keys(gameFunctions));
+console.log('gameFunctions est un objet?', typeof gameFunctions === 'object');
+console.log('gameFunctions a une propriété handleHighLow?', 'handleHighLow' in gameFunctions);
+console.log('gameFunctions.handleHighLow est défini?', gameFunctions.handleHighLow !== undefined);
+console.log('gameFunctions.handleHighLow est une fonction?', typeof gameFunctions.handleHighLow === 'function');
+console.log('gameFunctions.__proto__:', Object.getPrototypeOf(gameFunctions));
+console.log('------------------------------------');
 
 // Initialisation du serveur web pour uptime
 const app = express();
