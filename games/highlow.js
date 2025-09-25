@@ -111,13 +111,12 @@ async function handleHighLowAction(interaction) {
   if (result === 'win') {
     gameState.multiplier *= 1.5;
     
-    // Afficher les boutons de décision (continuer ou s'arrêter)
     const embed = createHighLowEmbed(gameState, interaction.user, false, true);
     const components = createHighLowComponents(gameId, true);
     
     await interaction.update({
       embeds: [embed],
-      components: [components]
+      components: components
     });
     
     return; // On s'arrête ici pour attendre la décision du joueur
@@ -171,7 +170,7 @@ async function handleHighLowDecision(interaction) {
   }
   
   if (action === 'stop') {
-    // Le joueur choisit de s'arrêter
+    // Le joueur choisit de s'arrêter (bouton 'Petite couille')
     const winnings = Math.floor(gameState.bet * gameState.multiplier);
     updateUser(gameState.userId, { balance: ensureUser(gameState.userId).balance + winnings });
     
@@ -185,13 +184,13 @@ async function handleHighLowDecision(interaction) {
     
     activeHighLowGames.delete(gameId);
   } else if (action === 'continue') {
-    // Le joueur choisit de continuer, on affiche les boutons pour le prochain tour
+    // Le joueur choisit de continuer (bouton 'Envoie la next')
     const embed = createHighLowEmbed(gameState, interaction.user);
     const components = createHighLowComponents(gameId, false);
     
     await interaction.update({
       embeds: [embed],
-      components: [components]
+      components: components
     });
   }
 }
@@ -243,32 +242,38 @@ function createHighLowEmbed(gameState, user, isGameOver = false, showDecision = 
 function createHighLowComponents(gameId, showDecision = false) {
   if (showDecision) {
     // Boutons pour décider de continuer ou de s'arrêter
-    return new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`highlow_${gameId}_continue`)
-        .setLabel('Continuer')
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId(`highlow_${gameId}_stop`)
-        .setLabel('S\'arrêter')
-        .setStyle(ButtonStyle.Danger)
-    );
+    return [
+      // Première rangée : boutons de décision
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`highlow_${gameId}_continue`)
+          .setLabel('Envoie la next')
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId(`highlow_${gameId}_stop`)
+          .setLabel('Petite couille')
+          .setStyle(ButtonStyle.Danger)
+      )
+    ];
   } else {
     // Boutons pour choisir plus haut/plus bas/égal
-    return new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`highlow_${gameId}_higher`)
-        .setLabel('Envoie la next')
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId(`highlow_${gameId}_lower`)
-        .setLabel('Petite couille')
-        .setStyle(ButtonStyle.Danger),
-      new ButtonBuilder()
-        .setCustomId(`highlow_${gameId}_equal`)
-        .setLabel('Égale')
-        .setStyle(ButtonStyle.Primary)
-    );
+    return [
+      // Première rangée : boutons de choix de carte
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`highlow_${gameId}_higher`)
+          .setLabel('Haut')
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId(`highlow_${gameId}_lower`)
+          .setLabel('Bas')
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId(`highlow_${gameId}_equal`)
+          .setLabel('=')
+          .setStyle(ButtonStyle.Secondary)
+      )
+    ];
   }
 }
 
