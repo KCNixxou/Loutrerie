@@ -7,46 +7,13 @@ const config = require('./config');
 const { ensureUser, updateUser, updateMissionProgress, db, getSpecialBalance, updateSpecialBalance } = require('./database');
 const { random, now, getXpMultiplier, scheduleMidnightReset, calculateLevel, getLevelInfo } = require('./utils');
 const commands = require('./commands');
-const { 
-  // Mines
-  handleMinesCommand,
-  handleMinesButtonInteraction,
-  
-  // Mines Multijoueur
-  handleMinesMultiCommand,
-  handleMinesMultiInteraction,
-  
-  // Mines Spéciales
-  handleSpecialMinesCommand,
-  handleSpecialMinesInteraction,
-  
-  // High Low
-  handleHighLow,
-  handleSpecialHighLow,
-  handleHighLowAction,
-  handleHighLowDecision,
-  
-  // Autres jeux
-  activeBlackjackGames, 
-  activeCoinflipGames,
-  activeTicTacToeGames,
-  handleBlackjackStart,
-  resolveBlackjack,
-  handleRouletteStart,
-  handleRouletteChoice,
-  handleSlots,
-  handleCoinflipSolo,
-  handleCoinflipMulti,
-  handleConnectFour,
-  handleShop,
-  handlePurchase,
-  handleTicTacToe,
-  handleTicTacToeMove,
-  handleConnectFourMove,
-  getTicTacToeLeaderboard,
-  handleTicTacToeLeaderboard,
-  resetTicTacToeStats
-} = require('./games');
+
+// DEBUG: Vérifier les fonctions importées depuis le dossier games
+const gameFunctions = require('./games');
+console.log('--- Fonctions de jeux importées ---');
+console.log(gameFunctions);
+console.log('Type de handleHighLow:', typeof gameFunctions.handleHighLow);
+console.log('------------------------------------');
 const { 
   startCrashGame, 
   handleButtonInteraction: handleCrashButton,
@@ -230,44 +197,44 @@ client.on('interactionCreate', async (interaction) => {
       await handleSlashCommand(interaction);
     } else if (interaction.isButton()) {
       if (interaction.customId.startsWith('coinflip_multi_')) {
-        await handleCoinflipMulti(interaction);
+        await gameFunctions.handleCoinflipMulti(interaction);
       } else if (interaction.customId.startsWith('roulette_')) {
-        await handleRouletteChoice(interaction);
+        await gameFunctions.handleRouletteChoice(interaction);
       } else if (interaction.customId.startsWith('ttt_')) {
-        await handleTicTacToeMove(interaction);
+        await gameFunctions.handleTicTacToeMove(interaction);
       } else if (interaction.customId.startsWith('cf_')) {
-        await handleConnectFourMove(interaction);
+        await gameFunctions.handleConnectFourMove(interaction);
       } else if (interaction.customId === 'cashout' || interaction.customId === 'next_multiplier') {
         await handleCrashButton(interaction);
       } else if (interaction.customId.startsWith('highlow_')) {
         // Gérer les actions du High Low normal
         if (interaction.customId.startsWith('highlow_continue_') || interaction.customId.startsWith('highlow_stop_')) {
-          await handleHighLowDecision(interaction);
+          await gameFunctions.handleHighLowDecision(interaction);
         } else {
-          await handleHighLowAction(interaction);
+          await gameFunctions.handleHighLowAction(interaction);
         }
       } else if (interaction.customId.startsWith('special_highlow_')) {
         // Gérer les actions du High Low spécial
         if (interaction.customId.startsWith('special_highlow_continue_') || interaction.customId.startsWith('special_highlow_stop_')) {
-          await handleHighLowDecision(interaction);
+          await gameFunctions.handleHighLowDecision(interaction);
         } else {
-          await handleHighLowAction(interaction);
+          await gameFunctions.handleHighLowAction(interaction);
         }
       } else if (interaction.customId.startsWith('blackjack_')) {
         if (isMaintenanceMode() && !isAdmin(interaction.user.id)) {
           return interaction.reply({ content: '⛔ Le bot est en maintenance. Veuillez réessayer plus tard.', ephemeral: true });
         }
-        await handleBlackjackAction(interaction);
+        await gameFunctions.handleBlackjackAction(interaction);
       } else if (interaction.customId.startsWith('mines_multi_')) {
         if (isMaintenanceMode() && !isAdmin(interaction.user.id)) {
           return interaction.reply({ content: '⛔ Le bot est en maintenance. Veuillez réessayer plus tard.', ephemeral: true });
         }
-        await handleMinesMultiInteraction(interaction);
+        await gameFunctions.handleMinesMultiInteraction(interaction);
       } else if (interaction.customId.startsWith('mines_')) {
         if (isMaintenanceMode() && !isAdmin(interaction.user.id)) {
           return interaction.reply({ content: '⛔ Le bot est en maintenance. Veuillez réessayer plus tard.', ephemeral: true });
         }
-        await handleMinesButtonInteraction(interaction);
+        await gameFunctions.handleMinesButtonInteraction(interaction);
       } else if (interaction.customId.startsWith('special_mines_')) {
         if (isMaintenanceMode() && !isAdmin(interaction.user.id)) {
           return interaction.reply({ content: '⛔ Le bot est en maintenance. Veuillez réessayer plus tard.', ephemeral: true });
@@ -286,7 +253,7 @@ client.on('interactionCreate', async (interaction) => {
           });
         }
         
-        await handleSpecialMinesInteraction(interaction);
+        await gameFunctions.handleSpecialMinesInteraction(interaction);
       } else {
         await handleButtonInteraction(interaction);
       }
@@ -401,7 +368,7 @@ async function handleSlashCommand(interaction) {
     // Commandes de jeux
     case 'morpion':
       try {
-        await handleTicTacToe(interaction);
+        await gameFunctions.handleTicTacToe(interaction);
       } catch (error) {
         console.error('[ERREUR] Erreur dans la commande /morpion:', error);
         await interaction.reply({
@@ -536,7 +503,7 @@ async function handleSlashCommand(interaction) {
       break;
       
     case 'classement-morpion':
-      await handleTicTacToeLeaderboard(interaction);
+      await gameFunctions.handleTicTacToeLeaderboard(interaction);
       break;
       
     case 'reset-morpion-stats':
@@ -552,14 +519,14 @@ async function handleSlashCommand(interaction) {
         
         if (targetUser) {
           // Réinitialiser pour un utilisateur spécifique
-          resetTicTacToeStats(targetUser.id);
+          gameFunctions.resetTicTacToeStats(targetUser.id);
           await interaction.reply({ 
             content: ` La statistique du morpion de ${targetUser.tag} a été réinitialisée avec succès !`, 
             ephemeral: true 
           });
         } else {
           // Réinitialiser pour tous les utilisateurs
-          resetTicTacToeStats();
+          gameFunctions.resetTicTacToeStats();
           await interaction.reply({ 
             content: ' Toutes les statistiques du morpion ont été réinitialisées avec succès !', 
             ephemeral: true 
@@ -575,11 +542,11 @@ async function handleSlashCommand(interaction) {
       break;
       
     case 'highlow':
-      await handleHighLow(interaction);
+      await gameFunctions.handleHighLow(interaction);
       break;
       
     case 'highlow-special':
-      await handleSpecialHighLow(interaction);
+      await gameFunctions.handleSpecialHighLow(interaction);
       break;
       
     case 'solde-special':
@@ -828,31 +795,31 @@ async function handleSlashCommand(interaction) {
       break;
 
     case 'blackjack':
-      await handleBlackjackStart(interaction);
+      await gameFunctions.handleBlackjackStart(interaction);
       break;
 
     case 'roulette':
-      await handleRouletteStart(interaction);
+      await gameFunctions.handleRouletteStart(interaction);
       break;
 
     case 'slots':
-      await handleSlots(interaction);
+      await gameFunctions.handleSlots(interaction);
       break;
 
     case 'pileface':
-      await handleCoinflipSolo(interaction);
+      await gameFunctions.handleCoinflipSolo(interaction);
       break;
 
     case 'pileface-multi':
-      await handleCoinflipMulti(interaction);
+      await gameFunctions.handleCoinflipMulti(interaction);
       break;
 
     case 'shop':
-      await handleShop(interaction);
+      await gameFunctions.handleShop(interaction);
       break;
 
     case 'acheter':
-      await handlePurchase(interaction);
+      await gameFunctions.handlePurchase(interaction);
       break;
 
     case 'givea':
@@ -882,11 +849,11 @@ async function handleSlashCommand(interaction) {
       break;
       
     case 'mines':
-      await handleMinesCommand(interaction);
+      await gameFunctions.handleMinesCommand(interaction);
       break;
       
     case 'mines-multi':
-      await handleMinesMultiCommand(interaction);
+      await gameFunctions.handleMinesMultiCommand(interaction);
       break;
       
     case 'special-mines':
@@ -907,7 +874,7 @@ async function handleSlashCommand(interaction) {
         });
       }
       
-      await handleSpecialMinesCommand(interaction);
+      await gameFunctions.handleSpecialMinesCommand(interaction);
       break;
       
     case 'bdg':
