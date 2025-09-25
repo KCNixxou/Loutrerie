@@ -120,10 +120,20 @@ async function handleHighLowAction(interaction) {
     result = nextValue === currentValue ? 'win' : 'lose';
   }
   
-  // Mettre à jour le multiplicateur
+  // Mettre à jour la carte courante
+  gameState.previousCard = gameState.currentCard;
+  gameState.currentCard = gameState.nextCard;
+  gameState.nextCard = null;
+  
   if (result === 'win') {
-    gameState.multiplier *= 1.5;
+    // Augmenter le multiplicateur uniquement si ce n'est pas le premier tour
+    if (gameState.multiplier > 1) {
+      gameState.multiplier *= 1.5;
+    } else {
+      gameState.multiplier = 1.5;
+    }
     
+    // Afficher les boutons de décision (continuer ou cashout)
     const embed = createHighLowEmbed(gameState, interaction.user, false, true);
     const components = createHighLowComponents(gameId, true);
     
@@ -134,7 +144,6 @@ async function handleHighLowAction(interaction) {
       });
     } catch (error) {
       console.error('Erreur lors de la mise à jour du message (victoire):', error);
-      // Essayer d'envoyer un message d'erreur
       try {
         await interaction.followUp({
           content: 'Une erreur est survenue lors de la mise à jour du jeu. Veuillez réessayer.',
@@ -146,13 +155,15 @@ async function handleHighLowAction(interaction) {
       return;
     }
     
-    return; // On s'arrête ici pour attendre la décision du joueur
-    
   } else if (result === 'lose') {
-    // Fin de la partie
+    // Fin de la partie en cas de défaite
     const winnings = Math.floor(gameState.bet * gameState.multiplier);
     const user = ensureUser(gameState.userId);
-    updateUser(gameState.userId, { balance: user.balance + winnings });
+    
+    // Ne pas créditer si le joueur a perdu dès le premier tour
+    if (gameState.multiplier > 1) {
+      updateUser(gameState.userId, { balance: user.balance + winnings });
+    }
     
     const embed = createHighLowEmbed(gameState, interaction.user, true);
     
@@ -165,10 +176,9 @@ async function handleHighLowAction(interaction) {
       activeHighLowGames.delete(gameId);
     } catch (error) {
       console.error('Erreur lors de la mise à jour du message (défaite):', error);
-      // Essayer d'envoyer un message d'erreur
       try {
         await interaction.followUp({
-          content: `Vous avez perdu, mais une erreur est survenue. Votre gain de ${winnings} ${config.currency.emoji} a été crédité.`,
+          content: `Une erreur est survenue lors de la fin de la partie.`,
           flags: 1 << 6
         });
       } catch (e) {
@@ -178,21 +188,28 @@ async function handleHighLowAction(interaction) {
     }
     return;
   } else {
-    // Égalité, on ne change pas le multiplicateur
+    // En cas d'égalité, on ne change pas le multiplicateur
+    // et on permet au joueur de rejouer avec la même carte
+    const embed = createHighLowEmbed(gameState, interaction.user);
+    const components = createHighLowComponents(gameId, false);
+    
+    try {
+      await interaction.update({
+        embeds: [embed],
+        components: components
+      });
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du message (égalité):', error);
+      try {
+        await interaction.followUp({
+          content: 'Une erreur est survenue lors de la mise à jour du jeu. Veuillez réessayer.',
+          flags: 1 << 6
+        });
+      } catch (e) {
+        console.error('Impossible d\'envoyer le message d\'erreur:', e);
+      }
+    }
   }
-  
-  // Mettre à jour la carte courante
-  gameState.currentCard = gameState.nextCard;
-  gameState.nextCard = null;
-  
-  // Mettre à jour l'affichage
-  const embed = createHighLowEmbed(gameState, interaction.user);
-  const components = createHighLowComponents(gameId, false);
-  
-  await interaction.update({
-    embeds: [embed],
-    components: [components]
-  });
 }
 
 // Fonction pour gérer la décision de continuer ou de s'arrêter
@@ -216,25 +233,37 @@ async function handleHighLowDecision(interaction) {
       // Le joueur choisit de s'arrêter (bouton 'Petite couille')
       const winnings = Math.floor(gameState.bet * gameState.multiplier);
       const user = ensureUser(gameState.userId);
+      
+      // Créditer le joueur
       updateUser(gameState.userId, { balance: user.balance + winnings });
       
+      // Créer l'embed de fin de partie
       const embed = createHighLowEmbed(gameState, interaction.user, true, true);
       
+      // Mettre à jour le message avec les gains
       await interaction.update({
-        content: `✅ Vous avez choisi de vous arrêter et de gagner ${winnings} ${config.currency.emoji} !`,
+        content: `💰 Vous avez choisi de vous arrêter et de gagner **${winnings}** ${config.currency.emoji} !`,
         embeds: [embed],
         components: []
       });
       
+      // Supprimer la partie
       activeHighLowGames.delete(gameId);
+      
     } else if (action === 'continue') {
       // Le joueur choisit de continuer (bouton 'Envoie la next')
-      const embed = createHighLowEmbed(gameState, interaction.user);
+      // Tirer une nouvelle carte pour le prochain tour
+      gameState.nextCard = drawCard(gameState.currentCard);
+      
+      // Créer l'embed pour le prochain tour
+      const embed = createHighLowEmbed(gameState, interaction.user, false, false);
       const components = createHighLowComponents(gameId, false);
       
+      // Mettre à jour le message pour le prochain tour
       await interaction.update({
         embeds: [embed],
-        components: components
+        components: components,
+        content: null // Effacer tout message précédent
       });
     }
   } catch (error) {
@@ -242,7 +271,7 @@ async function handleHighLowDecision(interaction) {
     // Essayer d'envoyer un message d'erreur
     try {
       await interaction.followUp({
-        content: 'Une erreur est survenue lors du traitement de votre décision. Veuillez réessayer.',
+        content: '❌ Une erreur est survenue lors du traitement de votre décision. Veuillez réessayer.',
         flags: 1 << 6
       });
     } catch (e) {
@@ -251,45 +280,110 @@ async function handleHighLowDecision(interaction) {
   }
 }
 
+// Fonction pour formater une carte avec son emoji
+function formatCard(card) {
+  if (!card) return 'Aucune carte';
+  const suitEmoji = CARD_EMOJIS[card.suit] || card.suit;
+  return `${card.value}${suitEmoji}`;
+}
+
+// Fonction pour obtenir la valeur numérique d'une carte
+function getCardValue(card) {
+  if (!card) return 0;
+  const value = card.value;
+  if (value === 'A') return 14;
+  if (value === 'K') return 13;
+  if (value === 'Q') return 12;
+  if (value === 'J') return 11;
+  return parseInt(value, 10);
+}
+
+// Fonction pour tirer une carte aléatoire
+function drawCard(excludeCard = null) {
+  let value, suit, card;
+  do {
+    value = CARD_VALUES[Math.floor(Math.random() * CARD_VALUES.length)];
+    suit = CARD_SUITS[Math.floor(Math.random() * CARD_SUITS.length)];
+    card = { value, suit };
+  } while (excludeCard && card.value === excludeCard.value && card.suit === excludeCard.suit);
+  
+  return card;
+}
+
 // Fonction pour créer l'embed du jeu High Low
 function createHighLowEmbed(gameState, user, isGameOver = false, showDecision = false) {
   const embed = new EmbedBuilder()
     .setTitle('🃏 HIGH LOW')
     .setColor(0x0099FF);
     
+  const currentCardValue = getCardValue(gameState.currentCard);
+  const potentialWinnings = Math.floor(gameState.bet * gameState.multiplier);
+  
   if (isGameOver) {
+    const user = ensureUser(gameState.userId);
+    const newBalance = showDecision 
+      ? user.balance + potentialWinnings // Le joueur a gagné
+      : user.balance - gameState.bet;    // Le joueur a perdu
+    
     if (showDecision) {
       // Le joueur a choisi de s'arrêter
       embed.setDescription(
         `🎉 **${user.username} a choisi de s'arrêter !**\n` +
-        `💰 **Gains :** ${Math.floor(gameState.bet * gameState.multiplier)} ${config.currency.emoji} (x${gameState.multiplier.toFixed(2)})\n` +
-        `💳 **Mise initiale :** ${gameState.bet} ${config.currency.emoji}`
+        `🃏 **Dernière carte :** ${formatCard(gameState.currentCard)}\n` +
+        `💰 **Gains :** ${potentialWinnings} ${config.currency.emoji} (x${gameState.multiplier.toFixed(2)})\n` +
+        `💳 **Mise initiale :** ${gameState.bet} ${config.currency.emoji}\n` +
+        `💵 **Nouveau solde :** ${newBalance} ${config.currency.emoji}`
       );
     } else {
       // Le joueur a perdu
       embed.setDescription(
         `💥 **Dommage !**\n` +
-        `💰 **Mise perdue :** ${gameState.bet} ${config.currency.emoji}\n` +
-        `📉 **Multiplicateur final :** x${gameState.multiplier.toFixed(2)}`
+        `🃏 **Dernière carte :** ${formatCard(gameState.currentCard)}\n` +
+        `📉 **Multiplicateur final :** x${gameState.multiplier.toFixed(2)}\n` +
+        `💸 **Mise perdue :** ${gameState.bet} ${config.currency.emoji}\n` +
+        `💵 **Nouveau solde :** ${newBalance} ${config.currency.emoji}`
       );
     }
   } else if (showDecision) {
     // Le joueur doit décider de continuer ou de s'arrêter
     embed.setDescription(
-      `**Dernière carte :** ${formatCard(gameState.currentCard)}\n` +
-      `**Multiplicateur actuel :** x${gameState.multiplier.toFixed(2)}\n` +
-      `**Gains potentiels :** ${Math.floor(gameState.bet * gameState.multiplier * 1.5)} ${config.currency.emoji}\n\n` +
-      `Voulez-vous continuer ou vous arrêter et empocher vos gains ?`
+      `🃏 **Dernière carte :** ${formatCard(gameState.currentCard)}\n` +
+      `💰 **Gains actuels :** ${potentialWinnings} ${config.currency.emoji}\n` +
+      `📈 **Multiplicateur actuel :** x${gameState.multiplier.toFixed(2)}\n\n` +
+      `**Que souhaitez-vous faire ?**`
     );
   } else {
     // Nouveau tour
-    embed.setDescription(
-      `**Carte actuelle :** ${formatCard(gameState.currentCard)}\n` +
-      `**Multiplicateur actuel :** x${gameState.multiplier.toFixed(2)}\n` +
-      `**Mise :** ${gameState.bet} ${config.currency.emoji}\n\n` +
-      `Choisissez si la prochaine carte sera **plus haute**, **plus basse** ou **égale** !`
-    );
+    let description = `🃏 **Carte actuelle :** ${formatCard(gameState.currentCard)}\n` +
+      `💰 **Mise :** ${gameState.bet} ${config.currency.emoji}\n` +
+      `📊 **Multiplicateur :** x${gameState.multiplier.toFixed(2)}`;
+    
+    if (gameState.previousCard) {
+      const previousValue = getCardValue(gameState.previousCard);
+      const currentValue = getCardValue(gameState.currentCard);
+      let result;
+      
+      if (currentValue > previousValue) {
+        result = '**↑ Plus haute ↑**';
+      } else if (currentValue < previousValue) {
+        result = '**↓ Plus basse ↓**';
+      } else {
+        result = '**= Égale =**';
+      }
+      
+      description += `\n\n${result} (précédente: ${formatCard(gameState.previousCard)})`;
+    }
+    
+    description += '\n\n**Choisissez la prochaine carte :**';
+    
+    embed.setDescription(description);
   }
+  
+  // Ajouter un footer avec les informations du joueur
+  embed.setFooter({ 
+    text: `Joueur: ${user.username} | Mise: ${gameState.bet} ${config.currency.emoji}`,
+    iconURL: user.displayAvatarURL()
+  });
   
   return embed;
 }
