@@ -24,21 +24,21 @@ async function handleHighLow(interaction) {
   if (bet > user.balance) {
     return interaction.reply({ 
       content: `❌ Vous n'avez pas assez de ${config.currency.emoji} pour cette mise !`, 
-      ephemeral: true 
+      flags: 1 << 6 // Utilisation de flags pour rendre le message éphémère
     });
   }
 
   if (bet > config.casino.maxBet) {
     return interaction.reply({ 
       content: `❌ La mise maximale est de ${config.casino.maxBet} ${config.currency.emoji} !`, 
-      ephemeral: true 
+      flags: 1 << 6 // Utilisation de flags pour rendre le message éphémère
     });
   }
 
   if (bet < config.casino.minBet) {
     return interaction.reply({ 
       content: `❌ La mise minimale est de ${config.casino.minBet} ${config.currency.emoji} !`, 
-      ephemeral: true 
+      flags: 1 << 6 // Utilisation de flags pour rendre le message éphémère
     });
   }
 
@@ -66,10 +66,23 @@ async function handleHighLow(interaction) {
   const components = createHighLowComponents(gameId, false);
   
   // Envoyer le message
-  await interaction.reply({
-    embeds: [embed],
-    components: [components]
-  });
+  try {
+    await interaction.reply({
+      embeds: [embed],
+      components: components // Pas besoin de mettre dans un tableau car createHighLowComponents retourne déjà un tableau
+    });
+  } catch (error) {
+    console.error('Erreur lors de l\'envoi de la réponse:', error);
+    // Essayer d'envoyer un message d'erreur
+    try {
+      await interaction.followUp({
+        content: 'Une erreur est survenue lors du démarrage du jeu. Veuillez réessayer.',
+        flags: 1 << 6 // Message éphémère
+      });
+    } catch (e) {
+      console.error('Impossible d\'envoyer le message d\'erreur:', e);
+    }
+  }
 }
 
 // Fonction pour gérer les actions High Low
