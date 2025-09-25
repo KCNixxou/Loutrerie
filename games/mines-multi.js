@@ -95,16 +95,17 @@ async function handleMinesMultiInteraction(interaction) {
     gameState.winner = userId === gameState.player1.id ? gameState.player2.id : gameState.player1.id;
     
     const winner = gameState.winner === gameState.player1.id ? gameState.player1 : gameState.player2;
-    const winnings = Math.floor(gameState.bet * 2 * MULTIPLIERS[gameState.revealedCount]);
+    const winnings = Math.floor(gameState.bet * MULTIPLIERS[gameState.revealedCount]);
+    const totalWon = winnings + gameState.bet; // Le gagnant récupère sa mise + les gains
     
-    // Mettre à jour les soldes
-    updateUser(winner.id, { balance: winner.balance + winnings + gameState.bet });
+    // Mettre à jour le solde du gagnant
+    updateUser(winner.id, { balance: winner.balance + totalWon });
     
     const embed = createGameEmbed(gameState);
     
     await interaction.update({
       content: `🏳️ **<@${userId}> a abandonné la partie !**\n` +
-        `🎉 **<@${gameState.winner}> gagne ${winnings} ${config.currency.emoji} !**`,
+        `🎉 **<@${gameState.winner}> gagne ${totalWon} ${config.currency.emoji} (dont ${winnings} ${config.currency.emoji} de gains) !**`,
       embeds: [embed],
       components: []
     });
@@ -308,8 +309,11 @@ async function joinGame(interaction, gameId) {
   // Bloquer la mise du joueur 2
   updateUser(userId, { balance: user.balance - gameState.bet });
   
-  // Mettre à jour l'état de la partie
-  gameState.player2 = { id: userId, balance: user.balance };
+  // Mettre à jour l'état de la partie avec le solde mis à jour du joueur 2
+  gameState.player2 = { 
+    id: userId, 
+    balance: ensureUser(userId).balance // Récupérer le solde mis à jour
+  };
   gameState.status = 'playing';
   gameState.currentPlayer = Math.random() < 0.5 ? gameState.player1.id : gameState.player2.id; // Premier joueur aléatoire
   gameState.lastActivity = Date.now();
@@ -354,19 +358,22 @@ function createGameEmbed(gameState) {
     if (gameState.winner) {
       const winner = gameState.winner === gameState.player1.id ? gameState.player1 : gameState.player2;
       const loser = gameState.winner === gameState.player1.id ? gameState.player2 : gameState.player1;
-      const winnings = Math.floor(gameState.bet * 2 * MULTIPLIERS[gameState.revealedCount]);
+      // Calculer les gains : (mise du perdant * multiplicateur) + mise du gagnant
+      const winnings = Math.floor(gameState.bet * MULTIPLIERS[gameState.revealedCount]);
+      const totalWon = winnings + gameState.bet; // Le gagnant récupère sa mise + les gains
       
       embed.setDescription(
         `🎉 **<@${winner.id}> a gagné !**\n\n` +
         `**Gains :** ${winnings} ${config.currency.emoji} (${MULTIPLIERS[gameState.revealedCount].toFixed(2)}x)\n` +
-        `**Cases révélées :** ${gameState.revealedCount}\n` +
-        `**Mise récupérée :** ${gameState.bet} ${config.currency.emoji}\n\n` +
-        `😢 <@${loser.id}> est tombé sur une mine !`
+        `**Total gagné :** ${totalWon} ${config.currency.emoji} (mise incluse)\n` +
+        `**Cases révélées :** ${gameState.revealedCount}\n\n` +
+        `😢 <@${loser.id}> a perdu sa mise de ${gameState.bet} ${config.currency.emoji}`
       );
       
       // Mettre à jour les soldes
-      updateUser(winner.id, { balance: winner.balance + winnings });
-      updateUser(loser.id, { balance: loser.balance - gameState.bet });
+      // Le gagnant récupère sa mise + les gains (mise du perdant * multiplicateur)
+      updateUser(winner.id, { balance: winner.balance + totalWon });
+      // Le perdant ne récupère rien (sa mise a déjà été déduite)
     } else {
       embed.setDescription(
         `🤝 **Match nul !**\n\n` +
