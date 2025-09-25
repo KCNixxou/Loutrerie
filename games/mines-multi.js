@@ -59,15 +59,37 @@ async function handleMinesMultiInteraction(interaction) {
     const parts = interaction.customId.split('_');
     console.log('Parts du custom ID:', parts);
     
-    // Le format attendu est: mines_multi_join_<gameId>
-    if (parts.length < 4) {
+    // Vérifier le format du customId
+    // Format pour rejoindre: mines_multi_join_<gameId>
+    // Format pour cliquer: mines_multi_<gameId>_<x>_<y>
+    // Format pour quitter: mines_multi_<gameId>_quit
+    
+    let action, gameId, x, y, isQuit = false;
+    
+    if (parts[2] === 'join' && parts.length >= 4) {
+      // Format: mines_multi_join_<gameId>
+      action = 'join';
+      gameId = parts[3];
+    } else if (parts.length >= 5) {
+      // Format: mines_multi_<gameId>_<x>_<y>
+      action = 'click';
+      gameId = parts[2];
+      x = parseInt(parts[3]);
+      y = parseInt(parts[4]);
+      
+      if (isNaN(x) || isNaN(y)) {
+        console.log('Coordonnées de case invalides:', parts[3], parts[4]);
+        return;
+      }
+    } else if (parts.length === 4 && parts[3] === 'quit') {
+      // Format: mines_multi_<gameId>_quit
+      action = 'quit';
+      gameId = parts[2];
+      isQuit = true;
+    } else {
       console.log('Format de custom ID invalide:', interaction.customId);
       return;
     }
-    
-    const action = parts[2]; // 'join' est à l'index 2
-    const gameId = parts[3]; // L'ID est à l'index 3
-    const rest = parts.slice(4);
     
     if (!gameId) {
       console.log('Aucun ID de jeu fourni');
@@ -75,6 +97,9 @@ async function handleMinesMultiInteraction(interaction) {
     }
     
     console.log(`Action: ${action}, Game ID: ${gameId} (type: ${typeof gameId})`);
+    if (action === 'click') {
+      console.log(`Coordonnées: x=${x}, y=${y}`);
+    }
     
     // Gérer la demande de rejoindre une partie
     if (action === 'join') {
@@ -192,71 +217,47 @@ async function handleMinesMultiInteraction(interaction) {
     gameState.lastActivity = Date.now();
     activeMultiMinesGames.set(gameId, gameState);
     
-    // Vérifier si c'est un abandon
-    if (rest[0] === 'quit') {
-      await handleQuitGame(interaction, gameState, gameId);
-      return;
-    }
-    
-    // Gérer le clic sur une case
-    const x = parseInt(rest[0]);
-    const y = parseInt(rest[1]);
-    
-    if (isNaN(x) || isNaN(y) || x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) {
-      await interaction.deferUpdate();
-      return;
-    }
-    
-    // Vérifier si la case a déjà été révélée
-    if (gameState.revealed[x][y].revealed || gameState.revealed[x][y].markedBy) {
-      await interaction.deferUpdate();
-      return;
-    }
-    
-    // Vérifier que c'est bien le tour du joueur
-    if (interaction.user.id !== gameState.currentPlayer) {
-      await interaction.deferUpdate();
-      return;
-    }
-    
-    // Marquer la case comme révélée par le joueur actuel
-    gameState.revealed[x][y].markedBy = interaction.user.id;
-    
-    // Révéler la case
-    const isSafe = revealCell(gameState, x, y, interaction.user.id);
-    
-    // Mettre à jour l'affichage
-    const embed = createGameEmbed(gameState);
-    const components = createGridComponents(gameState, interaction);
-    
-    if (gameState.status === 'finished') {
-      // La partie est terminée, désactiver tous les boutons
-      for (const row of components) {
-        for (const component of row.components) {
-          component.setDisabled(true);
-        }
+    // Si c'est une action de clic (déjà analysée)
+    if (action === 'click') {
+      // Vérifier que les coordonnées sont valides
+      if (isNaN(x) || isNaN(y) || x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) {
+        console.log(`Coordonnées invalides: x=${x}, y=${y}`);
+        await interaction.deferUpdate();
+        return;
       }
       
-      await interaction.update({
-        embeds: [embed],
-        components: components
-      });
+      console.log(`Traitement du clic sur la case (${x}, ${y})`);
       
-      // Supprimer la partie après un délai
-      setTimeout(() => {
-        activeMultiMinesGames.delete(gameId);
-      }, 30000); // 30 secondes
+      // Vérifier si la case a déjà été révélée
+      if (gameState.revealed[x][y].revealed || gameState.revealed[x][y].markedBy) {
+        console.log('Case déjà révélée ou marquée');
+        await interaction.deferUpdate();
+        return;
+      }
+      
+      // Vérifier que c'est bien le tour du joueur
+      if (interaction.user.id !== gameState.currentPlayer) {
+        console.log(`Ce n'est pas le tour de ce joueur (tour de ${gameState.currentPlayer})`);
+        await interaction.deferUpdate();
+        return;
+      }
+      
+      // Marquer la case comme révélée par le joueur actuel
+      gameState.revealed[x][y].markedBy = interaction.user.id;
+      
+      // Révéler la case
+      const isSafe = revealCell(gameState, x, y, interaction.user.id);
+      
+      // Mettre à jour l'interface
+      await updateGameInterface(interaction, gameState);
+      
+    } else if (action === 'quit') {
+      // Gérer l'abandon
+      await handleQuitGame(interaction, gameState, gameId);
     } else {
-      // Continuer la partie
-      await interaction.update({
-        content: `🎮 **Partie de Mines Multijoueur**\n` +
-          `**Joueur 1:** <@${gameState.player1.id}> ${PLAYER1_EMOJI}\n` +
-          `**Joueur 2:** <@${gameState.player2.id}> ${PLAYER2_EMOJI}\n` +
-          `**Mise par joueur:** ${gameState.bet} ${config.currency.emoji}\n` +
-          `**C'est au tour de :** <@${gameState.currentPlayer}>`,
-        embeds: [embed],
-        components: components
-      });
+      // Si aucune action valide n'a été traitée
+      console.log('Aucune action valide traitée, mise à jour différée');
+      await interaction.deferUpdate();
     }
     
   } catch (error) {
@@ -685,6 +686,42 @@ function createGameGrid(minesCount) {
   }
   
   return grid;
+}
+
+// Mettre à jour l'interface du jeu
+async function updateGameInterface(interaction, gameState) {
+  const embed = createGameEmbed(gameState);
+  const components = createGridComponents(gameState, interaction);
+  
+  if (gameState.status === 'finished') {
+    // La partie est terminée, désactiver tous les boutons
+    for (const row of components) {
+      for (const component of row.components) {
+        component.setDisabled(true);
+      }
+    }
+    
+    await interaction.update({
+      embeds: [embed],
+      components: components
+    });
+    
+    // Supprimer la partie après un délai
+    setTimeout(() => {
+      activeMultiMinesGames.delete(gameState.id);
+    }, 30000); // 30 secondes
+  } else {
+    // Continuer la partie
+    await interaction.update({
+      content: `🎮 **Partie de Mines Multijoueur**\n` +
+        `**Joueur 1:** <@${gameState.player1.id}> ${PLAYER1_EMOJI}\n` +
+        `**Joueur 2:** <@${gameState.player2.id}> ${PLAYER2_EMOJI}\n` +
+        `**Mise par joueur:** ${gameState.bet} ${config.currency.emoji}\n` +
+        `**C'est au tour de :** <@${gameState.currentPlayer}>`,
+      embeds: [embed],
+      components: components
+    });
+  }
 }
 
 // Créer les composants de la grille (boutons)
