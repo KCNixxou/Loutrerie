@@ -258,8 +258,8 @@ async function handleHighLowDecision(interaction) {
       
     } else if (action === 'continue') {
       // Le joueur choisit de continuer (bouton 'Envoie la next')
-      // Tirer une nouvelle carte pour le prochain tour
-      gameState.nextCard = drawCard(gameState.currentCard);
+      // Mettre à jour la carte précédente pour l'affichage
+      gameState.previousCard = gameState.currentCard;
       
       // Créer l'embed pour le prochain tour
       const embed = createHighLowEmbed(gameState, interaction.user, false, false);
@@ -269,7 +269,7 @@ async function handleHighLowDecision(interaction) {
       await interaction.update({
         embeds: [embed],
         components: components,
-        content: null // Effacer tout message précédent
+        content: '🔄 En attente de votre prochain choix...' // Message de transition
       });
     }
   } catch (error) {
