@@ -128,6 +128,7 @@ function createGameEmbed(gameState, interaction) {
     const user = ensureUser(interaction.user.id);
     
     if (gameState.won) {
+      // Pour un cashout, les gains sont déjà crédités
       embed.setTitle('🎉 Gains récupérés !')
            .setDescription(
              `Vous avez empoché **${gameState.winAmount}** ${config.currency.emoji} !\n` +
@@ -136,11 +137,15 @@ function createGameEmbed(gameState, interaction) {
            .setFields([])
            .setColor(CASH_OUT_EMBED_COLOR);
     } else {
+      // En cas de perte, la mise a déjà été déduite au début de la partie
       const originalBet = gameState.originalBet || gameState.bet;
+      // Récupérer le solde actuel pour l'affichage
+      const currentUser = ensureUser(gameState.userId);
+      
       embed.setTitle('💥 BOOM !')
            .setDescription(
              `Vous avez cliqué sur une mine ! Votre mise de **${originalBet}** ${config.currency.emoji} est perdue.\n` +
-             `💵 Votre solde actuel : **${user.balance}** ${config.currency.emoji}`
+             `💵 Votre solde actuel : **${currentUser.balance}** ${config.currency.emoji}`
            )
            .setFields([])
            .setColor(GAME_OVER_EMBED_COLOR);
@@ -168,6 +173,9 @@ function revealCell(gameState, x, y) {
     console.log('Mine trouvée! Fin de la partie.');
     gameState.gameOver = true;
     gameState.won = false;
+    
+    // La mise a déjà été déduite au début de la partie, donc pas besoin de la déduire à nouveau
+    // On marque simplement la partie comme perdue
     return;
   }
   
@@ -234,7 +242,9 @@ async function handleMinesCommand(interaction) {
       won: false,
       messageId: null,
       // Ajout d'un timestamp pour le nettoyage automatique
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      // Stocker l'ID de l'utilisateur pour référence future
+      userId: interaction.user.id
     };
 
     // Envoyer le message de jeu d'abord

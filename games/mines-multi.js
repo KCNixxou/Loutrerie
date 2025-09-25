@@ -21,16 +21,16 @@ async function handleMinesMultiCommand(interaction) {
   
   if (!gameState) return;
   
-  const embed = createGameEmbed(gameState);
   const components = [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`mines_multi_join_${gameState.id}`)
         .setLabel('Rejoindre la partie')
-        .setStyle(ButtonStyle.Primary)
         .setEmoji('🎮')
+        .setStyle(ButtonStyle.primary)
     )
   ];
+  const embed = createGameEmbed(gameState);
   
   await interaction.reply({ 
     content: `🎮 **Nouvelle partie de Mines Multijoueur !**\n` +
@@ -43,7 +43,10 @@ async function handleMinesMultiCommand(interaction) {
 
 // Gérer l'interaction des boutons du jeu
 async function handleMinesMultiInteraction(interaction) {
-  const [_, action, gameId, ...rest] = interaction.customId.split('_');
+  const parts = interaction.customId.split('_');
+  const action = parts[1];
+  const gameId = parts[2];
+  const rest = parts.slice(3);
   
   if (!gameId) return;
   
@@ -54,7 +57,7 @@ async function handleMinesMultiInteraction(interaction) {
     if (!gameState) return;
     
     const embed = createGameEmbed(gameState);
-    const components = createGridComponents(gameState);
+    const components = createGridComponents(gameState, interaction);
     
     await interaction.update({
       content: `🎮 **Partie de Mines Multijoueur**\n` +
@@ -431,7 +434,7 @@ function createGameGrid(minesCount) {
 }
 
 // Créer les composants de la grille (boutons)
-function createGridComponents(gameState) {
+function createGridComponents(gameState, interaction = null) {
   const components = [];
   
   for (let x = 0; x < GRID_SIZE; x++) {
@@ -451,28 +454,36 @@ function createGridComponents(gameState) {
         style = ButtonStyle.Primary;
       }
       
+      // Ne pas désactiver les boutons si la partie est en attente d'un deuxième joueur
+      const shouldDisable = gameState.status === 'finished' || 
+                          (gameState.status === 'playing' && 
+                           gameState.currentPlayer !== interaction?.user?.id);
+      
       row.addComponents(
         new ButtonBuilder()
           .setCustomId(`mines_multi_${gameState.id}_${x}_${y}`)
           .setEmoji(emoji)
           .setStyle(style)
-          .setDisabled(gameState.status !== 'playing' || !gameState.currentPlayer)
+          .setDisabled(shouldDisable)
       );
     }
     
     components.push(row);
   }
   
-  // Ajouter le bouton pour quitter la partie
-  components.push(
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`mines_multi_${gameState.id}_quit`)
-        .setLabel('Abandonner')
-        .setStyle(ButtonStyle.Danger)
-        .setEmoji('🏳️')
-    )
-  );
+  // Ajouter le bouton pour quitter la partie si la partie est en cours
+  if (gameState.status === 'playing' || gameState.status === 'waiting') {
+    components.push(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`mines_multi_${gameState.id}_quit`)
+          .setLabel('Abandonner')
+          .setStyle(ButtonStyle.Danger)
+          .setEmoji('🏳️')
+          .setDisabled(gameState.status === 'finished')
+      )
+    );
+  }
   
   return components;
 }

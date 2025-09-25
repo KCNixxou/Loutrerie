@@ -55,10 +55,19 @@ async function handleHighLow(interaction) {
     lastAction: Date.now()
   };
 
+  // Vérifier si l'utilisateur a assez d'argent après la mise à jour
+  if (user.balance < bet) {
+    return interaction.reply({
+      content: `❌ Vous n'avez pas assez de ${config.currency.emoji} pour cette mise !`,
+      flags: 1 << 6
+    });
+  }
+  
   // Mettre à jour le solde de l'utilisateur
   updateUser(userId, { balance: user.balance - bet });
   
-  // Stocker la partie
+  // Stocker la partie avec la date de création
+  gameState.createdAt = Date.now();
   activeHighLowGames.set(gameId, gameState);
   
   // Créer l'embed
@@ -158,22 +167,25 @@ async function handleHighLowAction(interaction) {
     
   } else if (result === 'lose') {
     // Fin de la partie en cas de défaite
-    const winnings = Math.floor(gameState.bet * gameState.multiplier);
     const user = ensureUser(gameState.userId);
+    let message = '';
     
     // Mettre à jour la carte courante pour afficher la dernière carte
     gameState.currentCard = gameState.nextCard;
     gameState.nextCard = null;
     
-    // Créditer le joueur s'il a gagné au moins un tour
+    // Le joueur perd toute sa mise, qui a déjà été déduite au début de la partie
+    message = `❌ Dommage ! Vous avez perdu votre mise de ${gameState.bet} ${config.currency.emoji}.`;
+    
     if (gameState.multiplier > 1) {
-      updateUser(gameState.userId, { balance: user.balance + winnings });
+      message += `\n💥 Votre multiplicateur était de x${gameState.multiplier.toFixed(2)}.`;
     }
     
     const embed = createHighLowEmbed(gameState, interaction.user, true, false);
     
     try {
       await interaction.update({
+        content: message,
         embeds: [embed],
         components: []
       });
