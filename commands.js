@@ -289,7 +289,19 @@ const commands = [
         .setMaxValue(10000)) // Limite de 10 000 coquillages
     .setDMPermission(false),
 
-  // Jeu des mines spécial avec solde spécial (3 mines fixes)
+  // Jeu des mines multijoueur
+  new SlashCommandBuilder()
+    .setName('mines-multi')
+    .setDescription('Jouer au jeu des mines en multijoueur')
+    .setDMPermission(false)
+    .addIntegerOption(option =>
+      option.setName('mise')
+        .setDescription('Montant à miser par joueur')
+        .setRequired(true)
+        .setMinValue(1)
+        .setMaxValue(10000)), // Limite de 10 000 coquillages
+
+  // Jeu des mines spécial avec solde spécial (3 mines)
   new SlashCommandBuilder()
     .setName('special-mines')
     .setDescription('[SPÉCIAL] Jouer au jeu des mines avec le solde spécial (3 mines)')

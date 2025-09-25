@@ -33,6 +33,7 @@ const {
   handleHighLowDecision
 } = require('./games');
 const { handleMinesCommand, handleMinesButtonInteraction } = require('./games/mines');
+const { handleMinesMultiCommand, handleMinesMultiInteraction } = require('./games/mines-multi');
 const { handleSpecialMinesCommand, handleSpecialMinesInteraction } = require('./games/special-mines');
 const { 
   startCrashGame, 
@@ -240,6 +241,11 @@ client.on('interactionCreate', async (interaction) => {
         } else {
           await handleHighLowAction(interaction);
         }
+      } else if (interaction.customId.startsWith('mines_multi_')) {
+        if (isMaintenanceMode() && !isAdmin(interaction.user.id)) {
+          return interaction.reply({ content: '⛔ Le bot est en maintenance. Veuillez réessayer plus tard.', ephemeral: true });
+        }
+        await handleMinesMultiInteraction(interaction);
       } else if (interaction.customId.startsWith('mines_')) {
         if (isMaintenanceMode() && !isAdmin(interaction.user.id)) {
           return interaction.reply({ content: '⛔ Le bot est en maintenance. Veuillez réessayer plus tard.', ephemeral: true });
@@ -860,6 +866,10 @@ async function handleSlashCommand(interaction) {
       
     case 'mines':
       await handleMinesCommand(interaction);
+      break;
+      
+    case 'mines-multi':
+      await handleMinesMultiCommand(interaction);
       break;
       
     case 'special-mines':
