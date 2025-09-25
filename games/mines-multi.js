@@ -52,31 +52,53 @@ async function handleMinesMultiCommand(interaction) {
 
 // Gérer l'interaction des boutons du jeu
 async function handleMinesMultiInteraction(interaction) {
+  console.log('Interaction reçue:', interaction.customId);
+  
   const parts = interaction.customId.split('_');
   const action = parts[1];
   const gameId = parts[2];
   const rest = parts.slice(3);
   
-  if (!gameId) return;
+  if (!gameId) {
+    console.log('Aucun ID de jeu fourni');
+    return;
+  }
   
   // Gérer la demande de rejoindre une partie
   if (action === 'join') {
+    console.log(`Tentative de rejoindre la partie ${gameId}`);
+    
+    // Mettre à jour l'interaction immédiatement pour éviter l'expiration
+    await interaction.deferUpdate().catch(console.error);
+    
     const gameState = await joinGame(interaction, gameId);
     
-    if (!gameState) return;
+    if (!gameState) {
+      console.log('Impossible de rejoindre la partie');
+      return;
+    }
+    
+    console.log('Partie rejointe avec succès, mise à jour de l\'interface...');
     
     const embed = createGameEmbed(gameState);
     const components = createGridComponents(gameState, interaction);
     
-    await interaction.update({
-      content: `🎮 **Partie de Mines Multijoueur**\n` +
-        `**Joueur 1:** <@${gameState.player1.id}> ${PLAYER1_EMOJI}\n` +
-        `**Joueur 2:** <@${gameState.player2.id}> ${PLAYER2_EMOJI}\n` +
-        `**Mise par joueur:** ${gameState.bet} ${config.currency.emoji}\n` +
-        `**C'est au tour de :** <@${gameState.currentPlayer}>`,
-      embeds: [embed],
-      components: components
-    });
+    try {
+      // Mettre à jour le message original avec les nouveaux composants
+      await interaction.editReply({
+        content: `🎮 **Partie de Mines Multijoueur**\n` +
+          `**Joueur 1:** <@${gameState.player1.id}> ${PLAYER1_EMOJI}\n` +
+          `**Joueur 2:** <@${gameState.player2.id}> ${PLAYER2_EMOJI}\n` +
+          `**Mise par joueur:** ${gameState.bet} ${config.currency.emoji}\n` +
+          `**C'est au tour de :** <@${gameState.currentPlayer}>`,
+        embeds: [embed],
+        components: components
+      });
+      
+      console.log('Interface mise à jour avec succès');
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour de l\'interface:', error);
+    }
     
     return;
   }
@@ -85,12 +107,17 @@ async function handleMinesMultiInteraction(interaction) {
   const gameState = activeMultiMinesGames.get(gameId);
   
   if (!gameState) {
+    console.log(`La partie ${gameId} n'existe plus`);
     await interaction.update({ 
       content: '❌ Cette partie est terminée !', 
       components: [] 
-    });
+    }).catch(console.error);
     return;
   }
+  
+  // Mettre à jour la dernière activité de la partie
+  gameState.lastActivity = Date.now();
+  activeMultiMinesGames.set(gameId, gameState);
   
   gameState.lastActivity = Date.now();
   const userId = interaction.user.id;
