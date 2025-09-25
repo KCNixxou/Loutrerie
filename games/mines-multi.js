@@ -248,8 +248,29 @@ async function handleMinesMultiInteraction(interaction) {
       // Révéler la case
       const isSafe = revealCell(gameState, x, y, interaction.user.id);
       
+      // Si la partie n'est pas terminée, changer de joueur
+      if (gameState.status !== 'finished') {
+        gameState.currentPlayer = gameState.currentPlayer === gameState.player1.id ? 
+          gameState.player2.id : gameState.player1.id;
+      }
+      
       // Mettre à jour l'interface
       await updateGameInterface(interaction, gameState);
+      
+      // Si un joueur a gagné, mettre à jour les soldes
+      if (gameState.status === 'finished' && gameState.winner) {
+        const winner = gameState.winner === gameState.player1.id ? gameState.player1 : gameState.player2;
+        const loser = gameState.winner === gameState.player1.id ? gameState.player2 : gameState.player1;
+        
+        // Mettre à jour les soldes dans la base de données
+        await updateUserBalance(winner.id, gameState.bet * 2); // Le gagnant récupère la mise totale
+        
+        // Envoyer un message de fin de partie
+        await interaction.followUp({
+          content: `🎉 Félicitations <@${winner.id}> ! Vous avez gagné ${gameState.bet * 2} ${config.currency.emoji} !`,
+          ephemeral: false
+        }).catch(console.error);
+      }
       
     } else if (action === 'quit') {
       // Gérer l'abandon
@@ -270,6 +291,23 @@ async function handleMinesMultiInteraction(interaction) {
     } catch (e) {
       console.error('Impossible d\'envoyer le message d\'erreur:', e);
     }
+  }
+}
+
+// Mettre à jour le solde d'un utilisateur
+async function updateUserBalance(userId, amount) {
+  try {
+    const user = ensureUser(userId);
+    user.balance += amount;
+    
+    // Mettre à jour la base de données
+    await db.run('UPDATE users SET balance = ? WHERE user_id = ?', [user.balance, userId]);
+    console.log(`[DB] Solde mis à jour pour l'utilisateur ${userId}: ${user.balance} ${config.currency.emoji}`);
+    
+    return user.balance;
+  } catch (error) {
+    console.error(`Erreur lors de la mise à jour du solde de l'utilisateur ${userId}:`, error);
+    throw error;
   }
 }
 
@@ -645,29 +683,76 @@ function createGameEmbed(gameState) {
 
 // Gérer la révélation d'une case
 function revealCell(gameState, x, y, userId) {
+  // Vérifier si la case est déjà révélée
+  if (gameState.revealed[x][y].revealed) {
+    return true; // La case est déjà révélée, on ne fait rien
+  }
+
+  // Marquer la case comme révélée
+  gameState.revealed[x][y].revealed = true;
+  gameState.revealed[x][y].markedBy = userId;
+  
+  // Vérifier si c'est une mine
   if (gameState.grid[x][y] === 'mine') {
     // Le joueur a trouvé une mine, il a perdu
     gameState.status = 'finished';
     gameState.winner = userId === gameState.player1.id ? gameState.player2.id : gameState.player1.id;
-    // Révéler toutes les mines
+    
+    // Révéler toutes les mines pour la fin de partie
     for (let i = 0; i < GRID_SIZE; i++) {
       for (let j = 0; j < GRID_SIZE; j++) {
         if (gameState.grid[i][j] === 'mine') {
           gameState.revealed[i][j].revealed = true;
+          gameState.revealed[i][j].markedBy = gameState.winner;
         }
       }
     }
+    
     return false;
-  } else {
-    // Case sûre, continuer le jeu
-    gameState.revealed[x][y].revealed = true;
-    gameState.revealedCount++;
-    
-    // Changer de joueur
-    gameState.currentPlayer = gameState.currentPlayer === gameState.player1.id ? 
-      gameState.player2.id : gameState.player1.id;
-    
+  }
+  
+  // Si c'est une case sûre, incrémenter le compteur
+  gameState.revealedCount++;
+  
+  // Vérifier si le joueur a gagné (toutes les cases non-mines ont été révélées)
+  const totalSafeCells = GRID_SIZE * GRID_SIZE - gameState.minesCount;
+  if (gameState.revealedCount >= totalSafeCells) {
+    gameState.status = 'finished';
+    gameState.winner = userId; // Le joueur actuel gagne
     return true;
+  }
+  
+  // Si la case est vide (pas de mines adjacentes), révéler les cases adjacentes
+  if (countAdjacentMines(gameState, x, y) === 0) {
+    revealAdjacentCells(gameState, x, y, userId);
+  }
+  
+  return true;
+}
+
+// Compter les mines adjacentes à une case
+function countAdjacentMines(gameState, x, y) {
+  let count = 0;
+  for (let i = Math.max(0, x - 1); i <= Math.min(GRID_SIZE - 1, x + 1); i++) {
+    for (let j = Math.max(0, y - 1); j <= Math.min(GRID_SIZE - 1, y + 1); j++) {
+      if (i === x && j === y) continue; // Ne pas compter la case elle-même
+      if (gameState.grid[i][j] === 'mine') {
+        count++;
+      }
+    }
+  }
+  return count;
+}
+
+// Révéler les cases adjacentes à une case vide
+function revealAdjacentCells(gameState, x, y, userId) {
+  for (let i = Math.max(0, x - 1); i <= Math.min(GRID_SIZE - 1, x + 1); i++) {
+    for (let j = Math.max(0, y - 1); j <= Math.min(GRID_SIZE - 1, y + 1); j++) {
+      if (i === x && j === y) continue; // Ne pas révéler la case elle-même
+      if (!gameState.revealed[i][j].revealed) {
+        revealCell(gameState, i, j, userId);
+      }
+    }
   }
 }
 
