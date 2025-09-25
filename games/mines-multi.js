@@ -67,37 +67,62 @@ async function handleMinesMultiInteraction(interaction) {
     
     // Gérer la demande de rejoindre une partie
     if (action === 'join') {
-      console.log(`Tentative de rejoindre la partie ${gameId}`);
+      console.log(`=== TENTATIVE DE REJOINDRE UNE PARTIE ===`);
+      console.log(`Partie ID: ${gameId}`);
+      console.log(`Utilisateur: ${interaction.user.username} (${interaction.user.id})`);
+      
+      // Mettre à jour l'interaction immédiatement pour éviter l'expiration
+      try {
+        await interaction.deferUpdate();
+        console.log('Interaction différée avec succès');
+      } catch (error) {
+        console.error('Erreur lors du différé de l\'interaction:', error);
+        return;
+      }
       
       // Vérifier d'abord si la partie existe
       let gameState = activeMultiMinesGames.get(gameId);
       if (!gameState) {
-        console.log(`La partie ${gameId} n'existe plus`);
-        await interaction.reply({
-          content: '❌ Cette partie n\'existe plus ou est déjà terminée !',
-          ephemeral: true
-        }).catch(console.error);
+        console.log(`ERREUR: La partie ${gameId} n'existe plus dans activeMultiMinesGames`);
+        console.log(`Parties actuellement en mémoire:`, Array.from(activeMultiMinesGames.keys()));
+        
+        try {
+          await interaction.followUp({
+            content: '❌ Cette partie n\'existe plus ou est déjà terminée !',
+            ephemeral: true
+          });
+        } catch (e) {
+          console.error('Impossible d\'envoyer le message d\'erreur:', e);
+        }
         return;
       }
       
-      // Mettre à jour l'interaction immédiatement pour éviter l'expiration
-      await interaction.deferUpdate().catch(console.error);
+      console.log(`Partie trouvée, statut: ${gameState.status}`);
       
       // Rejoindre la partie
+      console.log('Appel de joinGame...');
       gameState = await joinGame(interaction, gameId);
       
       if (!gameState) {
-        console.log('Impossible de rejoindre la partie');
+        console.log('ERREUR: Impossible de rejoindre la partie (retour null de joinGame)');
+        try {
+          await interaction.followUp({
+            content: '❌ Impossible de rejoindre la partie. Veuillez réessayer.',
+            ephemeral: true
+          });
+        } catch (e) {
+          console.error('Impossible d\'envoyer le message d\'erreur:', e);
+        }
         return;
       }
       
-      console.log('Partie rejointe avec succès, mise à jour de l\'interface...');
-      
-      const embed = createGameEmbed(gameState);
-      const components = createGridComponents(gameState, interaction);
+      console.log('Partie rejointe avec succès, préparation de l\'interface...');
       
       try {
-        // Mettre à jour le message original avec les nouveaux composants
+        const embed = createGameEmbed(gameState);
+        const components = createGridComponents(gameState, interaction);
+        
+        console.log('Mise à jour de l\'interface...');
         await interaction.editReply({
           content: `🎮 **Partie de Mines Multijoueur**\n` +
             `**Joueur 1:** <@${gameState.player1.id}> ${PLAYER1_EMOJI}\n` +
@@ -108,9 +133,17 @@ async function handleMinesMultiInteraction(interaction) {
           components: components
         });
         
-        console.log('Interface mise à jour avec succès');
+        console.log('=== PARTIE REJOINTE AVEC SUCCÈS ===');
       } catch (error) {
-        console.error('Erreur lors de la mise à jour de l\'interface:', error);
+        console.error('ERREUR CRITIQUE lors de la mise à jour de l\'interface:', error);
+        try {
+          await interaction.followUp({
+            content: '❌ Une erreur est survenue lors de la mise à jour de la partie.',
+            ephemeral: true
+          });
+        } catch (e) {
+          console.error('Impossible d\'envoyer le message d\'erreur:', e);
+        }
       }
       
       return;
@@ -279,9 +312,15 @@ function cleanupOldGames(userId) {
   
   for (const [gameId, game] of games.entries()) {
     try {
-      // Ne pas nettoyer la partie si elle est en cours d'utilisation
-      if (!game.lastActivity || now - game.lastActivity < 30000) { // 30 secondes de grâce
-        console.log(`Partie ${gameId} trop récente pour être nettoyée`);
+      // Ignorer les parties récentes (moins de 5 minutes)
+      if (now - game.lastActivity < 300000) { // 5 minutes de grâce
+        console.log(`Partie ${gameId} trop récente pour être nettoyée (créée il y a ${Math.floor((now - game.lastActivity) / 1000)} secondes)`);
+        continue;
+      }
+      
+      // Ne pas nettoyer les parties en cours
+      if (game.status === 'playing') {
+        console.log(`Partie ${gameId} en cours, non nettoyée`);
         continue;
       }
       
@@ -363,9 +402,16 @@ async function createGame(interaction, bet) {
   // Stocker la partie avec l'ID comme clé
   activeMultiMinesGames.set(gameId, gameState);
   console.log(`Nouvelle partie créée avec l'ID: ${gameId}`);
+  console.log(`Nombre total de parties actives: ${activeMultiMinesGames.size}`);
+  console.log(`Détails de la partie créée:`, {
+    id: gameState.id,
+    player1: gameState.player1.username,
+    status: gameState.status,
+    lastActivity: new Date(gameState.lastActivity).toISOString()
+  });
   
-  // Nettoyer les anciennes parties
-  cleanupOldGames(userId);
+  // Nettoyer les anciennes parties (désactivé temporairement pour le débogage)
+  // cleanupOldGames(userId);
   
   return gameState;
 }
@@ -373,17 +419,32 @@ async function createGame(interaction, bet) {
 // Rejoindre une partie existante
 async function joinGame(interaction, gameId) {
   console.log(`Tentative de rejoindre la partie ${gameId} par ${interaction.user.username}`);
+  console.log(`Nombre total de parties actives: ${activeMultiMinesGames.size}`);
+  
+  // Afficher toutes les parties actives pour le débogage
+  console.log('Liste des parties actives:');
+  activeMultiMinesGames.forEach((game, id) => {
+    console.log(`- ${id}: ${game.status} (créée par ${game.player1?.username || 'inconnu'}, dernière activité: ${new Date(game.lastActivity).toISOString()})`);
+  });
   
   const gameState = activeMultiMinesGames.get(gameId);
   
   if (!gameState) {
-    console.log('Partie non trouvée');
+    console.log('Partie non trouvée dans la Map activeMultiMinesGames');
     await interaction.reply({ 
       content: '❌ Cette partie n\'existe plus ou est déjà terminée !', 
       ephemeral: true 
     });
     return null;
   }
+  
+  console.log(`Détails de la partie trouvée:`, {
+    id: gameState.id,
+    player1: gameState.player1?.username,
+    player2: gameState.player2 ? 'déjà présent' : 'absent',
+    status: gameState.status,
+    lastActivity: new Date(gameState.lastActivity).toISOString()
+  });
   
   if (gameState.status !== 'waiting') {
     console.log('Partie déjà commencée ou terminée');
