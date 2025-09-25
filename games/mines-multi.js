@@ -52,40 +52,143 @@ async function handleMinesMultiCommand(interaction) {
 
 // Gérer l'interaction des boutons du jeu
 async function handleMinesMultiInteraction(interaction) {
-  console.log('Interaction reçue:', interaction.customId);
-  
-  const parts = interaction.customId.split('_');
-  const action = parts[1];
-  const gameId = parts[2];
-  const rest = parts.slice(3);
-  
-  if (!gameId) {
-    console.log('Aucun ID de jeu fourni');
-    return;
-  }
-  
-  // Gérer la demande de rejoindre une partie
-  if (action === 'join') {
-    console.log(`Tentative de rejoindre la partie ${gameId}`);
+  try {
+    console.log('Interaction reçue:', interaction.customId);
     
-    // Mettre à jour l'interaction immédiatement pour éviter l'expiration
-    await interaction.deferUpdate().catch(console.error);
+    const parts = interaction.customId.split('_');
+    const action = parts[1];
+    const gameId = parts[2];
+    const rest = parts.slice(3);
     
-    const gameState = await joinGame(interaction, gameId);
-    
-    if (!gameState) {
-      console.log('Impossible de rejoindre la partie');
+    if (!gameId) {
+      console.log('Aucun ID de jeu fourni');
       return;
     }
     
-    console.log('Partie rejointe avec succès, mise à jour de l\'interface...');
+    // Gérer la demande de rejoindre une partie
+    if (action === 'join') {
+      console.log(`Tentative de rejoindre la partie ${gameId}`);
+      
+      // Vérifier d'abord si la partie existe
+      let gameState = activeMultiMinesGames.get(gameId);
+      if (!gameState) {
+        console.log(`La partie ${gameId} n'existe plus`);
+        await interaction.reply({
+          content: '❌ Cette partie n\'existe plus ou est déjà terminée !',
+          ephemeral: true
+        }).catch(console.error);
+        return;
+      }
+      
+      // Mettre à jour l'interaction immédiatement pour éviter l'expiration
+      await interaction.deferUpdate().catch(console.error);
+      
+      // Rejoindre la partie
+      gameState = await joinGame(interaction, gameId);
+      
+      if (!gameState) {
+        console.log('Impossible de rejoindre la partie');
+        return;
+      }
+      
+      console.log('Partie rejointe avec succès, mise à jour de l\'interface...');
+      
+      const embed = createGameEmbed(gameState);
+      const components = createGridComponents(gameState, interaction);
+      
+      try {
+        // Mettre à jour le message original avec les nouveaux composants
+        await interaction.editReply({
+          content: `🎮 **Partie de Mines Multijoueur**\n` +
+            `**Joueur 1:** <@${gameState.player1.id}> ${PLAYER1_EMOJI}\n` +
+            `**Joueur 2:** <@${gameState.player2.id}> ${PLAYER2_EMOJI}\n` +
+            `**Mise par joueur:** ${gameState.bet} ${config.currency.emoji}\n` +
+            `**C'est au tour de :** <@${gameState.currentPlayer}>`,
+          embeds: [embed],
+          components: components
+        });
+        
+        console.log('Interface mise à jour avec succès');
+      } catch (error) {
+        console.error('Erreur lors de la mise à jour de l\'interface:', error);
+      }
+      
+      return;
+    }
     
+    // Gérer le clic sur une case ou l'abandon
+    const gameState = activeMultiMinesGames.get(gameId);
+    
+    if (!gameState) {
+      console.log(`La partie ${gameId} n'existe plus`);
+      await interaction.update({ 
+        content: '❌ Cette partie est terminée !', 
+        components: [] 
+      }).catch(console.error);
+      return;
+    }
+    
+    // Mettre à jour la dernière activité de la partie
+    gameState.lastActivity = Date.now();
+    activeMultiMinesGames.set(gameId, gameState);
+    
+    // Vérifier si c'est un abandon
+    if (rest[0] === 'quit') {
+      await handleQuitGame(interaction, gameState, gameId);
+      return;
+    }
+    
+    // Gérer le clic sur une case
+    const x = parseInt(rest[0]);
+    const y = parseInt(rest[1]);
+    
+    if (isNaN(x) || isNaN(y) || x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) {
+      await interaction.deferUpdate();
+      return;
+    }
+    
+    // Vérifier si la case a déjà été révélée
+    if (gameState.revealed[x][y].revealed || gameState.revealed[x][y].markedBy) {
+      await interaction.deferUpdate();
+      return;
+    }
+    
+    // Vérifier que c'est bien le tour du joueur
+    if (interaction.user.id !== gameState.currentPlayer) {
+      await interaction.deferUpdate();
+      return;
+    }
+    
+    // Marquer la case comme révélée par le joueur actuel
+    gameState.revealed[x][y].markedBy = interaction.user.id;
+    
+    // Révéler la case
+    const isSafe = revealCell(gameState, x, y, interaction.user.id);
+    
+    // Mettre à jour l'affichage
     const embed = createGameEmbed(gameState);
     const components = createGridComponents(gameState, interaction);
     
-    try {
-      // Mettre à jour le message original avec les nouveaux composants
-      await interaction.editReply({
+    if (gameState.status === 'finished') {
+      // La partie est terminée, désactiver tous les boutons
+      for (const row of components) {
+        for (const component of row.components) {
+          component.setDisabled(true);
+        }
+      }
+      
+      await interaction.update({
+        embeds: [embed],
+        components: components
+      });
+      
+      // Supprimer la partie après un délai
+      setTimeout(() => {
+        activeMultiMinesGames.delete(gameId);
+      }, 30000); // 30 secondes
+    } else {
+      // Continuer la partie
+      await interaction.update({
         content: `🎮 **Partie de Mines Multijoueur**\n` +
           `**Joueur 1:** <@${gameState.player1.id}> ${PLAYER1_EMOJI}\n` +
           `**Joueur 2:** <@${gameState.player2.id}> ${PLAYER2_EMOJI}\n` +
@@ -94,92 +197,41 @@ async function handleMinesMultiInteraction(interaction) {
         embeds: [embed],
         components: components
       });
-      
-      console.log('Interface mise à jour avec succès');
-    } catch (error) {
-      console.error('Erreur lors de la mise à jour de l\'interface:', error);
     }
     
-    return;
+  } catch (error) {
+    console.error('Erreur dans handleMinesMultiInteraction:', error);
+    try {
+      await interaction.reply({
+        content: '❌ Une erreur est survenue lors du traitement de votre action.',
+        ephemeral: true
+      }).catch(console.error);
+    } catch (e) {
+      console.error('Impossible d\'envoyer le message d\'erreur:', e);
+    }
   }
-  
-  // Gérer le clic sur une case ou l'abandon
-  const gameState = activeMultiMinesGames.get(gameId);
-  
-  if (!gameState) {
-    console.log(`La partie ${gameId} n'existe plus`);
-    await interaction.update({ 
-      content: '❌ Cette partie est terminée !', 
-      components: [] 
-    }).catch(console.error);
-    return;
-  }
-  
-  // Mettre à jour la dernière activité de la partie
-  gameState.lastActivity = Date.now();
-  activeMultiMinesGames.set(gameId, gameState);
-  
-  gameState.lastActivity = Date.now();
-  const userId = interaction.user.id;
-  
-  // Vérifier que c'est bien le tour du joueur
-  if (userId !== gameState.currentPlayer) {
-    await interaction.deferUpdate();
-    return;
-  }
-  
-  // Gérer l'abandon
-  if (rest[0] === 'quit') {
+}
+
+// Gérer l'abandon d'une partie
+async function handleQuitGame(interaction, gameState, gameId) {
+  try {
+    const userId = interaction.user.id;
+    
+    // Marquer la partie comme terminée
     gameState.status = 'finished';
     gameState.winner = userId === gameState.player1.id ? gameState.player2.id : gameState.player1.id;
     
     const winner = gameState.winner === gameState.player1.id ? gameState.player1 : gameState.player2;
-    const winnings = Math.floor(gameState.bet * MULTIPLIERS[gameState.revealedCount]);
-    const totalWon = winnings + gameState.bet; // Le gagnant récupère sa mise + les gains
+    const winnings = Math.floor(gameState.bet * 2); // Le gagnant récupère sa mise + celle de l'adversaire
     
     // Mettre à jour le solde du gagnant
-    updateUser(winner.id, { balance: winner.balance + totalWon });
+    updateUser(winner.id, { balance: winner.balance + winnings });
     
+    // Mettre à jour l'affichage
     const embed = createGameEmbed(gameState);
+    const components = createGridComponents(gameState, interaction);
     
-    await interaction.update({
-      content: `🏳️ **<@${userId}> a abandonné la partie !**\n` +
-        `🎉 **<@${gameState.winner}> gagne ${totalWon} ${config.currency.emoji} (dont ${winnings} ${config.currency.emoji} de gains) !**`,
-      embeds: [embed],
-      components: []
-    });
-    
-    activeMultiMinesGames.delete(gameId);
-    return;
-  }
-  
-  // Gérer le clic sur une case
-  const x = parseInt(rest[0]);
-  const y = parseInt(rest[1]);
-  
-  if (isNaN(x) || isNaN(y) || x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) {
-    await interaction.deferUpdate();
-    return;
-  }
-  
-  // Vérifier si la case a déjà été révélée
-  if (gameState.revealed[x][y].revealed || gameState.revealed[x][y].markedBy) {
-    await interaction.deferUpdate();
-    return;
-  }
-  
-  // Marquer la case comme révélée par le joueur actuel
-  gameState.revealed[x][y].markedBy = userId;
-  
-  // Révéler la case
-  const isSafe = revealCell(gameState, x, y, userId);
-  
-  // Mettre à jour l'affichage
-  const embed = createGameEmbed(gameState);
-  const components = createGridComponents(gameState);
-  
-  if (gameState.status === 'finished') {
-    // La partie est terminée, désactiver tous les boutons
+    // Désactiver tous les boutons
     for (const row of components) {
       for (const component of row.components) {
         component.setDisabled(true);
@@ -187,6 +239,8 @@ async function handleMinesMultiInteraction(interaction) {
     }
     
     await interaction.update({
+      content: `🏳️ **<@${userId}> a abandonné la partie !**\n` +
+        `🎉 **<@${gameState.winner}> gagne ${winnings} ${config.currency.emoji} !**`,
       embeds: [embed],
       components: components
     });
@@ -195,17 +249,17 @@ async function handleMinesMultiInteraction(interaction) {
     setTimeout(() => {
       activeMultiMinesGames.delete(gameId);
     }, 30000); // 30 secondes
-  } else {
-    // Continuer la partie
-    await interaction.update({
-      content: `🎮 **Partie de Mines Multijoueur**\n` +
-        `**Joueur 1:** <@${gameState.player1.id}> ${PLAYER1_EMOJI}\n` +
-        `**Joueur 2:** <@${gameState.player2.id}> ${PLAYER2_EMOJI}\n` +
-        `**Mise par joueur:** ${gameState.bet} ${config.currency.emoji}\n` +
-        `**C'est au tour de :** <@${gameState.currentPlayer}>`,
-      embeds: [embed],
-      components: components
-    });
+    
+  } catch (error) {
+    console.error('Erreur lors de l\'abandon de la partie:', error);
+    try {
+      await interaction.reply({
+        content: '❌ Une erreur est survenue lors de l\'abandon de la partie.',
+        ephemeral: true
+      }).catch(console.error);
+    } catch (e) {
+      console.error('Impossible d\'envoyer le message d\'erreur:', e);
+    }
   }
 }
 
@@ -224,32 +278,35 @@ function cleanupOldGames(userId) {
   const games = new Map(activeMultiMinesGames);
   
   for (const [gameId, game] of games.entries()) {
-    // Ne pas nettoyer la partie si elle est en cours d'utilisation
-    if (game.lastActivity && now - game.lastActivity < 5000) { // 5 secondes de grâce
-      continue;
-    }
-    
-    // Supprimer les parties inactives depuis plus de 30 minutes
-    if (now - game.lastActivity > timeout) {
-      console.log(`Nettoyage de la partie ${gameId} inutilisée depuis plus de 30 minutes`);
-      // Rembourser les joueurs si la partie n'a pas commencé
-      if (game.status === 'waiting' && game.player1) {
+    try {
+      // Ne pas nettoyer la partie si elle est en cours d'utilisation
+      if (!game.lastActivity || now - game.lastActivity < 30000) { // 30 secondes de grâce
+        console.log(`Partie ${gameId} trop récente pour être nettoyée`);
+        continue;
+      }
+      
+      // Supprimer uniquement les parties en attente du même utilisateur
+      if (game.status === 'waiting' && game.player1?.id === userId) {
+        console.log(`Nettoyage de l'ancienne partie en attente ${gameId} de l'utilisateur ${userId}`);
+        // Rembourser le joueur pour les parties en attente
         const player = ensureUser(game.player1.id);
         updateUser(game.player1.id, { balance: player.balance + game.bet });
-        console.log(`Remboursement de ${game.bet} à ${game.player1.username} pour la partie ${gameId}`);
+        console.log(`Remboursement de ${game.bet} à ${game.player1.username}`);
+        activeMultiMinesGames.delete(gameId);
       }
-      activeMultiMinesGames.delete(gameId);
-    }
-    // Supprimer les anciennes parties du même utilisateur
-    else if ((game.player1?.id === userId || game.player2?.id === userId) && 
-             gameId !== activeMultiMinesGames.keys().next().value) {
-      console.log(`Nettoyage de l'ancienne partie ${gameId} de l'utilisateur ${userId}`);
-      if (game.status === 'waiting' && game.player1) {
-        const player = ensureUser(game.player1.id);
-        updateUser(game.player1.id, { balance: player.balance + game.bet });
-        console.log(`Remboursement de ${game.bet} à ${game.player1.username} pour l'ancienne partie`);
+      // Supprimer les parties inactives depuis plus de 30 minutes
+      else if (now - game.lastActivity > timeout) {
+        console.log(`Nettoyage de la partie ${gameId} inutilisée depuis plus de 30 minutes`);
+        // Rembourser les joueurs si la partie n'a pas commencé
+        if (game.status === 'waiting' && game.player1) {
+          const player = ensureUser(game.player1.id);
+          updateUser(game.player1.id, { balance: player.balance + game.bet });
+          console.log(`Remboursement de ${game.bet} à ${game.player1.username}`);
+        }
+        activeMultiMinesGames.delete(gameId);
       }
-      activeMultiMinesGames.delete(gameId);
+    } catch (error) {
+      console.error(`Erreur lors du nettoyage de la partie ${gameId}:`, error);
     }
   }
 }
