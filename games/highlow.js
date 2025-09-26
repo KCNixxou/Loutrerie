@@ -438,15 +438,36 @@ async function handleHighLowDecision(interaction) {
             .setEmoji('⬆️')
         );
       
-      // Mettre à jour le message pour le prochain tour
-      await interaction.update({
-        embeds: [embed],
-        components: [row],
-        content: '🔄 En attente de votre prochain choix...' // Message de transition
-      });
+      // Mettre à jour l'état du jeu avant de sauvegarder
+      gameState.lastAction = Date.now();
       
-      // Sauvegarder l'état actuel du jeu
-      activeHighLowGames.set(gameState.id, gameState);
+      // Sauvegarder l'état actuel du jeu AVANT de mettre à jour le message
+      activeHighLowGames.set(gameId, gameState);
+      
+      console.log(`[HighLow] Game ${gameId} updated for next round`);
+      
+      // Mettre à jour le message pour le prochain tour
+      try {
+        await interaction.update({
+          embeds: [embed],
+          components: [row],
+          content: '🔄 En attente de votre prochain choix...' // Message de transition
+        });
+      } catch (error) {
+        console.error('Erreur lors de la mise à jour du message pour le prochain tour:', error);
+        // Essayer de récupérer l'erreur
+        if (interaction.replied || interaction.deferred) {
+          await interaction.followUp({
+            content: '❌ Une erreur est survenue lors de la préparation du prochain tour. Veuillez réessayer.',
+            ephemeral: true
+          });
+        } else {
+          await interaction.reply({
+            content: '❌ Une erreur est survenue lors de la préparation du prochain tour. Veuillez réessayer.',
+            ephemeral: true
+          });
+        }
+      }
     }
   } catch (error) {
     console.error('Erreur lors de la gestion de la décision:', error);
