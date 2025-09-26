@@ -443,76 +443,40 @@ function createHighLowEmbed(gameState, user, isGameOver = false, showDecision = 
 function createHighLowComponents(gameId, showDecision = false) {
   if (showDecision) {
     // Boutons pour décider de continuer ou de s'arrêter
-    return [
-      // Première rangée : boutons de décision
-      new ActionRowBuilder().addComponents(
+    const row = new ActionRowBuilder()
+      .addComponents(
         new ButtonBuilder()
           .setCustomId(`highlow_${gameId}_continue`)
-          .setLabel('Envoie la next')
+          .setLabel('Continuer')
           .setStyle(ButtonStyle.Success),
         new ButtonBuilder()
           .setCustomId(`highlow_${gameId}_stop`)
-          .setLabel('Petite couille')
+          .setLabel('Prendre les gains')
           .setStyle(ButtonStyle.Danger)
-      )
-    ];
+      );
+    return [row];
   } else {
     // Boutons pour choisir plus haut/plus bas/égal
-    return [
-      // Première rangée : boutons de choix de carte
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId(`highlow_${gameId}_higher`)
-          .setLabel('Haut')
-          .setStyle(ButtonStyle.Success), // Vert pour plus haut
-        new ButtonBuilder()
-          .setCustomId(`highlow_${gameId}_equal`)
-          .setLabel('=')
-          .setStyle(ButtonStyle.Secondary), // Gris pour égal
+    const row = new ActionRowBuilder()
+      .addComponents(
         new ButtonBuilder()
           .setCustomId(`highlow_${gameId}_lower`)
-          .setLabel('Bas')
-          .setStyle(ButtonStyle.Danger) // Rouge pour plus bas
-      )
-    ];
+          .setLabel('Plus bas')
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId(`highlow_${gameId}_equal`)
+          .setLabel('Égale')
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId(`highlow_${gameId}_higher`)
+          .setLabel('Plus haut')
+          .setStyle(ButtonStyle.Success)
+      );
+    return [row];
   }
 }
 
-// Fonction pour tirer une carte aléatoire
-function drawCard(excludeCard = null) {
-  let value, suit;
-  let card;
-  
-  do {
-    value = CARD_VALUES[Math.floor(Math.random() * CARD_VALUES.length)];
-    suit = CARD_SUITS[Math.floor(Math.random() * CARD_SUITS.length)];
-    card = { value, suit };
-  } while (excludeCard && areCardsEqual(card, excludeCard));
-  
-  return card;
-}
-
-// Fonction pour obtenir la valeur numérique d'une carte
-function getCardValue(card) {
-  const value = card.value;
-  if (value === 'A') return 14;
-  if (value === 'K') return 13;
-  if (value === 'Q') return 12;
-  if (value === 'J') return 11;
-  return parseInt(value, 10);
-}
-
-// Fonction pour formater une carte en texte
-function formatCard(card) {
-  return `${card.value}${CARD_EMOJIS[card.suit] || card.suit}`;
-}
-
-// Fonction pour comparer deux cartes
-function areCardsEqual(card1, card2) {
-  return card1.value === card2.value && card1.suit === card2.suit;
-}
-
-// Nettoyer les anciennes parties inactives (appelé périodiquement)
+// Nettoyer les anciennes parties inactives
 function cleanupOldHighLowGames() {
   const now = Date.now();
   const timeout = 30 * 60 * 1000; // 30 minutes d'inactivité
@@ -533,6 +497,13 @@ function cleanupOldHighLowGames() {
 
 // Nettoyer les anciennes parties toutes les 5 minutes
 setInterval(cleanupOldHighLowGames, 5 * 60 * 1000);
+
+// Exporter les fonctions nécessaires
+module.exports = {
+  handleHighLow,
+  handleHighLowAction,
+  handleHighLowDecision
+};
 
 // Alias pour la compatibilité avec le code existant
 const handleSpecialHighLow = handleHighLow;
