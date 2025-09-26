@@ -133,27 +133,38 @@ function createSlotsEmbed(gameState, user) {
     
   const isWin = winnings > 0;
   
-  // Créer l'affichage des rouleaux
-  const display = `[ ${result.join(' | ')} ]`;
+  // Créer l'affichage des rouleaux avec un meilleur formatage
+  const display = `[ ${result[0]} | ${result[1]} | ${result[2]} ]`;
+  
+  // Calculer le résultat net
+  const netResult = isWin ? winnings - bet : -bet;
+  const resultText = isWin 
+    ? `🎉 **Gain : +${winnings} ${config.currency.emoji}** (Net: +${netResult} ${config.currency.emoji})`
+    : `😢 **Perte : -${bet} ${config.currency.emoji}**`;
   
   embed.setDescription(
-    `${display}\n\n` +
-    `**Mise :** ${bet} ${config.currency.emoji}\n` +
-    (isWin 
-      ? `🎉 **Vous avez gagné ${winnings} ${config.currency.emoji} !**`
-      : `😢 **Vous avez perdu ${bet} ${config.currency.emoji}...**`)
+    `### 🎰 **MACHINE À SOUS**\n` +
+    `\n${display}\n` +
+    `\n**Mise :** ${bet} ${config.currency.emoji}\n` +
+    `${resultText}`
   );
   
-  // Ajouter une image en fonction du résultat
+  // Ajouter un champ pour afficher la combinaison obtenue
+  embed.addFields(
+    { name: 'Résultat', value: result.join(' '), inline: true },
+    { name: 'Multiplicateur', value: isWin ? `x${(winnings / bet).toFixed(1)}` : 'x0', inline: true }
+  );
+  
+  // Mettre à jour la couleur en fonction du résultat
   if (isWin) {
-    if (result.every(symbol => symbol === '7️⃣')) {
-      embed.setThumbnail('https://i.imgur.com/xyz1234.png'); // Remplacez par une image de jackpot
-    } else if (result.every(symbol => symbol === '💎')) {
-      embed.setThumbnail('https://i.imgur.com/abc5678.png'); // Remplacez par une image de gros gain
+    embed.setColor(0x57F287); // Vert Discord pour les gains
+    
+    // Ajouter un message spécial pour les gros gains
+    if (winnings >= bet * 10) {
+      embed.setFooter({ text: '🎊 Gros gain ! 🎊' });
     }
-    embed.setColor(0x00FF00); // Vert pour les gains
   } else {
-    embed.setColor(0xFF0000); // Rouge pour les pertes
+    embed.setColor(0xED4245); // Rouge Discord pour les pertes
   }
   
   return embed;
