@@ -74,11 +74,11 @@ function compareCards(card1, card2, action) {
   const value2 = getCardValue(card2);
   
   if (action === 'same') {
-    return { result: value1[0] === value2[0], sameCard: true };
+    return { result: value1 === value2, sameCard: true };
   } else if (action === 'higher') {
-    return { result: value2[0] > value1[0], sameCard: false };
+    return { result: value2 > value1, sameCard: false };
   } else { // lower
-    return { result: value2[0] < value1[0], sameCard: false };
+    return { result: value2 < value1, sameCard: false };
   }
 }
 
