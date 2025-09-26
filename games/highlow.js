@@ -353,27 +353,27 @@ async function handleHighLowDecision(interaction) {
   try {
     if (action === 'stop') {
       // Le joueur choisit de s'arrêter (bouton 'Petite couille')
-      const winnings = Math.floor(gameState.bet * gameState.multiplier);
+      const winnings = Math.floor(gameState.currentBet * gameState.currentMultiplier);
       const user = ensureUser(gameState.userId);
       
       // Calculer le nouveau solde
-      const newBalance = user.balance + winnings;
+      const newBalance = user.balance + (gameState.totalWon || winnings);
       
       // Mettre à jour le solde du joueur
       updateUser(gameState.userId, { balance: newBalance });
       
       // Créer l'embed de fin de partie
       const embed = new EmbedBuilder()
-        .setTitle('🏁 Partie terminée - Cashout réussi !')
+        .setTitle('🏁 High Low - Partie terminée')
         .setColor(0x57F287) // Vert Discord
         .setDescription(
           `✅ **Cashout effectué avec succès !**\n` +
           `💰 **Gains :** ${winnings} ${config.currency.emoji}\n` +
-          `📈 **Multiplicateur final :** x${gameState.multiplier.toFixed(2)}\n` +
+          `📈 **Multiplicateur final :** x${gameState.currentMultiplier.toFixed(2)}\n` +
           `💵 **Nouveau solde :** ${newBalance} ${config.currency.emoji}`
         )
         .setFooter({ 
-          text: `Joueur: ${interaction.user.username} | Mise initiale: ${gameState.bet} ${config.currency.emoji}`,
+          text: `Joueur: ${interaction.user.username} | Mise initiale: ${gameState.initialBet} ${config.currency.emoji}`,
           iconURL: interaction.user.displayAvatarURL()
         });
       
