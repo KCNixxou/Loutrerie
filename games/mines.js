@@ -34,8 +34,22 @@ const MULTIPLIERS = [
   8.00   // 15 gemmes
 ];
 
+// Fonction pour afficher la grille dans la console (pour le débogage)
+function logMinesGrid(grid, userId) {
+  console.log(`\n[MINES] Grille des mines pour l'utilisateur ${userId}:`);
+  console.log('  0 1 2 3');
+  for (let i = 0; i < GRID_SIZE; i++) {
+    let row = `${i} `;
+    for (let j = 0; j < GRID_SIZE; j++) {
+      row += grid[i][j] === 'mine' ? '💣 ' : '💎 ';
+    }
+    console.log(row);
+  }
+  console.log('');
+}
+
 // Créer une nouvelle grille de jeu simplifiée
-function createGameGrid(minesCount) {
+function createGameGrid(minesCount, userId) {
   const grid = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill('gem'));
   let minesPlaced = 0;
   
@@ -47,6 +61,9 @@ function createGameGrid(minesCount) {
       minesPlaced++;
     }
   }
+  
+  // Afficher la grille dans la console
+  logMinesGrid(grid, userId);
   
   return grid;
 }
@@ -229,13 +246,16 @@ async function handleMinesCommand(interaction) {
     const { addToPot } = require('../database');
     addToPot(potContribution, interaction.user.id);
 
+    // Créer la grille de jeu
+    const grid = createGameGrid(minesCount, interaction.user.id);
+    
     // Créer un nouvel état de jeu avec la mise réelle (après prélèvement)
     const gameState = {
       userId: interaction.user.id,
       bet: userBet,  // Utiliser la mise après prélèvement du pot commun
       originalBet: bet,  // Conserver la mise originale pour l'affichage
       minesCount,
-      grid: createGameGrid(minesCount),
+      grid: grid,
       revealed: Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill('hidden')),
       revealedCount: 0,
       gameOver: false,
@@ -396,10 +416,24 @@ async function handleMinesButtonInteraction(interaction) {
       await interaction.update(response);
     }
     
-    // Si la partie est terminée, la marquer comme terminée
+    // Si la partie est terminée, afficher la grille complète dans les logs
     if (gameState.gameOver) {
-      console.log('Partie terminée');
-      // La partie sera nettoyée lors du prochain nettoyage
+      console.log('\n[MINES] Fin de la partie - Grille complète:');
+      console.log('  0 1 2 3');
+      for (let i = 0; i < GRID_SIZE; i++) {
+        let row = `${i} `;
+        for (let j = 0; j < GRID_SIZE; j++) {
+          const cell = gameState.grid[i][j] === 'mine' ? '💣' : '💎';
+          const isRevealed = gameState.revealed[i][j] === 'revealed';
+          row += isRevealed ? `[${cell}]` : ` ${cell} `;
+        }
+        console.log(row);
+      }
+      console.log('');
+      
+      // Afficher le résultat final
+      const result = gameState.won ? 'GAGNÉ' : 'PERDU';
+      console.log(`[MINES] Résultat: ${result} | Joueur: ${interaction.user.username} | Mise: ${gameState.originalBet} | Gains: ${gameState.winAmount || 0}`);
     }
   } catch (error) {
     console.error('Erreur dans handleMinesButtonInteraction:', error);
