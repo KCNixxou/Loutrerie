@@ -202,19 +202,15 @@ async function handleHighLowAction(interaction) {
   const { result: userWon, sameCard } = compareCards(game.currentCard, newCard, action);
   
   // Déterminer le résultat pour l'affichage
+  const currentValue = getCardValue(game.currentCard);
+  const newValue = getCardValue(newCard);
   let result;
-  if (sameCard) {
-    result = 'same';
-  } else {
-    const currentValue = getCardValue(game.currentCard);
-    const newValue = getCardValue(newCard);
-    
-    if (newValue > currentValue) result = 'higher';
-    else if (newValue < currentValue) result = 'lower';
-    else result = 'same';
-  }
   
-  console.log(`[HighLow] Current: ${game.currentCard.value} (${getCardValue(game.currentCard)}), New: ${newCard.value} (${getCardValue(newCard)}), Action: ${action}, Result: ${result}, Same: ${sameCard}`);
+  if (newValue > currentValue) result = 'higher';
+  else if (newValue < currentValue) result = 'lower';
+  else result = 'same';
+  
+  console.log(`[HighLow] Current: ${game.currentCard.value} (${currentValue}), New: ${newCard.value} (${newValue}), Action: ${action}, Result: ${result}, Same: ${sameCard}`);
   console.log('[HighLow] User won:', userWon, 'Same card:', sameCard);
   
   // Calculer les gains
