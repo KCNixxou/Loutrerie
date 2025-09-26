@@ -250,7 +250,9 @@ async function handleHighLowAction(interaction) {
     const potentialWinnings = Math.floor(game.currentBet * multiplier);
     game.totalWon = potentialWinnings; // Mettre à jour le total potentiel
     
-    // Mettre à jour le jeu
+    // Sauvegarder la carte actuelle avant de la remplacer
+    game.previousCard = game.currentCard;
+    // Mettre à jour le jeu avec la nouvelle carte
     game.currentCard = newCard;
     game.currentMultiplier = multiplier;
     // Ne pas incrémenter le round si on est déjà en mode multiplicateur élevé
