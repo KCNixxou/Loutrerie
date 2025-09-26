@@ -338,8 +338,26 @@ async function handleHighLowInteraction(interaction) {
 
 // Fonction pour gérer la décision de continuer ou de s'arrêter
 async function handleHighLowDecision(interaction) {
-  const [_, __, gameId, action] = interaction.customId.split('_');
+  console.log('[HighLow] handleHighLowDecision called');
+  console.log('[HighLow] Interaction customId:', interaction.customId);
+  
+  // Vérifier si c'est une interaction spéciale
+  const isSpecial = interaction.customId.startsWith('special_highlow_');
+  const prefix = isSpecial ? 'special_highlow_' : 'highlow_';
+  
+  // Extraire l'action (stop/continue) et l'ID de jeu complet
+  const actionMatch = interaction.customId.match(new RegExp(`^${prefix}(stop|continue)_(.*)`));
+  if (!actionMatch) {
+    console.error('[HighLow] Invalid customId format in decision:', interaction.customId);
+    return interaction.reply({ content: '❌ Format de commande invalide.', ephemeral: true });
+  }
+  
+  const action = actionMatch[1];
+  const gameId = actionMatch[2];
+  console.log('[HighLow] Decision action:', action, 'Game ID:', gameId);
+  
   const gameState = activeHighLowGames.get(gameId);
+  console.log('[HighLow] Game state found:', !!gameState);
   
   if (!gameState) {
     return interaction.update({
