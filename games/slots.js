@@ -105,19 +105,22 @@ function spinSlots() {
 
 // Fonction pour calculer les gains
 function calculateWinnings(result, bet) {
-  const resultStr = result.join('');
+  // Vérifier d'abord les 3 symboles identiques
+  if (result[0] === result[1] && result[1] === result[2]) {
+    const pattern = result[0].repeat(3);
+    return PAYOUTS[pattern] ? bet * PAYOUTS[pattern] : 0;
+  }
   
-  // Vérifier les combinaisons gagnantes
-  for (const [pattern, multiplier] of Object.entries(PAYOUTS)) {
-    if (pattern.length === 3 && resultStr === pattern) {
-      return bet * multiplier;
-    }
-    if (pattern.length === 2 && resultStr.includes(pattern)) {
-      return bet * multiplier;
-    }
-    if (pattern.length === 1 && resultStr.includes(pattern)) {
-      return bet * multiplier;
-    }
+  // Vérifier les paires (deux symboles identiques)
+  if (result[0] === result[1] || result[1] === result[2] || result[0] === result[2]) {
+    // Trouver les symboles qui forment une paire
+    let pairSymbol;
+    if (result[0] === result[1]) pairSymbol = result[0];
+    else if (result[1] === result[2]) pairSymbol = result[1];
+    else pairSymbol = result[0]; // pour le cas où result[0] === result[2]
+    
+    const pattern = pairSymbol.repeat(2);
+    return PAYOUTS[pattern] ? bet * PAYOUTS[pattern] : 0;
   }
   
   return 0; // Aucun gain
