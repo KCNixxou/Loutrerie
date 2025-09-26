@@ -2,7 +2,7 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('
 const config = require('../config');
 const { ensureUser, updateUser } = require('../database');
 
-// Variables pour stocker les parties en cours
+// Stockage des parties en cours
 const activeHighLowGames = new Map();
 
 // Constantes du jeu
@@ -15,221 +15,328 @@ const CARD_EMOJIS = {
   '♣': '♣️'
 };
 
-// Fonction pour créer un nouveau jeu High Low
-async function handleHighLow(interaction) {
-  const bet = interaction.options.getInteger('mise');
-  const userId = interaction.user.id;
-  const user = ensureUser(userId);
-
-  if (bet > user.balance) {
-    return interaction.reply({ 
-      content: `❌ Vous n'avez pas assez de ${config.currency.emoji} pour cette mise !`, 
-      flags: 1 << 6 // Utilisation de flags pour rendre le message éphémère
-    });
-  }
-
-  if (bet > config.casino.maxBet) {
-    return interaction.reply({ 
-      content: `❌ La mise maximale est de ${config.casino.maxBet} ${config.currency.emoji} !`, 
-      flags: 1 << 6 // Utilisation de flags pour rendre le message éphémère
-    });
-  }
-
-  if (bet < config.casino.minBet) {
-    return interaction.reply({ 
-      content: `❌ La mise minimale est de ${config.casino.minBet} ${config.currency.emoji} !`, 
-      flags: 1 << 6 // Utilisation de flags pour rendre le message éphémère
-    });
-  }
-
-  // Créer une nouvelle partie
-  const gameId = Date.now().toString();
-  const firstCard = drawCard();
-  
-  const gameState = {
-    userId,
-    bet,
-    currentCard: firstCard,
-    nextCard: null,
-    multiplier: 1.0,
-    lastAction: Date.now()
-  };
-
-  // Vérifier si l'utilisateur a assez d'argent après la mise à jour
-  if (user.balance < bet) {
-    return interaction.reply({
-      content: `❌ Vous n'avez pas assez de ${config.currency.emoji} pour cette mise !`,
-      flags: 1 << 6
-    });
-  }
-  
-  // Mettre à jour le solde de l'utilisateur
-  updateUser(userId, { balance: user.balance - bet });
-  
-  // Stocker la partie avec la date de création
-  gameState.createdAt = Date.now();
-  activeHighLowGames.set(gameId, gameState);
-  
-  // Créer l'embed
-  const embed = createHighLowEmbed(gameState, interaction.user);
-  const components = createHighLowComponents(gameId, false);
-  
-  // Envoyer le message
-  try {
-    await interaction.reply({
-      embeds: [embed],
-      components: components // Pas besoin de mettre dans un tableau car createHighLowComponents retourne déjà un tableau
-    });
-  } catch (error) {
-    console.error('Erreur lors de l\'envoi de la réponse:', error);
-    // Essayer d'envoyer un message d'erreur
-    try {
-      await interaction.followUp({
-        content: 'Une erreur est survenue lors du démarrage du jeu. Veuillez réessayer.',
-        flags: 1 << 6 // Message éphémère
+// Fonction utilitaire pour clôturer une partie High Low
+function endHighLowGame(gameId, interaction, isAdmin = false) {
+  const game = activeHighLowGames.get(gameId);
+  if (!game) {
+    if (interaction) {
+      interaction.reply({ 
+        content: '❌ Partie introuvable ou déjà terminée.', 
+        ephemeral: true 
       });
-    } catch (e) {
-      console.error('Impossible d\'envoyer le message d\'erreur:', e);
     }
+    return false;
+  }
+
+  const user = ensureUser(game.userId);
+  const netWinnings = game.totalWon - game.initialBet;
+  
+  // Créditer les gains totaux
+  updateUser(game.userId, { balance: user.balance + game.totalWon });
+  
+  // Supprimer la partie
+  activeHighLowGames.delete(gameId);
+  
+  if (interaction) {
+    const embed = new EmbedBuilder()
+      .setTitle('🎴 High Low - Partie clôturée' + (isAdmin ? ' (par un administrateur)' : ''))
+      .setDescription(`La partie a été clôturée avec un gain net de **${netWinnings} ${config.currency.emoji}** !\n(Mise initiale: ${game.initialBet} + Gains: ${netWinnings})` )
+      .setColor(0xf1c40f);
+    
+    interaction.update({ 
+      embeds: [embed], 
+      components: [] 
+    });
+  }
+  
+  return true;
+}
+
+// Fonction utilitaire pour créer un jeu de cartes
+function createDeck() {
+  const deck = [];
+  for (const suit of CARD_SUITS) {
+    for (const value of CARD_VALUES) {
+      deck.push({ value, suit });
+    }
+  }
+  // Mélanger le jeu
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck;
+}
+
+// Fonction pour comparer deux cartes
+function compareCards(card1, card2, action) {
+  const value1 = getCardValue(card1);
+  const value2 = getCardValue(card2);
+  
+  if (action === 'same') {
+    return { result: value1[0] === value2[0], sameCard: true };
+  } else if (action === 'higher') {
+    return { result: value2[0] > value1[0], sameCard: false };
+  } else { // lower
+    return { result: value2[0] < value1[0], sameCard: false };
   }
 }
 
-// Fonction pour gérer les actions High Low
-async function handleHighLowAction(interaction) {
-  const [_, gameId, action] = interaction.customId.split('_');
-  const gameState = activeHighLowGames.get(gameId);
+// Fonction pour obtenir la valeur numérique d'une carte
+function getCardValue(card) {
+  if (!card) return 0;
+  const value = card.value;
+  if (value === 'A') return 14;
+  if (value === 'K') return 13;
+  if (value === 'Q') return 12;
+  if (value === 'J') return 11;
+  return parseInt(value, 10);
+}
+
+// Fonction pour formater une carte avec son emoji
+function formatCard(card) {
+  if (!card) return 'Aucune carte';
+  const suitEmoji = CARD_EMOJIS[card.suit] || card.suit;
+  return `${card.value}${suitEmoji}`;
+}
+
+// Fonction pour tirer une carte aléatoire
+function drawCard(excludeCard = null) {
+  let value, suit, card;
+  do {
+    value = CARD_VALUES[Math.floor(Math.random() * CARD_VALUES.length)];
+    suit = CARD_SUITS[Math.floor(Math.random() * CARD_SUITS.length)];
+    card = { value, suit };
+  } while (excludeCard && card.value === excludeCard.value && card.suit === excludeCard.suit);
   
-  if (!gameState) {
+  return card;
+}
+
+// Fonction utilitaire pour formater un montant avec l'emoji de la devise
+function formatCurrency(amount) {
+  return `${amount} ${config.currency.emoji}`;
+}
+
+// Fonction utilitaire pour créer un champ de gain formaté
+function createWinningsField(label, amount, inline = true) {
+  return { 
+    name: label, 
+    value: formatCurrency(amount), 
+    inline: inline 
+  };
+}
+
+// Gestion du jeu High Low
+// Gérer les actions du jeu High Low
+async function handleHighLowAction(interaction) {
+  console.log('[HighLow] handleHighLowAction called');
+  console.log('[HighLow] Interaction customId:', interaction.customId);
+  
+  // Vérifier si c'est une interaction spéciale
+  const isSpecial = interaction.customId.startsWith('special_highlow_');
+  const prefix = isSpecial ? 'special_highlow_' : 'highlow_';
+  
+  // Extraire l'action (lower/same/higher) et l'ID de jeu complet
+  const actionMatch = interaction.customId.match(new RegExp(`^${prefix}(lower|same|higher)_(.*)`));
+  if (!actionMatch) {
+    console.error('[HighLow] Invalid customId format:', interaction.customId);
+    return interaction.reply({ content: '❌ Format de commande invalide.', ephemeral: true });
+  }
+  
+  const action = actionMatch[1];
+  const gameId = actionMatch[2];
+  console.log('[HighLow] Action:', action, 'Game ID:', gameId);
+  
+  const game = activeHighLowGames.get(gameId);
+  console.log('[HighLow] Game found:', !!game);
+  
+  if (!game) {
     return interaction.update({
-      content: '❌ Cette partie est terminée !',
+      content: '❌ Partie introuvable ou expirée.',
       components: []
     });
   }
   
-  if (interaction.user.id !== gameState.userId) {
-    return interaction.deferUpdate();
+  if (game.userId !== interaction.user.id) {
+    // Vérifier si c'est un administrateur qui tente de clôturer la partie
+    if (interaction.customId && interaction.customId.startsWith('admin_close_')) {
+      const { specialHighLow } = require('./config');
+      if (!specialHighLow.isAdmin(interaction.user.id)) {
+        console.log(`[Security] Tentative d'accès non autorisée à la commande admin par ${interaction.user.id}`);
+        return interaction.reply({
+          content: '❌ Vous n\'avez pas la permission de clôturer cette partie.',
+          ephemeral: true
+        });
+      }
+      // L'admin peut clôturer la partie
+      return endHighLowGame(gameId, interaction, true);
+    }
+    
+    // Pour le High Low spécial, vérifier les permissions spéciales
+    if (game.isSpecial) {
+      const { specialHighLow } = require('./config');
+      const isAdminOrSpecialUser = specialHighLow.isAdmin(interaction.user.id) || 
+                                 interaction.user.id === specialHighLow.specialUserId;
+      
+      if (!isAdminOrSpecialUser) {
+        console.log(`[Security] Tentative d'accès non autorisée au High Low spécial par ${interaction.user.id}`);
+        return interaction.reply({
+          content: '❌ Vous n\'avez pas la permission d\'interagir avec cette partie.',
+          ephemeral: true
+        });
+      }
+    }
+    
+    return interaction.reply({
+      content: '❌ Ce n\'est pas votre partie !',
+      ephemeral: true
+    });
   }
-  
-  // Mettre à jour le timestamp de la dernière action
-  gameState.lastAction = Date.now();
   
   // Tirer une nouvelle carte
-  gameState.nextCard = drawCard(gameState.currentCard);
+  console.log('[HighLow] Current card:', game.currentCard);
+  const newCard = game.deck.pop();
+  console.log('[HighLow] New card drawn:', newCard);
   
-  // Vérifier le résultat
-  const currentValue = getCardValue(gameState.currentCard);
-  const nextValue = getCardValue(gameState.nextCard);
+  // Utiliser la fonction compareCards pour gérer les comparaisons
+  const { result: userWon, sameCard } = compareCards(game.currentCard, newCard, action);
   
+  // Déterminer le résultat pour l'affichage
   let result;
-  if (action === 'higher') {
-    result = nextValue > currentValue ? 'win' : nextValue < currentValue ? 'lose' : 'tie';
-  } else if (action === 'lower') {
-    result = nextValue < currentValue ? 'win' : nextValue > currentValue ? 'lose' : 'tie';
+  if (sameCard) {
+    result = 'same';
   } else {
-    result = nextValue === currentValue ? 'win' : 'lose';
+    const currentValues = getCardValue(game.currentCard);
+    const newValues = getCardValue(newCard);
+    const maxCurrent = Math.max(...currentValues);
+    const maxNew = Math.max(...newValues);
+    
+    if (maxNew > maxCurrent) result = 'higher';
+    else if (maxNew < maxCurrent) result = 'lower';
+    else result = 'same';
   }
   
-  // Mettre à jour la carte précédente
-  gameState.previousCard = gameState.currentCard;
+  console.log(`[HighLow] Current: ${game.currentCard.value} (${getCardValue(game.currentCard)}), New: ${newCard.value} (${getCardValue(newCard)}), Action: ${action}, Result: ${result}, Same: ${sameCard}`);
+  console.log('[HighLow] User won:', userWon, 'Same card:', sameCard);
   
-  if (result === 'win') {
-    // Mettre à jour le multiplicateur
-    gameState.multiplier = gameState.multiplier > 1 ? gameState.multiplier * 1.5 : 1.5;
+  // Calculer les gains
+  if (userWon) {
+    let multiplier;
     
-    // Mettre à jour la carte courante pour le prochain tour
-    gameState.currentCard = gameState.nextCard;
-    gameState.nextCard = null;
+    // Utiliser le multiplicateur actuel s'il existe, sinon initialiser
+    const currentMultiplier = game.currentMultiplier || 1.0;
     
-    // Afficher les boutons de décision (continuer ou cashout)
-    const embed = createHighLowEmbed(gameState, interaction.user, false, true);
-    const components = createHighLowComponents(gameId, true);
-    
-    // Sauvegarder l'état actuel du jeu
-    activeHighLowGames.set(gameId, gameState);
-    
-    try {
-      await interaction.update({
-        embeds: [embed],
-        components: components
-      });
-    } catch (error) {
-      console.error('Erreur lors de la mise à jour du message (victoire):', error);
-      try {
-        await interaction.followUp({
-          content: 'Une erreur est survenue lors de la mise à jour du jeu. Veuillez réessayer.',
-          flags: 1 << 6
-        });
-      } catch (e) {
-        console.error('Impossible d\'envoyer le message d\'erreur:', e);
+    if (sameCard) {
+      // Multiplicateur spécial pour un pari sur "égal"
+      multiplier = 13.0;
+    } else {
+      // Si le multiplicateur actuel est 13.0 (suite à un "égal"), on continue à partir de 13.0
+      if (currentMultiplier >= 13.0) {
+        multiplier = currentMultiplier + 3.0;
+      } else {
+        // Définir les multiplicateurs pour les premiers tours
+        const multipliers = [1.5, 1.75, 2.0, 2.5, 4.0]; // Multiplicateurs pour les 5 premiers tours
+        const round = game.round || 1; // Commence à 1
+        
+        // Si on est dans les 5 premiers tours, prendre la valeur du tableau
+        // Sinon, continuer à ajouter 0.5 au dernier multiplicateur
+        if (round <= multipliers.length) {
+          multiplier = multipliers[round - 1];
+        } else {
+          const lastMultiplier = 4.0; // Dernier multiplicateur fixé à 4.0
+          multiplier = lastMultiplier + (0.5 * (round - multipliers.length));
+        }
       }
-      return;
     }
     
-  } else if (result === 'lose') {
-    // Fin de la partie en cas de défaite
-    const user = ensureUser(gameState.userId);
-    let message = '';
+    // Mettre à jour le multiplicateur dans l'objet de jeu
+    game.currentMultiplier = multiplier;
     
-    // Mettre à jour la carte courante pour afficher la dernière carte
-    gameState.currentCard = gameState.nextCard;
-    gameState.nextCard = null;
+    // Calculer le gain potentiel total (sans créditer encore)
+    const potentialWinnings = Math.floor(game.currentBet * multiplier);
+    game.totalWon = potentialWinnings; // Mettre à jour le total potentiel
     
-    // Le joueur perd toute sa mise, qui a déjà été déduite au début de la partie
-    message = `❌ Dommage ! Vous avez perdu votre mise de ${gameState.bet} ${config.currency.emoji}.`;
-    
-    if (gameState.multiplier > 1) {
-      message += `\n💥 Votre multiplicateur était de x${gameState.multiplier.toFixed(2)}.`;
+    // Mettre à jour le jeu
+    game.currentCard = newCard;
+    game.currentMultiplier = multiplier;
+    // Ne pas incrémenter le round si on est déjà en mode multiplicateur élevé
+    if (currentMultiplier < 13.0) {
+      game.round = (game.round || 1) + 1;
     }
+    game.potentialWinnings = potentialWinnings; // Stocker les gains potentiels
+    console.log('[HighLow] Game updated - New multiplier:', multiplier, 'Total won:', game.totalWon);
     
-    const embed = createHighLowEmbed(gameState, interaction.user, true, false);
+    // Créer les boutons pour continuer ou s'arrêter
+    const buttonPrefix = game.isSpecial ? 'special_highlow_' : 'highlow_';
+    const row = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(`${buttonPrefix}stop_${gameId}`)
+          .setLabel('🏁 Petite couille')
+          .setStyle(ButtonStyle.Danger)
+          .setEmoji('🛑'),
+        new ButtonBuilder()
+          .setCustomId(`${buttonPrefix}continue_${gameId}`)
+          .setLabel('ENVOIE LA NEXT')
+          .setStyle(ButtonStyle.Success)
+          .setEmoji('🎲')
+      );
     
-    try {
-      await interaction.update({
-        content: message,
-        embeds: [embed],
-        components: []
-      });
-      
-      activeHighLowGames.delete(gameId);
-    } catch (error) {
-      console.error('Erreur lors de la mise à jour du message (défaite):', error);
-      try {
-        await interaction.followUp({
-          content: `Une erreur est survenue lors de la fin de la partie.`,
-          flags: 1 << 6
-        });
-      } catch (e) {
-        console.error('Impossible d\'envoyer le message d\'erreur:', e);
-      }
-      activeHighLowGames.delete(gameId);
-    }
-    return;
+    // Créer l'embed de résultat
+    const resultEmbed = new EmbedBuilder()
+      .setTitle('🎴 High Low - Résultat')
+      .setDescription(`**Carte précédente:** ${formatCard(game.previousCard)}\n**Nouvelle carte:** ${formatCard(newCard)}\n\n✅ **Vous avez gagné !**`)
+      .addFields(
+        { name: 'Multiplicateur', value: `${multiplier.toFixed(2)}x`, inline: true },
+        { name: 'Gains potentiels', value: formatCurrency(potentialWinnings), inline: true },
+        { name: 'Mise initiale', value: formatCurrency(game.initialBet), inline: true }
+      )
+      .setColor(0x57F287); // Vert pour la victoire
+    
+    // Mettre à jour le message avec les boutons
+    await interaction.update({
+      embeds: [resultEmbed],
+      components: [row]
+    });
+    
   } else {
-    // En cas d'égalité, on ne change pas le multiplicateur
-    // mais on met quand même à jour la carte courante
-    gameState.currentCard = gameState.nextCard;
-    gameState.nextCard = null;
+    // Le joueur a perdu
+    const lossEmbed = new EmbedBuilder()
+      .setTitle('🎴 High Low - Partie terminée')
+      .setDescription(`**Dernière carte:** ${formatCard(game.currentCard)}\n**Nouvelle carte:** ${formatCard(newCard)}\n\n❌ **Vous avez perdu !**`)
+      .addFields(
+        { name: 'Mise perdue', value: formatCurrency(game.currentBet), inline: true },
+        { name: 'Gains totaux', value: formatCurrency(0), inline: true }
+      )
+      .setColor(0xED4245); // Rouge pour la défaite
     
-    const embed = createHighLowEmbed(gameState, interaction.user, false, false);
-    const components = createHighLowComponents(gameId, false);
+    // Supprimer la partie
+    activeHighLowGames.delete(gameId);
     
-    try {
-      await interaction.update({
-        embeds: [embed],
-        components: components,
-        content: '✨ Égalité ! La partie continue avec la même carte.'
-      });
-    } catch (error) {
-      console.error('Erreur lors de la mise à jour du message (égalité):', error);
-      try {
-        await interaction.followUp({
-          content: 'Une erreur est survenue lors de la mise à jour du jeu. Veuillez réessayer.',
-          flags: 1 << 6
-        });
-      } catch (e) {
-        console.error('Impossible d\'envoyer le message d\'erreur:', e);
-      }
-    }
+    // Mettre à jour le message final
+    await interaction.update({
+      embeds: [lossEmbed],
+      components: []
+    });
+  }
+}
+
+// Gestion des interactions de boutons pour High Low (gère à la fois les actions et les décisions)
+async function handleHighLowInteraction(interaction) {
+  console.log('[HighLow] handleHighLowInteraction called');
+  console.log('[HighLow] Interaction customId:', interaction.customId);
+  
+  // Vérifier si c'est une interaction spéciale (highlow spécial)
+  const isSpecial = interaction.customId.startsWith('special_highlow_');
+  const prefix = isSpecial ? 'special_highlow_' : 'highlow_';
+  
+  // Vérifier le type d'interaction (action ou décision)
+  if (interaction.customId.startsWith(`${prefix}stop_`) || interaction.customId.startsWith(`${prefix}continue_`)) {
+    // C'est une décision (continuer ou s'arrêter)
+    return handleHighLowDecision(interaction);
+  } else {
+    // C'est une action (plus haut/plus bas/égal)
+    return handleHighLowAction(interaction);
   }
 }
 
@@ -304,18 +411,46 @@ async function handleHighLowDecision(interaction) {
       gameState.previousCard = gameState.currentCard;
       
       // Créer l'embed pour le prochain tour
-      const embed = createHighLowEmbed(gameState, interaction.user, false, false);
-      const components = createHighLowComponents(gameId, false);
+      const embed = new EmbedBuilder()
+        .setTitle('🎴 High Low - Tour suivant')
+        .setDescription(`**Carte actuelle:** ${formatCard(gameState.currentCard)}\n\nChoisissez si la prochaine carte sera plus haute, plus basse ou égale.`)
+        .addFields(
+          { name: 'Mise', value: formatCurrency(gameState.currentBet), inline: true },
+          { name: 'Multiplicateur actuel', value: `${gameState.currentMultiplier.toFixed(2)}x`, inline: true },
+          { name: 'Gains potentiels', value: formatCurrency(Math.floor(gameState.currentBet * gameState.currentMultiplier)), inline: true }
+        )
+        .setColor(0x3498DB); // Bleu pour le tour suivant
+      
+      // Créer les boutons d'action
+      const buttonPrefix = gameState.isSpecial ? 'special_highlow_' : 'highlow_';
+      const row = new ActionRowBuilder()
+        .addComponents(
+          new ButtonBuilder()
+            .setCustomId(`${buttonPrefix}lower_${gameState.id}`)
+            .setLabel('Plus bas')
+            .setStyle(ButtonStyle.Danger)
+            .setEmoji('⬇️'),
+          new ButtonBuilder()
+            .setCustomId(`${buttonPrefix}same_${gameState.id}`)
+            .setLabel('Égal')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji('🟰'),
+          new ButtonBuilder()
+            .setCustomId(`${buttonPrefix}higher_${gameState.id}`)
+            .setLabel('Plus haut')
+            .setStyle(ButtonStyle.Success)
+            .setEmoji('⬆️')
+        );
       
       // Mettre à jour le message pour le prochain tour
       await interaction.update({
         embeds: [embed],
-        components: components,
+        components: [row],
         content: '🔄 En attente de votre prochain choix...' // Message de transition
       });
       
       // Sauvegarder l'état actuel du jeu
-      activeHighLowGames.set(gameId, gameState);
+      activeHighLowGames.set(gameState.id, gameState);
     }
   } catch (error) {
     console.error('Erreur lors de la gestion de la décision:', error);
@@ -331,197 +466,187 @@ async function handleHighLowDecision(interaction) {
   }
 }
 
-// Fonction pour formater une carte avec son emoji
-function formatCard(card) {
-  if (!card) return 'Aucune carte';
-  const suitEmoji = CARD_EMOJIS[card.suit] || card.suit;
-  return `${card.value}${suitEmoji}`;
-}
-
-// Fonction pour obtenir la valeur numérique d'une carte
-function getCardValue(card) {
-  if (!card) return 0;
-  const value = card.value;
-  if (value === 'A') return 14;
-  if (value === 'K') return 13;
-  if (value === 'Q') return 12;
-  if (value === 'J') return 11;
-  return parseInt(value, 10);
-}
-
-// Fonction pour tirer une carte aléatoire
-function drawCard(excludeCard = null) {
-  let value, suit, card;
-  do {
-    value = CARD_VALUES[Math.floor(Math.random() * CARD_VALUES.length)];
-    suit = CARD_SUITS[Math.floor(Math.random() * CARD_SUITS.length)];
-    card = { value, suit };
-  } while (excludeCard && card.value === excludeCard.value && card.suit === excludeCard.suit);
+// Fonction pour démarrer une nouvelle partie de High Low
+async function handleHighLow(interaction, isSpecial = false) {
+  const bet = parseInt(interaction.options.getInteger('mise'));
+  const userId = interaction.user.id;
   
-  return card;
-}
-
-// Fonction pour créer l'embed du jeu High Low
-function createHighLowEmbed(gameState, user, isGameOver = false, showDecision = false) {
-  const embed = new EmbedBuilder()
-    .setTitle('🃏 HIGH LOW')
-    .setColor(0x0099FF);
-    
-  const currentCardValue = getCardValue(gameState.currentCard);
-  const potentialWinnings = Math.floor(gameState.bet * gameState.multiplier);
+  // Vérifier la mise minimale
+  if (bet < 10) {
+    return interaction.reply({
+      content: '❌ La mise minimale est de 10 ' + config.currency.emoji,
+      ephemeral: true
+    });
+  }
   
-  if (isGameOver) {
-    const user = ensureUser(gameState.userId);
-    const newBalance = showDecision 
-      ? user.balance + potentialWinnings // Le joueur a gagné
-      : user.balance - gameState.bet;    // Le joueur a perdu
+  // Vérifier le solde du joueur
+  const user = ensureUser(userId);
+  
+  if (isSpecial) {
+    const { getSpecialBalance, updateSpecialBalance } = require('./database');
+    const specialBalance = getSpecialBalance(userId);
     
-    if (showDecision) {
-      // Le joueur a choisi de s'arrêter
-      embed.setDescription(
-        `🎉 **${user.username} a choisi de s'arrêter !**\n` +
-        `🃏 **Dernière carte :** ${formatCard(gameState.currentCard)}\n` +
-        `💰 **Gains :** ${potentialWinnings} ${config.currency.emoji} (x${gameState.multiplier.toFixed(2)})\n` +
-        `💳 **Mise initiale :** ${gameState.bet} ${config.currency.emoji}\n` +
-        `💵 **Nouveau solde :** ${newBalance} ${config.currency.emoji}`
-      );
-    } else {
-      // Le joueur a perdu
-      embed.setDescription(
-        `💥 **Dommage !**\n` +
-        `🃏 **Dernière carte :** ${formatCard(gameState.currentCard)}\n` +
-        `📉 **Multiplicateur final :** x${gameState.multiplier.toFixed(2)}\n` +
-        `💸 **Mise perdue :** ${gameState.bet} ${config.currency.emoji}\n` +
-        `💵 **Nouveau solde :** ${newBalance} ${config.currency.emoji}`
-      );
+    if (specialBalance < bet) {
+      return interaction.reply({
+        content: `❌ Vous n'avez pas assez de solde spécial pour cette mise. (Solde: ${specialBalance} ${config.currency.emoji})`,
+        ephemeral: true
+      });
     }
-  } else if (showDecision) {
-    // Le joueur doit décider de continuer ou de s'arrêter
-    embed.setDescription(
-      `🃏 **Dernière carte :** ${formatCard(gameState.currentCard)}\n` +
-      `💰 **Gains actuels :** ${potentialWinnings} ${config.currency.emoji}\n` +
-      `📈 **Multiplicateur actuel :** x${gameState.multiplier.toFixed(2)}\n\n` +
-      `**Que souhaitez-vous faire ?**`
+    
+    // Déduire la mise du solde spécial
+    updateSpecialBalance(userId, -bet);
+  } else {
+    if (user.balance < bet) {
+      return interaction.reply({
+        content: `❌ Vous n'avez pas assez de solde pour cette mise. (Solde: ${user.balance} ${config.currency.emoji})`,
+        ephemeral: true
+      });
+    }
+    
+    // Déduire la mise du solde normal
+    updateUser(userId, { balance: user.balance - bet });
+  }
+  
+  // Créer un nouvel ID de partie
+  const gameId = `${userId}-${Date.now()}`;
+  
+  // Créer un nouveau jeu
+  const game = {
+    id: gameId,
+    userId,
+    isSpecial,
+    deck: createDeck(),
+    currentBet: bet,
+    initialBet: bet,
+    totalWon: 0,
+    currentMultiplier: 1.0,
+    round: 1,
+    createdAt: Date.now(),
+    lastAction: Date.now()
+  };
+  
+  // Tirer la première carte
+  game.currentCard = game.deck.pop();
+  game.previousCard = null;
+  
+  // Stocker la partie
+  activeHighLowGames.set(gameId, game);
+  
+  // Créer les boutons d'action
+  const buttonPrefix = isSpecial ? 'special_highlow_' : 'highlow_';
+  const row = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`${buttonPrefix}lower_${gameId}`)
+        .setLabel('Plus bas')
+        .setStyle(ButtonStyle.Danger)
+        .setEmoji('⬇️'),
+      new ButtonBuilder()
+        .setCustomId(`${buttonPrefix}same_${gameId}`)
+        .setLabel('Égal')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('🟰'),
+      new ButtonBuilder()
+        .setCustomId(`${buttonPrefix}higher_${gameId}`)
+        .setLabel('Plus haut')
+        .setStyle(ButtonStyle.Success)
+        .setEmoji('⬆️')
     );
-  } else {
-    // Nouveau tour
-    let description = `🃏 **Carte actuelle :** ${formatCard(gameState.currentCard)}\n` +
-      `💰 **Mise :** ${gameState.bet} ${config.currency.emoji}\n` +
-      `📊 **Multiplicateur :** x${gameState.multiplier.toFixed(2)}`;
-    
-    if (gameState.previousCard) {
-      const previousValue = getCardValue(gameState.previousCard);
-      const currentValue = getCardValue(gameState.currentCard);
-      let result;
-      
-      if (currentValue > previousValue) {
-        result = '**↑ Plus haute ↑**';
-      } else if (currentValue < previousValue) {
-        result = '**↓ Plus basse ↓**';
-      } else {
-        result = '**= Égale =**';
-      }
-      
-      description += `\n\n${result} (précédente: ${formatCard(gameState.previousCard)})`;
-    }
-    
-    description += '\n\n**Choisissez la prochaine carte :**';
-    
-    embed.setDescription(description);
-  }
   
-  // Ajouter un footer avec les informations du joueur
-  embed.setFooter({ 
-    text: `Joueur: ${user.username} | Mise: ${gameState.bet} ${config.currency.emoji}`,
-    iconURL: user.displayAvatarURL()
+  // Créer l'embed de la partie
+  const embed = new EmbedBuilder()
+    .setTitle('🎴 High Low' + (isSpecial ? ' Spécial' : '') + ' - Nouvelle partie')
+    .setDescription(`**Carte actuelle:** ${formatCard(game.currentCard)}\n\nChoisissez si la prochaine carte sera plus haute, plus basse ou égale.`)
+    .addFields(
+      { name: 'Mise', value: formatCurrency(bet), inline: true },
+      { name: 'Multiplicateur', value: '1.00x', inline: true },
+      { name: 'Gains potentiels', value: formatCurrency(bet), inline: true }
+    )
+    .setFooter({ 
+      text: `Joueur: ${interaction.user.username} | Utilisez les boutons ci-dessous pour jouer`,
+      iconURL: interaction.user.displayAvatarURL()
+    })
+    .setColor(isSpecial ? 0x9B59B6 : 0x3498DB); // Violet pour le mode spécial, bleu pour le mode normal
+  
+  // Répondre avec l'embed et les boutons
+  await interaction.reply({
+    embeds: [embed],
+    components: [row]
   });
+}
+
+// Fonction pour vérifier si l'utilisateur a accès au High Low spécial
+function hasSpecialAccess(userId, channelId) {
+  const { specialHighLow } = require('./config');
   
-  return embed;
-}
-
-// Fonction pour créer les composants du jeu High Low
-function createHighLowComponents(gameId, showDecision = false) {
-  if (showDecision) {
-    // Boutons pour décider de continuer ou de s'arrêter
-    const row = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId(`highlow_${gameId}_continue`)
-          .setLabel('Continuer')
-          .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setCustomId(`highlow_${gameId}_stop`)
-          .setLabel('Prendre les gains')
-          .setStyle(ButtonStyle.Danger)
-      );
-    return [row];
-  } else {
-    // Boutons pour choisir plus haut/plus bas/égal
-    const row = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId(`highlow_${gameId}_lower`)
-          .setLabel('Plus bas')
-          .setStyle(ButtonStyle.Danger),
-        new ButtonBuilder()
-          .setCustomId(`highlow_${gameId}_equal`)
-          .setLabel('Égale')
-          .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
-          .setCustomId(`highlow_${gameId}_higher`)
-          .setLabel('Plus haut')
-          .setStyle(ButtonStyle.Success)
-      );
-    return [row];
+  // Vérifier si l'utilisateur est un administrateur
+  if (specialHighLow.isAdmin(userId)) {
+    return true;
   }
+  
+  // Vérifier si l'utilisateur est l'utilisateur spécial
+  if (userId === specialHighLow.specialUserId) {
+    return true;
+  }
+  
+  // Vérifier si le canal est autorisé
+  if (specialHighLow.allowedChannels && specialHighLow.allowedChannels.includes(channelId)) {
+    return true;
+  }
+  
+  return false;
 }
 
-// Nettoyer les anciennes parties inactives
-function cleanupOldHighLowGames() {
+// Gestion du High Low spécial
+async function handleSpecialHighLow(interaction) {
+  // Vérifier si l'utilisateur a accès au High Low spécial
+  if (!hasSpecialAccess(interaction.user.id, interaction.channelId)) {
+    return interaction.reply({
+      content: '❌ Vous n\'avez pas accès au High Low Spécial.',
+      ephemeral: true
+    });
+  }
+  
+  // Déléguer à la fonction handleHighLow avec isSpecial = true
+  return handleHighLow(interaction, true);
+}
+
+// Nettoyer les anciennes parties inactives toutes les 5 minutes
+setInterval(() => {
   const now = Date.now();
   const timeout = 30 * 60 * 1000; // 30 minutes d'inactivité
   
   for (const [gameId, game] of activeHighLowGames.entries()) {
-    if (now - game.lastAction > timeout) {
-      // Rembourser le joueur si la partie est toujours en cours
-      if (game.multiplier > 1.0) {
-        const winnings = Math.floor(game.bet * game.multiplier);
-        updateUser(game.userId, { balance: ensureUser(game.userId).balance + winnings });
-      } else {
-        updateUser(game.userId, { balance: ensureUser(game.userId).balance + game.bet });
+    if (now - (game.lastAction || game.createdAt) > timeout) {
+      console.log(`[HighLow] Nettoyage de la partie inactive: ${gameId}`);
+      
+      // Rembourser le joueur s'il y a des gains non réclamés
+      if (game.totalWon > 0) {
+        if (game.isSpecial) {
+          const { addSpecialWinnings } = require('./database');
+          addSpecialWinnings(game.userId, game.totalWon);
+          console.log(`[HighLow] Remboursement spécial de ${game.totalWon} à l'utilisateur ${game.userId}`);
+        } else {
+          const user = ensureUser(game.userId);
+          updateUser(game.userId, { balance: user.balance + game.totalWon });
+          console.log(`[HighLow] Remboursement de ${game.totalWon} à l'utilisateur ${game.userId}`);
+        }
       }
+      
+      // Supprimer la partie
       activeHighLowGames.delete(gameId);
     }
   }
-}
+}, 5 * 60 * 1000);
 
-// Nettoyer les anciennes parties toutes les 5 minutes
-setInterval(cleanupOldHighLowGames, 5 * 60 * 1000);
+// Alias pour la compatibilité avec le code existant
+const handleSpecialHighLowAlias = handleHighLow;
 
 // Exporter les fonctions nécessaires
 module.exports = {
   handleHighLow,
-  handleHighLowAction,
-  handleHighLowDecision
+  handleSpecialHighLow: handleSpecialHighLowAlias,
+  handleHighLowAction: handleHighLowInteraction,
+  handleHighLowDecision,
+  hasSpecialAccess
 };
-
-// Alias pour la compatibilité avec le code existant
-const handleSpecialHighLow = handleHighLow;
-
-// Débogage
-console.log('[HighLow] Exportation des fonctions:');
-console.log('- handleHighLow:', typeof handleHighLow);
-console.log('- handleSpecialHighLow:', typeof handleSpecialHighLow);
-console.log('- handleHighLowAction:', typeof handleHighLowAction);
-console.log('- handleHighLowDecision:', typeof handleHighLowDecision);
-
-const exportsObj = {
-  handleHighLow,
-  handleSpecialHighLow,
-  handleHighLowAction,
-  handleHighLowDecision
-};
-
-console.log('[HighLow] Objet d\'exportation:', Object.keys(exportsObj));
-
-module.exports = exportsObj;
