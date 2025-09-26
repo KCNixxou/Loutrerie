@@ -206,13 +206,11 @@ async function handleHighLowAction(interaction) {
   if (sameCard) {
     result = 'same';
   } else {
-    const currentValues = getCardValue(game.currentCard);
-    const newValues = getCardValue(newCard);
-    const maxCurrent = Math.max(...currentValues);
-    const maxNew = Math.max(...newValues);
+    const currentValue = getCardValue(game.currentCard);
+    const newValue = getCardValue(newCard);
     
-    if (maxNew > maxCurrent) result = 'higher';
-    else if (maxNew < maxCurrent) result = 'lower';
+    if (newValue > currentValue) result = 'higher';
+    else if (newValue < currentValue) result = 'lower';
     else result = 'same';
   }
   
