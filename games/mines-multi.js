@@ -291,68 +291,21 @@ async function handleMinesMultiInteraction(interaction) {
         return;
       }
       
-      // Marquer la case comme révélée par le joueur actuel
-      console.log(`Marquage de la case (${x}, ${y}) comme révélée par ${interaction.user.id}`);
-      gameState.revealed[x][y].markedBy = interaction.user.id;
-      
       // Révéler la case
       console.log('Appel de revealCell...');
       const isSafe = revealCell(gameState, x, y, interaction.user.id);
       console.log(`revealCell retourné: ${isSafe}, Statut de la partie: ${gameState.status}`);
-      
+
       // Si la partie n'est pas terminée, changer de joueur
       if (gameState.status !== 'finished') {
-        const previousPlayer = gameState.currentPlayer;
-        // S'assurer que le prochain joueur est bien défini
-        gameState.currentPlayer = gameState.currentPlayer === gameState.player1.id ? 
-          gameState.player2.id : gameState.player1.id;
-          
-        console.log(`Changement de joueur: ${previousPlayer} -> ${gameState.currentPlayer}`);
-        
-        // Mettre à jour le message pour indiquer le tour du joueur
-        const content = `🎮 **Partie de Mines Multijoueur**\n` +
-          `**Joueur 1:** <@${gameState.player1.id}> ${PLAYER1_EMOJI}${gameState.currentPlayer === gameState.player1.id ? ' 👈' : ''}\n` +
-          `**Joueur 2:** <@${gameState.player2.id}> ${PLAYER2_EMOJI}${gameState.currentPlayer === gameState.player2.id ? ' 👈' : ''}\n` +
-          `**Mise par joueur:** ${gameState.bet} ${config.currency.emoji}\n` +
-          `**C'est au tour de :** <@${gameState.currentPlayer}>`;
-        
-        // Mettre à jour l'interface avec le nouveau tour
-        console.log('Mise à jour de l\'interface pour le prochain joueur...');
-        try {
-          await interaction.editReply({
-            content: content,
-            embeds: [createGameEmbed(gameState)],
-            components: createGridComponents(gameState, interaction)
-          });
-        } catch (error) {
-          console.error('Erreur lors de la mise à jour du tour:', error);
-        }
-      } else {
-        console.log(`La partie est terminée, pas de changement de joueur`);
+        gameState.currentPlayer = gameState.currentPlayer === gameState.player1.id 
+          ? gameState.player2.id 
+          : gameState.player1.id;
+        console.log(`Changement de joueur. Prochain joueur: ${gameState.currentPlayer}`);
       }
-      
-      // Mettre à jour l'interface
-      console.log('Mise à jour de l\'interface...');
-      try {
-        // Préparer le contenu du message avec l'indication du tour actuel
-        const content = `🎮 **Partie de Mines Multijoueur**\n` +
-          `**Joueur 1:** <@${gameState.player1.id}> ${PLAYER1_EMOJI}${gameState.currentPlayer === gameState.player1.id ? ' 👈' : ''}\n` +
-          `**Joueur 2:** <@${gameState.player2.id}> ${PLAYER2_EMOJI}${gameState.currentPlayer === gameState.player2.id ? ' 👈' : ''}\n` +
-          `**Mise par joueur:** ${gameState.bet} ${config.currency.emoji}\n` +
-          `**C'est au tour de :** <@${gameState.currentPlayer}>`;
-        
-        // Mettre à jour l'interface avec le contenu mis à jour
-        await interaction.editReply({
-          content: content,
-          embeds: [createGameEmbed(gameState)],
-          components: createGridComponents(gameState, interaction)
-        });
-        console.log('Interface mise à jour avec succès');
-      } catch (error) {
-        console.error('Erreur lors de la mise à jour de l\'interface:', error);
-        console.error('Détails de l\'erreur:', error.stack);
-        throw error; // Propager l'erreur pour qu'elle soit capturée par le try/catch externe
-      }
+
+      // Mettre à jour l'interface du jeu
+      await updateGameInterface(interaction, gameState);
       
       // Si un joueur a gagné, mettre à jour les soldes
       if (gameState.status === 'finished' && gameState.winner) {
@@ -608,7 +561,7 @@ async function createGame(interaction, bet) {
     bet: bet,
     minesCount: 3, // 3 mines par défaut
     grid: grid,
-    revealed: Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill({ revealed: false, markedBy: null })),
+    revealed: Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null).map(() => ({ revealed: false, markedBy: null }))),
     revealedCount: 0,
     status: 'waiting', // waiting, playing, finished
     currentPlayer: userId, // Définir le créateur de la partie comme joueur actuel par défaut
@@ -1036,8 +989,8 @@ async function updateGameInterface(interaction, gameState) {
 }
 
 // Créer les composants de la grille (boutons)
-function createGridComponents(gameState, interaction = null) {
-  console.log(`Création des composants de la grille. Interaction utilisateur: ${interaction?.user?.id || 'aucune'}`);
+function createGridComponents(gameState, interaction) { // interaction n'est plus utilisé pour la logique, seulement pour le contexte de l'appelant si besoin
+  console.log(`Création des composants de la grille pour le joueur ${gameState.currentPlayer}`);
   const components = [];
   
   for (let x = 0; x < GRID_SIZE; x++) {
@@ -1061,28 +1014,16 @@ function createGridComponents(gameState, interaction = null) {
         console.log(`Case (${x}, ${y}): Cachée`);
       }
       
-          // Récupérer l'ID de l'utilisateur qui interagit
-      const interactionUserId = interaction?.user?.id;
-      
-      // Déterminer si c'est le tour du joueur actuel
-      const isCurrentPlayer = interactionUserId && gameState.currentPlayer === interactionUserId;
-      
-      // La partie est en cours si elle a commencé et que les deux joueurs sont présents
-      const isGameInProgress = gameState.status === 'playing' && gameState.player1 && gameState.player2;
-      
-      // Désactiver le bouton si :
-      // 1. La partie est terminée
-      // 2. La case est déjà révélée
-      // 3. La partie est en cours et ce n'est pas le tour du joueur actuel
-      // 4. Il n'y a pas d'interaction utilisateur (sécurité)
-      const shouldDisable = gameState.status === 'finished' || 
-                          cell.revealed ||
-                          (isGameInProgress && (!interactionUserId || gameState.currentPlayer !== interactionUserId));
-      
-      console.log(`Case (${x}, ${y}): Statut=${gameState.status}, ` +
-                 `JoueurActuel=${interactionUserId || 'none'}, ` +
-                 `TourJoueur=${gameState.currentPlayer || 'none'}, ` +
-                 `EstSonTour=${isCurrentPlayer}, Désactivée=${shouldDisable}`);
+          // Le bouton est désactivé si la partie est terminée ou si la case est déjà révélée.
+      let shouldDisable = gameState.status === 'finished' || cell.revealed;
+
+      // Si la partie est en cours et que la case n'est pas encore désactivée,
+      // on vérifie si c'est le tour de l'utilisateur qui a déclenché l'interaction.
+      if (gameState.status === 'playing' && !shouldDisable) {
+        shouldDisable = interaction.user.id !== gameState.currentPlayer;
+      }
+
+      console.log(`Case (${x}, ${y}): Statut=${gameState.status}, Révélée=${cell.revealed}, TourJoueur=${gameState.currentPlayer}, JoueurActuel=${interaction.user.id}, Désactivée=${shouldDisable}`);
       
       row.addComponents(
         new ButtonBuilder()
