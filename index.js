@@ -519,7 +519,6 @@ async function handleSlashCommand(interaction) {
         });
       }
       break;
-      
     case 'next':
       await handleNextMultiplier(interaction);
       break;
@@ -528,43 +527,14 @@ async function handleSlashCommand(interaction) {
       await handleLoutreGiveaway(interaction);
       break;
       
-    case 'classement-morpion':
-      await gameFunctions.handleTicTacToeLeaderboard(interaction);
+    case 'shop':
+      const { handleShop } = require('./games/shop');
+      await handleShop(interaction);
       break;
       
-    case 'reset-morpion-stats':
-      if (interaction.user.id !== '314458846754111499') {
-        return interaction.reply({ 
-          content: ' Cette commande est réservée à l\'administrateur.', 
-          ephemeral: true 
-        });
-      }
-      
-      try {
-        const targetUser = interaction.options.getUser('utilisateur');
-        
-        if (targetUser) {
-          // Réinitialiser pour un utilisateur spécifique
-          gameFunctions.resetTicTacToeStats(targetUser.id);
-          await interaction.reply({ 
-            content: ` La statistique du morpion de ${targetUser.tag} a été réinitialisée avec succès !`, 
-            ephemeral: true 
-          });
-        } else {
-          // Réinitialiser pour tous les utilisateurs
-          gameFunctions.resetTicTacToeStats();
-          await interaction.reply({ 
-            content: ' Toutes les statistiques du morpion ont été réinitialisées avec succès !', 
-            ephemeral: true 
-          });
-        }
-      } catch (error) {
-        console.error('Erreur lors de la réinitialisation des statistiques du morpion:', error);
-        await interaction.reply({ 
-          content: ' Une erreur est survenue lors de la réinitialisation des statistiques.', 
-          ephemeral: true 
-        });
-      }
+    case 'acheter':
+      const { handlePurchase } = require('./games/shop');
+      await handlePurchase(interaction);
       break;
       
     case 'highlow':

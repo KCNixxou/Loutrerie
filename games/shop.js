@@ -2,10 +2,78 @@
 
 // Fonction pour gérer l'affichage de la boutique
 async function handleShop(interaction) {
-    await interaction.reply({
-        content: 'La boutique n\'est pas encore disponible.',
-        ephemeral: true
-    });
+    try {
+        const { EmbedBuilder } = require('discord.js');
+        const shopItems = interaction.client.config.shop;
+        
+        // Créer un embed pour la boutique
+        const embed = new EmbedBuilder()
+            .setTitle('🛍️ Boutique de la Loutrerie')
+            .setDescription('Utilisez la commande `/acheter` avec le nom de l\'article pour effectuer un achat.')
+            .setColor(0x00bfff);
+        
+        // Catégorie des rôles BDG
+        const bdgItems = Object.entries(shopItems)
+            .filter(([key]) => key.startsWith('bdg'))
+            .map(([_, item]) => `• **${item.name}** - ${item.price.toLocaleString()} ${interaction.client.config.currency.emoji}`)
+            .join('\n');
+        
+        // Catégorie des rôles BDH
+        const bdhItems = Object.entries(shopItems)
+            .filter(([key]) => key.startsWith('bdh'))
+            .map(([_, item]) => `• **${item.name}** - ${item.price.toLocaleString()} ${interaction.client.config.currency.emoji}`)
+            .join('\n');
+        
+        // Autres articles
+        const otherItems = Object.entries(shopItems)
+            .filter(([key]) => !key.startsWith('bdg') && !key.startsWith('bdh'))
+            .map(([_, item]) => `• **${item.name}** - ${item.price.toLocaleString()} ${interaction.client.config.currency.emoji}`)
+            .join('\n');
+        
+        // Ajouter les champs à l'embed
+        if (bdgItems) {
+            embed.addFields({
+                name: '🏆 Rôles BDG',
+                value: bdgItems,
+                inline: false
+            });
+        }
+        
+        if (bdhItems) {
+            embed.addFields({
+                name: '🏆 Rôles BDH',
+                value: bdhItems,
+                inline: false
+            });
+        }
+        
+        if (otherItems) {
+            embed.addFields({
+                name: '🎁 Autres articles',
+                value: otherItems,
+                inline: false
+            });
+        }
+        
+        // Ajouter le solde de l'utilisateur
+        const user = interaction.client.database.ensureUser(interaction.user.id);
+        embed.setFooter({ 
+            text: `Votre solde: ${user.balance || 0} ${interaction.client.config.currency.emoji}`,
+            iconURL: interaction.user.displayAvatarURL()
+        });
+        
+        await interaction.reply({
+            embeds: [embed],
+            ephemeral: true
+        });
+        
+    } catch (error) {
+        console.error('Erreur lors de l\'affichage de la boutique:', error);
+        await interaction.reply({
+            content: '❌ Une erreur est survenue lors de l\'affichage de la boutique. Veuillez réessayer plus tard.',
+            ephemeral: true
+        });
+    }
 }
 
 // Fonction pour gérer les achats
