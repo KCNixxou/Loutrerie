@@ -297,14 +297,25 @@ async function handleHighLowAction(interaction) {
     
   } else {
     // Le joueur a perdu
+    const user = ensureUser(game.userId);
+    const updatedBalance = user.balance - game.currentBet;
+    
+    // Mettre à jour le solde de l'utilisateur
+    updateUser(game.userId, { balance: updatedBalance });
+    
     const lossEmbed = new EmbedBuilder()
       .setTitle('🎴 High Low - Partie terminée')
       .setDescription(`**Dernière carte:** ${formatCard(game.currentCard)}\n**Nouvelle carte:** ${formatCard(newCard)}\n\n❌ **Vous avez perdu !**`)
       .addFields(
         { name: 'Mise perdue', value: formatCurrency(game.currentBet), inline: true },
-        { name: 'Gains totaux', value: formatCurrency(0), inline: true }
+        { name: 'Gains totaux', value: formatCurrency(0), inline: true },
+        { name: 'Nouveau solde', value: formatCurrency(updatedBalance), inline: false }
       )
-      .setColor(0xED4245); // Rouge pour la défaite
+      .setColor(0xED4245) // Rouge pour la défaite
+      .setFooter({ 
+        text: `Solde mis à jour: ${formatCurrency(updatedBalance)}`,
+        iconURL: interaction.user.displayAvatarURL() 
+      });
     
     // Supprimer la partie
     activeHighLowGames.delete(gameId);
