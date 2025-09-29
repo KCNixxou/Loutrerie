@@ -73,6 +73,25 @@ const client = new Client({
 // Ajouter la configuration au client
 client.config = config;
 
+// Ajouter les fonctions de base de données au client
+const { 
+  ensureUser, 
+  updateUser, 
+  updateMissionProgress, 
+  getSpecialBalance, 
+  updateSpecialBalance,
+  db
+} = require('./database');
+
+client.database = {
+  ensureUser,
+  updateUser,
+  updateMissionProgress,
+  getSpecialBalance,
+  updateSpecialBalance,
+  db
+};
+
 // Événement ready
 client.once('ready', async () => {
   console.log(`✅ ${client.user.tag} est connecté !`);
