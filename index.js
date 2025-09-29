@@ -6,7 +6,7 @@ const { isMaintenanceMode, isAdmin, maintenanceMiddleware, setMaintenance } = re
 // Modules personnalisés
 const config = require('./config');
 const { ensureUser, updateUser, updateMissionProgress, db, getSpecialBalance, updateSpecialBalance } = require('./database');
-const { random, now, getXpMultiplier, scheduleMidnightReset, calculateLevel, getLevelInfo } = require('./utils');
+const { random, now, getXpMultiplier, scheduleMidnightReset, scheduleDailyReset, calculateLevel, getLevelInfo } = require('./utils');
 const commands = require('./commands');
 
 // Vérifier la commande /acheter
@@ -1089,18 +1089,28 @@ async function handleDailyBdg(interaction) {
     
     // Vérifier si l'utilisateur a déjà réclamé sa récompense aujourd'hui
     const user = ensureUser(userId);
-    const lastClaim = user.last_bdg_claim || 0;
     
-    if (currentTime - lastClaim < oneDayInSeconds) {
-      const nextClaim = lastClaim + oneDayInSeconds;
-      const timeLeft = nextClaim - currentTime;
-      const hours = Math.floor(timeLeft / 3600);
-      const minutes = Math.floor((timeLeft % 3600) / 60);
+    if (user.last_bdg_claim) {
+      const lastClaim = new Date(user.last_bdg_claim * 1000);
+      const now = new Date();
       
-      return interaction.reply({
-        content: `❌ Tu as déjà réclamé ta récompense BDG aujourd'hui. Tu pourras à nouveau réclamer dans ${hours}h${minutes}m.`,
-        ephemeral: true
-      });
+      // Vérifier si c'est le même jour
+      if (lastClaim.getDate() === now.getDate() && 
+          lastClaim.getMonth() === now.getMonth() && 
+          lastClaim.getFullYear() === now.getFullYear()) {
+        
+        // Calculer le temps jusqu'à minuit
+        const midnight = new Date(now);
+        midnight.setHours(24, 0, 0, 0);
+        const timeLeft = midnight - now;
+        const hours = Math.floor(timeLeft / (60 * 60 * 1000));
+        const minutes = Math.floor((timeLeft % (60 * 60 * 1000)) / (60 * 1000));
+        
+        return interaction.reply({
+          content: `❌ Tu as déjà réclamé ta récompense BDG aujourd'hui. Tu pourras à nouveau réclamer demain à 00h01.`,
+          ephemeral: true
+        });
+      }
     }
 
     // Définir le montant de la récompense en fonction du rôle BDG
@@ -1115,11 +1125,12 @@ async function handleDailyBdg(interaction) {
       rewardAmount = config.shop.bdgUltime.dailyReward;
     }
 
-    // Mettre à jour le solde de l'utilisateur
+    // Mettre à jour le solde de l'utilisateur avec le timestamp actuel
     const newBalance = (user.balance || 0) + rewardAmount;
+    const currentTimestamp = Math.floor(Date.now() / 1000);
     updateUser(userId, { 
       balance: newBalance,
-      last_bdg_claim: currentTime 
+      last_bdg_claim: currentTimestamp
     });
 
     // Créer l'embed de confirmation
@@ -1128,7 +1139,7 @@ async function handleDailyBdg(interaction) {
       .setDescription(`Tu as reçu ta récompense BDG quotidienne de **${rewardAmount}** ${config.currency.emoji} !`)
       .addFields(
         { name: 'Nouveau solde', value: `${newBalance} ${config.currency.emoji}`, inline: true },
-        { name: 'Prochaine récompense', value: `<t:${currentTime + oneDayInSeconds}:R>`, inline: true }
+        { name: 'Prochaine récompense', value: 'Demain à 00h01', inline: true }
       )
       .setColor(0x00ff00)
       .setFooter({ text: 'Reviens demain pour une nouvelle récompense !' });
@@ -1176,18 +1187,28 @@ async function handleDailyBdh(interaction) {
     
     // Vérifier si l'utilisateur a déjà réclamé sa récompense aujourd'hui
     const user = ensureUser(userId);
-    const lastClaim = user.last_bdh_claim || 0;
     
-    if (currentTime - lastClaim < oneDayInSeconds) {
-      const nextClaim = lastClaim + oneDayInSeconds;
-      const timeLeft = nextClaim - currentTime;
-      const hours = Math.floor(timeLeft / 3600);
-      const minutes = Math.floor((timeLeft % 3600) / 60);
+    if (user.last_bdh_claim) {
+      const lastClaim = new Date(user.last_bdh_claim * 1000);
+      const now = new Date();
       
-      return interaction.reply({
-        content: `❌ Tu as déjà réclamé ta récompense BDH aujourd'hui. Tu pourras à nouveau réclamer dans ${hours}h${minutes}m.`,
-        ephemeral: true
-      });
+      // Vérifier si c'est le même jour
+      if (lastClaim.getDate() === now.getDate() && 
+          lastClaim.getMonth() === now.getMonth() && 
+          lastClaim.getFullYear() === now.getFullYear()) {
+        
+        // Calculer le temps jusqu'à minuit
+        const midnight = new Date(now);
+        midnight.setHours(24, 0, 0, 0);
+        const timeLeft = midnight - now;
+        const hours = Math.floor(timeLeft / (60 * 60 * 1000));
+        const minutes = Math.floor((timeLeft % (60 * 60 * 1000)) / (60 * 1000));
+        
+        return interaction.reply({
+          content: `❌ Tu as déjà réclamé ta récompense BDH aujourd'hui. Tu pourras à nouveau réclamer demain à 00h01.`,
+          ephemeral: true
+        });
+      }
     }
 
     // Définir le montant de la récompense en fonction du rôle BDH
@@ -1202,11 +1223,12 @@ async function handleDailyBdh(interaction) {
       rewardAmount = config.shop.bdhUltime.dailyReward;
     }
 
-    // Mettre à jour le solde de l'utilisateur
+    // Mettre à jour le solde de l'utilisateur avec le timestamp actuel
     const newBalance = (user.balance || 0) + rewardAmount;
+    const currentTimestamp = Math.floor(Date.now() / 1000);
     updateUser(userId, { 
       balance: newBalance,
-      last_bdh_claim: currentTime 
+      last_bdh_claim: currentTimestamp
     });
 
     // Créer l'embed de confirmation
@@ -1215,7 +1237,7 @@ async function handleDailyBdh(interaction) {
       .setDescription(`Tu as reçu ta récompense BDH quotidienne de **${rewardAmount}** ${config.currency.emoji} !`)
       .addFields(
         { name: 'Nouveau solde', value: `${newBalance} ${config.currency.emoji}`, inline: true },
-        { name: 'Prochaine récompense', value: `<t:${currentTime + oneDayInSeconds}:R>`, inline: true }
+        { name: 'Prochaine récompense', value: 'Demain à 00h01', inline: true }
       )
       .setColor(0x00ff00)
       .setFooter({ text: 'Reviens demain pour une nouvelle récompense !' });
@@ -1293,7 +1315,7 @@ async function handleGive(interaction) {
     }
 
     // V�rifier la limite quotidienne
-    const dailyGiveLimit = 500;  // Limite de 500 coquillages par jour
+    const dailyGiveLimit = 1000;  // Limite de 1000 coquillages par jour
     const newDailyGiven = dailyGiven + amount;
     
     if (newDailyGiven > dailyGiveLimit) {
@@ -1348,7 +1370,7 @@ async function handleGive(interaction) {
         },
         { 
           name: 'Limite quotidienne', 
-          value: `${dailyGiven + amount}/500 ${config.currency.emoji}`, 
+          value: `${dailyGiven + amount}/1000 ${config.currency.emoji}`, 
           inline: true 
         }
       )
@@ -1847,7 +1869,6 @@ async function restoreActiveGiveaways() {
         console.error(`[Giveaway] Erreur lors de la restauration du giveaway:`, err);
       }
     }
-    
   } catch (error) {
     console.error('[Giveaway] Erreur lors de la restauration des giveaways:', error);
   }
@@ -1856,14 +1877,79 @@ async function restoreActiveGiveaways() {
 // Désactivé: Restaurer les giveaways actifs au démarrage
 // restoreActiveGiveaways();
 
-// Gestion des erreurs non capturées
-process.on('unhandledRejection', error => {
-  console.error('Erreur non gérée dans une promesse:', error);
-});
+// Fonction pour réinitialiser les limites de dons quotidiens
+function resetDailyGives() {
+  console.log('🔄 Réinitialisation des limites de dons quotidiens à 00h01');
+  
+  db.prepare(`
+    UPDATE users 
+    SET daily_given = 0 
+    WHERE daily_given > 0
+  `).run();
+  
+  console.log('✅ Limites de dons quotidiens réinitialisées');
+}
 
-process.on('uncaughtException', error => {
-  console.error('Erreur non capturée:', error);
-});
+// Fonction pour vérifier si c'est un nouveau jour (après minuit)
+function isNewDay(lastClaimTimestamp) {
+  if (!lastClaimTimestamp) return true;
+  
+  const lastClaim = new Date(lastClaimTimestamp * 1000);
+  const now = new Date();
+  
+  return (
+    lastClaim.getDate() !== now.getDate() ||
+    lastClaim.getMonth() !== now.getMonth() ||
+    lastClaim.getFullYear() !== now.getFullYear()
+  );
+}
+
+// Fonction pour réinitialiser les réclamations quotidiennes (daily, BDG, BDH)
+function resetDailyClaims() {
+  console.log('🔄 Vérification des réinitialisations quotidiennes à 00h01');
+  
+  // Obtenir le timestamp de minuit (00:00:00) du jour actuel
+  const now = new Date();
+  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const midnightTimestamp = Math.floor(midnight.getTime() / 1000);
+  
+  // Mettre à jour uniquement les utilisateurs qui n'ont pas encore réclamé aujourd'hui
+  db.prepare(`
+    UPDATE users 
+    SET last_daily_claim = CASE WHEN last_daily_claim < ? THEN last_daily_claim ELSE ? END,
+        last_bdg_claim = CASE WHEN last_bdg_claim < ? THEN last_bdg_claim ELSE ? END,
+        last_bdh_claim = CASE WHEN last_bdh_claim < ? THEN last_bdh_claim ELSE ? END
+    WHERE last_daily_claim < ?
+       OR last_bdg_claim < ?
+       OR last_bdh_claim < ?
+  `).run(
+    midnightTimestamp, 0,  // Pour last_daily_claim
+    midnightTimestamp, 0,  // Pour last_bdg_claim
+    midnightTimestamp, 0,  // Pour last_bdh_claim
+    midnightTimestamp,     // WHERE conditions
+    midnightTimestamp,
+    midnightTimestamp
+  );
+  
+  console.log(`✅ Vérification des récompenses quotidiennes effectuée (${now.toLocaleTimeString()})`);
+}
+
+// Planifier les réinitialisations quotidiennes à 00h01
+function scheduleDailyResets() {
+  // Réinitialisation des dons quotidiens
+  resetDailyGives();
+  
+  // Réinitialisation des réclamations quotidiennes
+  resetDailyClaims();
+  
+  // Planifier les prochaines réinitialisations
+  setInterval(resetDailyGives, 24 * 60 * 60 * 1000);
+  setInterval(resetDailyClaims, 24 * 60 * 60 * 1000);
+}
+
+// Démarrer les réinitialisations quotidiennes
+scheduleDailyReset(scheduleDailyResets);
+console.log('⏰ Réinitialisations quotidiennes programmées à 00h01 chaque jour');
 
 // Connexion du bot
 client.login(process.env.DISCORD_TOKEN);

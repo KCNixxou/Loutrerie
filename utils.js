@@ -113,13 +113,10 @@ function playSlots() {
   
   return { result, multiplier };
 }
-
-// Reset des missions à minuit
 function scheduleMidnightReset(callback) {
   const now = new Date();
   const midnight = new Date();
   midnight.setHours(24, 0, 0, 0);
-  
   const timeUntilMidnight = midnight - now;
   
   setTimeout(() => {
@@ -129,12 +126,33 @@ function scheduleMidnightReset(callback) {
   }, timeUntilMidnight);
 }
 
+// Planifie une tâche à 00h01 chaque jour
+function scheduleDailyReset(callback) {
+  const now = new Date();
+  const nextReset = new Date();
+  nextReset.setHours(0, 1, 0, 0); // 00h01
+  
+  // Si l'heure est déjà passée aujourd'hui, planifier pour demain
+  if (now >= nextReset) {
+    nextReset.setDate(nextReset.getDate() + 1);
+  }
+  
+  const timeUntilReset = nextReset - now;
+  
+  setTimeout(() => {
+    callback();
+    // Programmer le prochain reset
+    setInterval(callback, 24 * 60 * 60 * 1000);
+  }, timeUntilReset);
+  
+  console.log(`Prochaine réinitialisation programmée à ${nextReset}`);
+}
+
 // Fonction pour obtenir la valeur numérique d'une carte
 function getCardValue(card) {
   if (!card || !card.value) return [0];
   
   const value = card.value.toUpperCase();
-  if (value === 'A') return [14];    // As = 14
   if (value === 'J') return [11];    // Valet = 11
   if (value === 'Q') return [12];    // Dame = 12
   if (value === 'K') return [13];    // Roi = 13
@@ -195,6 +213,7 @@ module.exports = {
   random,
   now,
   calculateLevel,
+  scheduleDailyReset,
   getLevelInfo,
   getCardValue,
   compareCards,
