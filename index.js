@@ -146,7 +146,7 @@ client.once('ready', async () => {
   
   // Planifier le reset quotidien
   scheduleMidnightReset(async () => {
-    console.log('🔄 Reset des missions, limites quotidiennes et récompenses BDG à minuit');
+    console.log('🔄 Reset des missions, limites quotidiennes et récompenses BDG/BDH à minuit');
     const { generateDailyMissions } = require('./database');
     const missions = generateDailyMissions();
     const users = db.prepare('SELECT user_id FROM users').all();
@@ -157,6 +157,25 @@ client.once('ready', async () => {
       await guild.members.fetch();
     }
     
+    // Liste des rôles BDG et BDH pour la notification
+    const bdgRoles = [
+      config.shop.bdgBaby.role,
+      config.shop.bdgPetit.role,
+      config.shop.bdgGros.role,
+      config.shop.bdgUltime.role
+    ];
+    
+    const bdhRoles = [
+      config.shop.bdhBaby.role,
+      config.shop.bdhPetit.role,
+      config.shop.bdhGros.role,
+      config.shop.bdhUltime.role
+    ];
+    
+    // Ensemble pour suivre les membres à notifier (éviter les doublons)
+    const membersToNotify = new Set();
+    
+    // 1. Mise à jour de tous les utilisateurs dans la base de données
     for (const user of users) {
       updateUser(user.user_id, {
         daily_missions: JSON.stringify(missions),
@@ -164,28 +183,60 @@ client.once('ready', async () => {
         last_mission_reset: currentTime,
         daily_given: 0,
         last_give_reset: currentTime,
-        last_bdg_claim: 0
+        last_bdg_claim: 0,
+        last_bdh_claim: 0  // Ajout de la réinitialisation BDH
       });
       
+      // Ajouter les membres avec rôles BDG/BDH à la liste de notification
       const member = guild?.members.cache.get(user.user_id);
       if (member) {
-        const bdgRoles = [
-          config.shop.bdgBaby.role,
-          config.shop.bdgPetit.role,
-          config.shop.bdgGros.role,
-          config.shop.bdgUltime.role
-        ].map(r => r.name);
-        
         const hasBdgRole = member.roles.cache.some(role => bdgRoles.includes(role.name));
+        const hasBdhRole = member.roles.cache.some(role => bdhRoles.includes(role.name));
+        
+        if (hasBdgRole || hasBdhRole) {
+          membersToNotify.add(member);
+        }
+      }
+    }
+    
+    // 2. Envoyer des notifications à tous les membres concernés
+    for (const member of membersToNotify) {
+      try {
+        const hasBdgRole = member.roles.cache.some(role => bdgRoles.includes(role.name));
+        const hasBdhRole = member.roles.cache.some(role => bdhRoles.includes(role.name));
+        
+        let messageContent = '🎉 **Nouvelles récompenses quotidiennes disponibles !**\n';
         
         if (hasBdgRole) {
-          try {
-            await member.send({
-              content: '?? **Nouvelle r�compense BDG disponible !**\nUtilise la commande `/dailybdg` pour r�clamer ta r�compense quotidienne ! ??'
-            });
-          } catch (error) {
-            console.error(`Impossible d'envoyer un message � ${member.user.tag}:`, error);
-          }
+          messageContent += '• Utilise la commande `/dailybdg` pour réclamer ta récompense BDG !\n';
+        }
+        
+        if (hasBdhRole) {
+          messageContent += '• Utilise la commande `/dailybdh` pour réclamer ta récompense BDH !\n';
+        }
+        
+        messageContent += '\n🎁 N\'oublie pas de réclamer tes récompenses chaque jour !';
+        
+        await member.send({
+          content: messageContent
+        });
+      } catch (error) {
+        console.error(`Impossible d'envoyer un message à ${member.user.tag}:`, error);
+      }
+    }
+    
+    // 3. Envoyer une notification dans le salon général si possible
+    if (guild) {
+      const generalChannel = guild.channels.cache.find(
+        channel => channel.type === 'text' && channel.permissionsFor(guild.me).has('SEND_MESSAGES')
+      );
+      
+      if (generalChannel) {
+        try {
+          await generalChannel.send('🔄 Les récompenses quotidiennes BDG et BDH ont été réinitialisées ! ' +
+                                 'Utilisez `/dailybdg` et `/dailybdh` pour les réclamer !');
+        } catch (error) {
+          console.error('Impossible d\'envoyer la notification dans le salon général:', error);
         }
       }
     }
