@@ -88,97 +88,129 @@ async function handleShop(interaction) {
     }
 }
 
-// Fonction pour gérer les achats
+// Fonction pour gérer les achats de manière sécurisée
 async function handlePurchase(interaction) {
+    // Initialisation des variables
+    let itemId, item, userId, member, user, role;
+    const reply = { content: '', ephemeral: true };
+    
     try {
-        const itemId = interaction.options.getString('item');
-        const userId = interaction.user.id;
-        const member = interaction.member;
-        const user = interaction.client.database.ensureUser(userId);
+        console.log(`[Achat] Début de la transaction pour ${interaction.user.tag}`);
         
-        // Vérifier si l'item existe dans la configuration
-        const item = interaction.client.config.shop[itemId];
+        // Récupération des informations de base
+        itemId = interaction.options.getString('item');
+        userId = interaction.user.id;
+        member = interaction.member;
+        
+        // Vérification de l'existence de l'article
+        item = interaction.client.config.shop[itemId];
         if (!item) {
-            return interaction.reply({
-                content: '❌ Cet article n\'existe pas dans la boutique.',
-                ephemeral: true
-            });
+            reply.content = '❌ Cet article n\'existe pas dans la boutique.';
+            console.log(`[Achat] Article non trouvé: ${itemId}`);
+            return interaction.reply(reply);
         }
         
-        // Vérifier si l'utilisateur a assez d'argent
+        console.log(`[Achat] Tentative d'achat de ${item.name} (${itemId}) par ${interaction.user.tag}`);
+        
+        // Vérification du solde utilisateur
+        user = interaction.client.database.ensureUser(userId);
         if (user.balance < item.price) {
-            return interaction.reply({
-                content: `❌ Tu n'as pas assez de coquillages pour acheter ${item.name}. Il te manque ${item.price - user.balance} ${interaction.client.config.currency.emoji}.`,
-                ephemeral: true
-            });
+            const manquant = item.price - user.balance;
+            reply.content = `❌ Tu n'as pas assez de coquillages pour acheter ${item.name}. Il te manque ${manquant} ${interaction.client.config.currency.emoji}.`;
+            console.log(`[Achat] Solde insuffisant: ${user.balance}/${item.price}`);
+            return interaction.reply(reply);
         }
         
-        // Vérifier si l'utilisateur a déjà un rôle du même type (BDG ou BDH)
+        // Vérification des rôles existants
         const roleType = itemId.startsWith('bdg') ? 'BDG' : itemId.startsWith('bdh') ? 'BDH' : null;
         if (roleType) {
-            const existingRole = member.roles.cache.find(role => 
-                role.name.includes(roleType)
-            );
-            
+            const existingRole = member.roles.cache.find(role => role.name.includes(roleType));
             if (existingRole) {
-                return interaction.reply({
-                    content: `❌ Tu as déjà un rôle ${roleType}. Tu ne peux en avoir qu'un seul à la fois.`,
-                    ephemeral: true
-                });
+                reply.content = `❌ Tu as déjà un rôle ${roleType}. Tu ne peux en avoir qu'un seul à la fois.`;
+                console.log(`[Achat] Rôle ${roleType} déjà possédé`);
+                return interaction.reply(reply);
             }
         }
         
-        // Trouver ou créer le rôle correspondant
-        let role = interaction.guild.roles.cache.find(r => r.name === item.role);
+        // Vérification/création du rôle
+        role = interaction.guild.roles.cache.find(r => r.name === item.role);
         
-        // Si le rôle n'existe pas, on le crée
         if (!role) {
             try {
-                // Définir la couleur en fonction du type de rôle
-                let color = '#3498db'; // Bleu par défaut
-                if (itemId.startsWith('bdg')) color = '#e74c3c'; // Rouge pour BDG
-                if (itemId.startsWith('bdh')) color = '#2ecc71'; // Vert pour BDH
+                const color = itemId.startsWith('bdg') ? '#e74c3c' : 
+                            itemId.startsWith('bdh') ? '#2ecc71' : '#3498db';
                 
-                // Créer le rôle avec les permissions de base
+                console.log(`[Achat] Création du rôle: ${item.role}`);
                 role = await interaction.guild.roles.create({
                     name: item.role,
                     color: color,
-                    reason: `Création automatique du rôle pour l'achat de ${item.name}`,
+                    reason: `Création automatique pour l'achat de ${item.name}`,
                     permissions: []
                 });
-                
-                console.log(`✅ Rôle créé : ${role.name} (${role.id})`);
-                
+                console.log(`[Achat] Rôle créé: ${role.id}`);
             } catch (error) {
-                console.error('Erreur lors de la création du rôle:', error);
-                return interaction.reply({
-                    content: '❌ Une erreur est survenue lors de la création du rôle. Vérifiez que le bot a les permissions nécessaires.',
-                    ephemeral: true
-                });
+                console.error('[Achat] Erreur création rôle:', error);
+                reply.content = '❌ Impossible de créer le rôle. Vérifiez les permissions du bot.';
+                return interaction.reply(reply);
             }
         }
         
-        // Retirer l'argent de l'utilisateur
-        interaction.client.database.updateUser(userId, {
-            balance: user.balance - item.price
-        });
+        // Vérification finale avant transaction
+        if (!role) {
+            reply.content = '❌ Impossible de trouver ou créer le rôle associé.';
+            console.error('[Achat] Échec de la création du rôle');
+            return interaction.reply(reply);
+        }
         
-        // Ajouter le rôle à l'utilisateur
-        await member.roles.add(role);
+        // Début de la transaction
+        try {
+            // 1. Mise à jour du solde utilisateur
+            console.log(`[Achat] Mise à jour du solde: ${user.balance} -> ${user.balance - item.price}`);
+            const updateResult = interaction.client.database.updateUser(userId, {
+                balance: user.balance - item.price
+            });
+            
+            if (!updateResult) {
+                throw new Error('Échec de la mise à jour du solde');
+            }
+            
+            // 2. Ajout du rôle
+            console.log(`[Achat] Ajout du rôle ${role.id} à l'utilisateur`);
+            await member.roles.add(role);
+            
+            // 3. Confirmation de l'achat
+            reply.content = `✅ Félicitations ! Tu as acheté **${item.name}** pour ${item.price} ${interaction.client.config.currency.emoji} !`;
+            console.log(`[Achat] Achat réussi pour ${interaction.user.tag}`);
+            
+        } catch (transactionError) {
+            console.error('[Achat] Erreur transaction:', transactionError);
+            
+            // Tentative de remboursement en cas d'échec après le débit
+            if (updateResult) {
+                console.log('[Achat] Tentative de remboursement...');
+                try {
+                    interaction.client.database.updateUser(userId, {
+                        balance: user.balance // Remboursement complet
+                    });
+                    console.log('[Achat] Remboursement effectué');
+                } catch (refundError) {
+                    console.error('[Achat] Échec du remboursement:', refundError);
+                    // Log l'erreur pour suivi manuel si nécessaire
+                }
+            }
+            
+            reply.content = '❌ Une erreur est survenue lors de la transaction. Votre solde n\'a pas été débité.';
+            return interaction.reply(reply);
+        }
         
-        // Répondre avec succès
-        await interaction.reply({
-            content: `✅ Félicitations ! Tu as acheté **${item.name}** pour ${item.price} ${interaction.client.config.currency.emoji} !`,
-            ephemeral: true
-        });
+        // Si tout s'est bien passé, on envoie la réponse
+        await interaction.reply(reply);
         
     } catch (error) {
-        console.error('Erreur lors de l\'achat:', error);
+        console.error('[Achat] Erreur inattendue:', error);
         if (!interaction.replied) {
-            await interaction.reply({
-                content: '❌ Une erreur est survenue lors de l\'achat. Veuillez réessayer plus tard.',
-                ephemeral: true
-            });
+            reply.content = '❌ Une erreur inattendue est survenue. Veuillez contacter un administrateur.';
+            await interaction.reply(reply);
         }
     }
 }
