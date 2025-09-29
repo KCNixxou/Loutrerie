@@ -1044,6 +1044,45 @@ async function handleResetDailyBdg(interaction) {
   }
 }
 
+async function handleResetDailyBdh(interaction) {
+  try {
+    // Vérifier les permissions d'administration
+    if (!isAdmin(interaction.user.id)) {
+      return interaction.reply({
+        content: ' Vous n\'avez pas la permission d\'utiliser cette commande.',
+        ephemeral: true
+      });
+    }
+    
+    const targetUser = interaction.options.getUser('utilisateur');
+    if (!targetUser) {
+      return interaction.reply({
+        content: ' Utilisateur non trouvé.',
+        ephemeral: true
+      });
+    }
+    
+    // Réinitialiser la dernière réclamation BDH
+    updateUser(targetUser.id, {
+      last_bdh_claim: 0
+    });
+    
+    await interaction.reply({
+      content: ` La récompense BDH quotidienne de <@${targetUser.id}> a été réinitialisée.`,
+      ephemeral: true
+    });
+    
+  } catch (error) {
+    console.error('Erreur dans handleResetDailyBdh:', error);
+    if (!interaction.replied) {
+      await interaction.reply({
+        content: '❌ Une erreur est survenue lors de la réinitialisation de la récompense BDH.',
+        ephemeral: true
+      });
+    }
+  }
+}
+
 // Fonction pour gérer la récompense quotidienne BDG
 async function handleDailyBdg(interaction) {
   try {
