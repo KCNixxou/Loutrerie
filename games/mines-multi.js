@@ -919,61 +919,21 @@ async function updateGameInterface(interaction, gameState) {
     // Créer l'embed avec les informations de la partie
     const embed = createGameEmbed(gameState);
     
-    // Préparer le contenu du message avec une mise en forme claire
-    let content = `🎮 **Partie de Mines Multijoueur**\n`;
-    
-    // Ajouter les informations des joueurs avec mise en forme
-    const isPlayer1Turn = gameState.currentPlayer === gameState.player1.id;
-    const player1Mention = `<@${gameState.player1.id}>`;
-    const player2Mention = gameState.player2 ? `<@${gameState.player2.id}>` : 'En attente...';
-    
-    // Afficher le tour actuel de manière très visible
-    if (gameState.status === 'playing') {
-      const currentPlayerMention = isPlayer1Turn ? player1Mention : player2Mention;
-      content += `\n🎮 **TOUR ACTUEL**\n> 👤 C'est à ${currentPlayerMention} de jouer !\n`;
-    }
-    
-    // Afficher la liste des joueurs avec indicateur de tour
-    content += `\n**Joueurs :**`;
-    
-    // Joueur 1
-    content += `\n${isPlayer1Turn ? '🟢' : '⚫'} **Joueur 1:** ${player1Mention} ${PLAYER1_EMOJI}`;
-    
-    // Joueur 2 ou en attente
-    if (gameState.player2) {
-      content += `\n${!isPlayer1Turn ? '🟢' : '⚫'} **Joueur 2:** ${player2Mention} ${PLAYER2_EMOJI}`;
-    } else {
-      content += '\n⚪ **Joueur 2:** En attente...';
-    }
-    
-    // Ajouter la mise
-    content += `\n\n💰 **Mise par joueur:** ${gameState.bet} ${config.currency.emoji}`;
-    
-    // Ajouter un séparateur visuel
-    content += '\n' + '⎯'.repeat(30);
-    
     // Créer les composants de la grille
     const components = createGridComponents(gameState);
+    
+    // Préparer le contenu du message
+    let content = '';
+    
+    // Désactiver tous les composants si la partie est terminée
     if (gameState.status === 'finished') {
-      // La partie est terminée
-      content += `\n\n🏆 **PARTIE TERMINÉE**`;
-      if (gameState.winner) {
-        const multiplier = MULTIPLIERS[gameState.revealedCount] || 1;
-        const winnings = Math.floor(gameState.bet * multiplier);
-        content += `\n> 🎉 **${gameState.winner.username} a gagné !**`;
-        content += `\n> Multiplicateur: x${multiplier.toFixed(2)}`;
-        content += `\n> Gains: ${winnings} ${config.currency.emoji} (x${multiplier.toFixed(2)})`;
-      } else {
-        content += '\n> 🤝 **Match nul !**';
-        content += `\n> Chaque joueur récupère sa mise de ${gameState.bet} ${config.currency.emoji}`;
-      }
       for (const row of components) {
         for (const component of row.components) {
           component.setDisabled(true);
         }
       }
       
-      // Mettre à jour le message
+      // Mettre à jour le message avec l'état final
       await interaction.editReply({
         content: content,
         embeds: [embed],
