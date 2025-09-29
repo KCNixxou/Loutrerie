@@ -6,6 +6,9 @@ async function handleShop(interaction) {
         const { EmbedBuilder } = require('discord.js');
         const shopItems = interaction.client.config.shop;
         
+        // Log pour déboguer
+        console.log('Articles disponibles dans la boutique:', Object.keys(shopItems));
+        
         // Créer un embed pour la boutique
         const embed = new EmbedBuilder()
             .setTitle('🛍️ Boutique de la Loutrerie')
@@ -21,8 +24,13 @@ async function handleShop(interaction) {
         // Catégorie des rôles BDH
         const bdhItems = Object.entries(shopItems)
             .filter(([key]) => key.startsWith('bdh'))
-            .map(([_, item]) => `• **${item.name}** - ${item.price.toLocaleString()} ${interaction.client.config.currency.emoji}`)
+            .map(([key, item]) => {
+                console.log(`Article BDH trouvé: ${key} - ${item.name}`);
+                return `• **${item.name}** - ${item.price.toLocaleString()} ${interaction.client.config.currency.emoji}`;
+            })
             .join('\n');
+            
+        console.log('Articles BDH formatés:', bdhItems);
         
         // Autres articles
         const otherItems = Object.entries(shopItems)
@@ -39,12 +47,15 @@ async function handleShop(interaction) {
             });
         }
         
-        if (bdhItems) {
+        if (bdhItems && bdhItems.length > 0) {
+            console.log('Ajout des rôles BDH à l\'embed');
             embed.addFields({
                 name: '🏆 Rôles BDH',
                 value: bdhItems,
                 inline: false
             });
+        } else {
+            console.log('Aucun rôle BDH à afficher');
         }
         
         if (otherItems) {

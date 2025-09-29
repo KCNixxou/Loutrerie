@@ -1,5 +1,4 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits, Partials, REST, Routes, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const express = require('express');
 const { isMaintenanceMode, isAdmin, maintenanceMiddleware, setMaintenance } = require('./maintenance');
 // Modules personnalisés
@@ -7,6 +6,16 @@ const config = require('./config');
 const { ensureUser, updateUser, updateMissionProgress, db, getSpecialBalance, updateSpecialBalance } = require('./database');
 const { random, now, getXpMultiplier, scheduleMidnightReset, calculateLevel, getLevelInfo } = require('./utils');
 const commands = require('./commands');
+console.log('Commandes chargées:', JSON.stringify(commands, null, 2));
+
+// Vérifier la commande /acheter
+const acheterCommand = commands.find(cmd => cmd.name === 'acheter');
+if (acheterCommand) {
+  console.log('✅ Commande /acheter trouvée dans les commandes chargées');
+  console.log('Options de la commande /acheter:', acheterCommand.options);
+} else {
+  console.error('❌ Commande /acheter introuvable dans les commandes chargées!');
+}
 
 // Importer les fonctions de gestion des interactions
 const { handleButtonInteraction, handleSelectMenuInteraction } = require('./handlers');
@@ -103,16 +112,38 @@ client.once('ready', async () => {
   
   try {
     console.log('⏳ Enregistrement des commandes...');
-    await rest.put(
+    
+    // Afficher les détails de la commande /acheter avant enregistrement
+    const acheterCommand = commands.find(cmd => cmd.name === 'acheter');
+    if (acheterCommand) {
+      console.log('Détails de la commande /acheter avant enregistrement:', 
+        JSON.stringify(acheterCommand, null, 2));
+    } else {
+      console.error('❌ La commande /acheter est introuvable dans les commandes à enregistrer!');
+    }
+    
+    // Enregistrer les commandes
+    const data = await rest.put(
       Routes.applicationCommands(client.user.id),
       { body: commands }
     );
-    console.log('✅ Commandes enregistrées !');
+    
+    console.log('✅ Commandes enregistrées avec succès!');
+    
+    // Afficher les détails de la commande /acheter après enregistrement
+    const registeredAcheter = data.find(cmd => cmd.name === 'acheter');
+    if (registeredAcheter) {
+      console.log('✅ Commande /acheter enregistrée avec succès:', 
+        JSON.stringify(registeredAcheter, null, 2));
+    } else {
+      console.error('❌ La commande /acheter est introuvable dans les commandes enregistrées!');
+    }
+    
   } catch (error) {
     console.error('❌ Erreur lors de l\'enregistrement des commandes:', error);
   }
   
-  // Démarrer le reset des missions à minuit
+  // Planifier le reset quotidien
   scheduleMidnightReset(async () => {
     console.log('🔄 Reset des missions, limites quotidiennes et récompenses BDG à minuit');
     const { generateDailyMissions } = require('./database');
