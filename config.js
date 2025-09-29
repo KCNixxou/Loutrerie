@@ -36,7 +36,11 @@ module.exports = {
     bdgBaby: { price: 10000, name: 'Bébé BDG', role: 'Bébé BDG', dailyReward: 500 },
     bdgPetit: { price: 50000, name: 'Petit BDG', role: 'Petit BDG', dailyReward: 1000 },
     bdgGros: { price: 200000, name: 'Gros BDG', role: 'Gros BDG', dailyReward: 5000 },
-    bdgUltime: { price: 1000000, name: 'BDG Ultime', role: 'BDG Ultime', dailyReward: 20000 }
+    bdgUltime: { price: 1000000, name: 'BDG Ultime', role: 'BDG Ultime', dailyReward: 20000 },
+    bdhBaby: { price: 10000, name: 'Bébé BDH', role: 'Bébé BDH', dailyReward: 500 },
+    bdhPetit: { price: 50000, name: 'Petit BDH', role: 'Petit BDH', dailyReward: 1000 },
+    bdhGros: { price: 200000, name: 'Gros BDH', role: 'Gros BDH', dailyReward: 5000 },
+    bdhUltime: { price: 1000000, name: 'BDH Ultime', role: 'BDH Ultime', dailyReward: 20000 }
   },
   missions: {
     daily: [

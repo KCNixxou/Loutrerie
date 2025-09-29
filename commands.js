@@ -23,6 +23,10 @@ const commands = [
     .setDescription('Récupérer ta récompense BDG journalière (nécessite un rôle BDG)'),
 
   new SlashCommandBuilder()
+    .setName('dailybdh')
+    .setDescription('Récupérer ta récompense BDH journalière (nécessite un rôle BDH)'),
+
+  new SlashCommandBuilder()
     .setName('highlow')
     .setDescription('Jouer au High Low (Plus haut/Plus bas/Égal)')
     .addIntegerOption(option =>
@@ -171,13 +175,17 @@ const commands = [
         .setDescription('Item à acheter')
         .setRequired(true)
         .addChoices(
-          { name: 'Bébé BDG (10,000 )', value: 'bdg_baby' },
-          { name: 'Petit BDG (50,000 )', value: 'bdg_petit' },
-          { name: 'Gros BDG (200,000 )', value: 'bdg_gros' },
-          { name: 'BDG Ultime (1,000,000 )', value: 'bdg_ultime' },
+          { name: 'Bébé BDG (10,000 )', value: 'bdgBaby' },
+          { name: 'Petit BDG (50,000 )', value: 'bdgPetit' },
+          { name: 'Gros BDG (200,000 )', value: 'bdgGros' },
+          { name: 'BDG Ultime (1,000,000 )', value: 'bdgUltime' },
+          { name: 'Bébé BDH (10,000 )', value: 'bdhBaby' },
+          { name: 'Petit BDH (50,000 )', value: 'bdhPetit' },
+          { name: 'Gros BDH (200,000 )', value: 'bdhGros' },
+          { name: 'BDH Ultime (1,000,000 )', value: 'bdhUltime' },
           { name: 'VIP (10,000 )', value: 'vip' },
-          { name: 'Super VIP (20,000 )', value: 'super_vip' },
-          { name: 'Changement de couleurs (10,000 )', value: 'color_change' },
+          { name: 'Super VIP (20,000 )', value: 'superVip' },
+          { name: 'Changement de couleurs (10,000 )', value: 'colorChange' },
           { name: 'Surprise Mystère #1 (100,000 )', value: 'surprise1' },
           { name: 'Surprise Mystère #2 (100,000 )', value: 'surprise2' }
         )
