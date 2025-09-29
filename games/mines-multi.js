@@ -444,13 +444,17 @@ async function handleMinesMultiInteraction(interaction) {
 async function updateUserBalance(userId, amount) {
   try {
     const user = ensureUser(userId);
-    user.balance += amount;
+    const newBalance = user.balance + amount;
     
-    // Mettre à jour la base de données
-    await db.run('UPDATE users SET balance = ? WHERE user_id = ?', [user.balance, userId]);
-    console.log(`[DB] Solde mis à jour pour l'utilisateur ${userId}: ${user.balance} ${config.currency.emoji}`);
+    // Mettre à jour la base de données via la fonction updateUser
+    await updateUser(userId, { balance: newBalance });
     
-    return user.balance;
+    // Mettre à jour l'objet utilisateur localement
+    user.balance = newBalance;
+    
+    console.log(`[DB] Solde mis à jour pour l'utilisateur ${userId}: ${newBalance} ${config.currency.emoji}`);
+    
+    return newBalance;
   } catch (error) {
     console.error(`Erreur lors de la mise à jour du solde de l'utilisateur ${userId}:`, error);
     throw error;
@@ -853,7 +857,7 @@ function revealCell(gameState, x, y, userId) {
     // Révéler toutes les mines pour la fin de partie
     for (let i = 0; i < GRID_SIZE; i++) {
       for (let j = 0; j < GRID_SIZE; j++) {
-        if (gameState.grid[i][j] === 'mine') {
+        if (gameState.grid[i][j] === 'mine' && !gameState.revealed[i][j].revealed) {
           gameState.revealed[i][j].revealed = true;
           gameState.revealed[i][j].markedBy = gameState.winner;
         }
@@ -875,13 +879,22 @@ function revealCell(gameState, x, y, userId) {
     console.log(`Toutes les cases sûres ont été révélées ! Le joueur ${userId} a gagné !`);
     gameState.status = 'finished';
     gameState.winner = userId; // Le joueur actuel gagne
+    
+    // Révéler toutes les mines restantes
+    for (let i = 0; i < GRID_SIZE; i++) {
+      for (let j = 0; j < GRID_SIZE; j++) {
+        if (gameState.grid[i][j] === 'mine' && !gameState.revealed[i][j].revealed) {
+          gameState.revealed[i][j].revealed = true;
+          gameState.revealed[i][j].markedBy = userId;
+        }
+      }
+    }
+    
     return true;
   }
   
-  // Si la case est vide (pas de mines adjacentes), révéler les cases adjacentes
-  if (countAdjacentMines(gameState, x, y) === 0) {
-    revealAdjacentCells(gameState, x, y, userId);
-  }
+  // Ne plus révéler automatiquement les cases adjacentes
+  // Chaque joueur révèle une seule case par tour
   
   return true;
 }
@@ -900,16 +913,28 @@ function countAdjacentMines(gameState, x, y) {
   return count;
 }
 
-// Révéler les cases adjacentes à une case vide
+// Révéler une seule case adjacente à une case vide
 function revealAdjacentCells(gameState, x, y, userId) {
+  // Créer une liste de toutes les cases adjacentes non révélées
+  const adjacentCells = [];
   for (let i = Math.max(0, x - 1); i <= Math.min(GRID_SIZE - 1, x + 1); i++) {
     for (let j = Math.max(0, y - 1); j <= Math.min(GRID_SIZE - 1, y + 1); j++) {
-      if (i === x && j === y) continue; // Ne pas révéler la case elle-même
-      if (!gameState.revealed[i][j].revealed) {
-        revealCell(gameState, i, j, userId);
+      if ((i !== x || j !== y) && !gameState.revealed[i][j].revealed) {
+        adjacentCells.push({x: i, y: j});
       }
     }
   }
+  
+  // Si aucune case adjacente n'est disponible, ne rien faire
+  if (adjacentCells.length === 0) return;
+  
+  // Choisir une case adjacente au hasard
+  const randomIndex = Math.floor(Math.random() * adjacentCells.length);
+  const cell = adjacentCells[randomIndex];
+  
+  // Révéler la case choisie
+  console.log(`Révélation d'une case adjacente: (${cell.x}, ${cell.y})`);
+  revealCell(gameState, cell.x, cell.y, userId);
 }
 
 // Créer une nouvelle grille de jeu
@@ -1039,15 +1064,18 @@ function createGridComponents(gameState, interaction = null) {
           // Désactiver le bouton si :
       // 1. La partie est terminée
       // 2. La case est déjà révélée
-      // 3. La partie est en cours et ce n'est pas au tour du joueur actuel
-      const isCurrentPlayer = interaction && gameState.currentPlayer === interaction.user.id;
+      // 3. La partie est en cours et l'interaction n'est pas du joueur dont c'est le tour
+      const interactionUserId = interaction?.user?.id;
+      const isCurrentPlayer = interactionUserId && gameState.currentPlayer === interactionUserId;
       const isGameInProgress = gameState.status === 'playing' && gameState.player1 && gameState.player2;
+      
+      // Ne pas désactiver si c'est le tour du joueur actuel OU si la partie n'est pas encore commencée
       const shouldDisable = gameState.status === 'finished' || 
                           cell.revealed ||
-                          (isGameInProgress && !isCurrentPlayer);
+                          (isGameInProgress && interactionUserId && gameState.currentPlayer !== interactionUserId);
       
       console.log(`Case (${x}, ${y}): Statut=${gameState.status}, ` +
-                 `JoueurActuel=${interaction?.user?.id || 'none'}, ` +
+                 `JoueurActuel=${interactionUserId || 'none'}, ` +
                  `TourJoueur=${gameState.currentPlayer || 'none'}, ` +
                  `EstSonTour=${isCurrentPlayer}, Désactivée=${shouldDisable}`);
       
