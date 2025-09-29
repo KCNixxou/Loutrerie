@@ -53,6 +53,7 @@ app.get('/', (req, res) => {
   res.send('🦦 Bot Loutrerie en ligne !');
 });
 
+// Démarrer le serveur web
 app.listen(PORT, () => {
   console.log(`Serveur web démarré sur le port ${PORT}`);
 });
@@ -68,6 +69,9 @@ const client = new Client({
   ],
   partials: [Partials.Channel, Partials.Message, Partials.Reaction]
 });
+
+// Ajouter la configuration au client
+client.config = config;
 
 // Événement ready
 client.once('ready', async () => {
