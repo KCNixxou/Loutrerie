@@ -73,24 +73,26 @@ const client = new Client({
 // Ajouter la configuration au client
 client.config = config;
 
-// Ajouter les fonctions de base de données au client
-const { 
-  ensureUser, 
-  updateUser, 
-  updateMissionProgress, 
-  getSpecialBalance, 
-  updateSpecialBalance,
-  db
-} = require('./database');
+// Ajouter les fonctions de base de données au client si elles ne sont pas déjà définies
+if (!client.database) {
+  const { 
+    ensureUser, 
+    updateUser, 
+    updateMissionProgress, 
+    getSpecialBalance, 
+    updateSpecialBalance,
+    db
+  } = require('./database');
 
-client.database = {
-  ensureUser,
-  updateUser,
-  updateMissionProgress,
-  getSpecialBalance,
-  updateSpecialBalance,
-  db
-};
+  client.database = {
+    ensureUser,
+    updateUser,
+    updateMissionProgress,
+    getSpecialBalance,
+    updateSpecialBalance,
+    db
+  };
+}
 
 // Événement ready
 client.once('ready', async () => {
