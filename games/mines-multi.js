@@ -1098,5 +1098,5 @@ function createGridComponents(gameState) {
     );
   }
   
-  return components;
+  return rows;
 }
