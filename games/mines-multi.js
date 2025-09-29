@@ -910,6 +910,12 @@ function createGameGrid(minesCount) {
 // Mettre à jour l'interface du jeu
 async function updateGameInterface(interaction, gameState) {
   try {
+    console.log('=== MISE À JOUR DE L\'INTERFACE ===');
+    console.log(`- ID de l'interaction: ${interaction.id}`);
+    console.log(`- Utilisateur de l'interaction: ${interaction.user.id} (${interaction.user.username})`);
+    console.log(`- Type d'interaction: ${interaction.type}`);
+    console.log(`- Message ID: ${interaction.message?.id || 'non disponible'}`);
+    
     const embed = createGameEmbed(gameState);
     
     // Préparer le contenu du message avec l'indication du tour actuel
@@ -990,7 +996,13 @@ async function updateGameInterface(interaction, gameState) {
 
 // Créer les composants de la grille (boutons)
 function createGridComponents(gameState, userId) { // userId est l'ID de l'utilisateur qui consulte la grille
-  console.log(`Création des composants de la grille pour le joueur ${userId}, tour actuel: ${gameState.currentPlayer}`);
+  console.log('=== CRÉATION DES COMPOSANTS DE GRILLE ===');
+  console.log(`- ID de l'utilisateur qui consulte: ${userId} (type: ${typeof userId})`);
+  console.log(`- ID du joueur actuel: ${gameState.currentPlayer} (type: ${typeof gameState.currentPlayer})`);
+  console.log(`- Statut de la partie: ${gameState.status}`);
+  console.log(`- Joueur 1: ${gameState.player1.id} (type: ${typeof gameState.player1.id})`);
+  console.log(`- Joueur 2: ${gameState.player2?.id || 'non défini'}`);
+  
   const components = [];
   
   for (let x = 0; x < GRID_SIZE; x++) {
@@ -1023,7 +1035,13 @@ function createGridComponents(gameState, userId) { // userId est l'ID de l'utili
         cell.revealed || 
         (gameState.status === 'playing' && userId !== gameState.currentPlayer);
 
-      console.log(`Case (${x}, ${y}): Statut=${gameState.status}, Révélée=${cell.revealed}, TourJoueur=${gameState.currentPlayer}, JoueurActuel=${userId}, Désactivée=${shouldDisable}`);
+      console.log(`Case (${x}, ${y}):`);
+      console.log(`- Statut: ${gameState.status}`);
+      console.log(`- Révélée: ${cell.revealed}`);
+      console.log(`- Tour du joueur: ${gameState.currentPlayer} (${gameState.currentPlayer === gameState.player1.id ? 'Joueur 1' : 'Joueur 2'})`);
+      console.log(`- Utilisateur actuel: ${userId} (${userId === gameState.player1.id ? 'Joueur 1' : userId === gameState.player2?.id ? 'Joueur 2' : 'Inconnu'})`);
+      console.log(`- Désactivée: ${shouldDisable}`);
+      console.log(`- Comparaison: ${userId} === ${gameState.currentPlayer} -> ${String(userId) === String(gameState.currentPlayer)}`);
       
       row.addComponents(
         new ButtonBuilder()
