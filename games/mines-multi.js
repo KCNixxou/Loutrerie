@@ -313,15 +313,20 @@ async function handleMinesMultiInteraction(interaction) {
         const winner = gameState.winner === gameState.player1.id ? gameState.player1 : gameState.player2;
         
         try {
+          // Calculer les gains en fonction du nombre de cases révélées
+          const multiplier = MULTIPLIERS[gameState.revealedCount] || 1;
+          const winnings = Math.floor(gameState.bet * multiplier);
+          const totalWon = winnings + gameState.bet; // Le gagnant récupère sa mise + les gains
+          
           // Mettre à jour les soldes dans la base de données
           console.log(`Mise à jour du solde du gagnant (${winner.id})...`);
-          await updateUserBalance(winner.id, gameState.bet * 2); // Le gagnant récupère la mise totale
+          await updateUserBalance(winner.id, totalWon);
           console.log('Solde mis à jour avec succès');
           
           // Envoyer un message de fin de partie
           console.log('Envoi du message de félicitations...');
           await interaction.followUp({
-            content: `🎉 Félicitations <@${winner.id}> ! Vous avez gagné ${gameState.bet * 2} ${config.currency.emoji} !`,
+            content: `🎉 Félicitations <@${winner.id}> ! Vous avez gagné ${winnings} ${config.currency.emoji} (x${multiplier.toFixed(2)}) !\n💰 Total reçu : ${totalWon} ${config.currency.emoji} (mise incluse)`,
             ephemeral: false
           });
           console.log('Message de félicitations envoyé');
@@ -947,8 +952,13 @@ async function updateGameInterface(interaction, gameState) {
       if (gameState.winner) {
         const winner = gameState.winner === gameState.player1.id ? gameState.player1 : gameState.player2;
         const loser = gameState.winner === gameState.player1.id ? gameState.player2 : gameState.player1;
+        const multiplier = MULTIPLIERS[gameState.revealedCount] || 1;
+        const winnings = Math.floor(gameState.bet * multiplier);
+        const totalWon = winnings + gameState.bet;
+        
         content += `\n> 🎉 **${winner.username} a gagné !**`;
-        content += `\n> 💰 Gains: ${gameState.bet} ${config.currency.emoji}`;
+        content += `\n> 💰 Gains: ${winnings} ${config.currency.emoji} (x${multiplier.toFixed(2)})`;
+        content += `\n> 💵 Total reçu: ${totalWon} ${config.currency.emoji} (mise incluse)`;
         content += `\n> 😢 ${loser.username} a perdu sa mise de ${gameState.bet} ${config.currency.emoji}`;
       } else {
         content += `\n> 🤝 **Match nul !**`;
@@ -1062,9 +1072,9 @@ function createGridComponents(gameState) {
       } else if (cell.markedBy) {
         buttonLabel = cell.markedBy === gameState.player1.id ? '1️⃣' : '2️⃣';
         buttonStyle = ButtonStyle.Primary;
-      } else if (gameState.status === 'playing') {
+      } else {
         buttonLabel = '❔';
-        buttonStyle = ButtonStyle.Primary;
+        buttonStyle = ButtonStyle.Secondary;
       }
 
       console.log(`Case (${x}, ${y}):`);
