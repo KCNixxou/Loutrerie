@@ -127,13 +127,34 @@ async function handlePurchase(interaction) {
             }
         }
         
-        // Trouver le rôle correspondant
-        const role = interaction.guild.roles.cache.find(r => r.name === item.role);
+        // Trouver ou créer le rôle correspondant
+        let role = interaction.guild.roles.cache.find(r => r.name === item.role);
+        
+        // Si le rôle n'existe pas, on le crée
         if (!role) {
-            return interaction.reply({
-                content: '❌ Le rôle associé à cet article n\'a pas été trouvé. Contactez un administrateur.',
-                ephemeral: true
-            });
+            try {
+                // Définir la couleur en fonction du type de rôle
+                let color = '#3498db'; // Bleu par défaut
+                if (itemId.startsWith('bdg')) color = '#e74c3c'; // Rouge pour BDG
+                if (itemId.startsWith('bdh')) color = '#2ecc71'; // Vert pour BDH
+                
+                // Créer le rôle avec les permissions de base
+                role = await interaction.guild.roles.create({
+                    name: item.role,
+                    color: color,
+                    reason: `Création automatique du rôle pour l'achat de ${item.name}`,
+                    permissions: []
+                });
+                
+                console.log(`✅ Rôle créé : ${role.name} (${role.id})`);
+                
+            } catch (error) {
+                console.error('Erreur lors de la création du rôle:', error);
+                return interaction.reply({
+                    content: '❌ Une erreur est survenue lors de la création du rôle. Vérifiez que le bot a les permissions nécessaires.',
+                    ephemeral: true
+                });
+            }
         }
         
         // Retirer l'argent de l'utilisateur
