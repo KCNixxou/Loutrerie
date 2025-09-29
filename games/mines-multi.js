@@ -1020,6 +1020,7 @@ function createGridComponents(gameState) {
   console.log(`- Joueur 2: ${gameState.player2?.id || 'non défini'}`);
   
   const components = [];
+  const currentPlayerId = gameState.currentPlayer;
   
   for (let x = 0; x < GRID_SIZE; x++) {
     const row = new ActionRowBuilder();
@@ -1037,7 +1038,7 @@ function createGridComponents(gameState) {
       const shouldDisable = 
         gameState.status === 'finished' || 
         cell.revealed || 
-        (gameState.status === 'playing' && interaction.user.id !== gameState.currentPlayer);
+        (gameState.status === 'playing' && gameState.currentPlayer !== currentPlayerId);
       
       if (cell.revealed) {
         emoji = isMine ? MINE_EMOJI : GEM_EMOJI;
@@ -1061,7 +1062,7 @@ function createGridComponents(gameState) {
       } else if (cell.markedBy) {
         buttonLabel = cell.markedBy === gameState.player1.id ? '1️⃣' : '2️⃣';
         buttonStyle = ButtonStyle.Primary;
-      } else if (isCurrentUserTurn && gameState.status === 'playing') {
+      } else if (gameState.status === 'playing') {
         buttonLabel = '❔';
         buttonStyle = ButtonStyle.Primary;
       }
@@ -1070,9 +1071,7 @@ function createGridComponents(gameState) {
       console.log(`- Statut: ${gameState.status}`);
       console.log(`- Révélée: ${cell.revealed}`);
       console.log(`- Tour du joueur: ${gameState.currentPlayer} (${gameState.currentPlayer === gameState.player1.id ? 'Joueur 1' : 'Joueur 2'})`);
-      console.log(`- Utilisateur actuel: ${userId} (${userId === gameState.player1.id ? 'Joueur 1' : userId === gameState.player2?.id ? 'Joueur 2' : 'Inconnu'})`);
       console.log(`- Désactivée: ${shouldDisable}`);
-      console.log(`- Comparaison: ${userId} === ${gameState.currentPlayer} -> ${String(userId) === String(gameState.currentPlayer)}`);
       
       const button = new ButtonBuilder()
         .setCustomId(`mines_multi_${gameState.id}_${x}_${y}`)
@@ -1080,7 +1079,7 @@ function createGridComponents(gameState) {
         .setStyle(buttonStyle)
         .setDisabled(shouldDisable);
         
-      // Ajouter un tooltip pour les cases non révélées
+      // Ajouter un style pour les cases non révélées
       if (!cell.revealed && !cell.markedBy) {
         button.setStyle(ButtonStyle.Primary);
       }
