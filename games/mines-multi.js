@@ -599,7 +599,7 @@ async function createGame(interaction, bet) {
   updateUser(userId, { balance: user.balance - bet });
   
   const gameId = Date.now().toString();
-  const grid = createGameGrid(5); // 5 mines par défaut
+  const grid = createGameGrid(3); // 3 mines par défaut
   
   const gameState = {
     id: gameId,
@@ -1061,18 +1061,23 @@ function createGridComponents(gameState, interaction = null) {
         console.log(`Case (${x}, ${y}): Cachée`);
       }
       
-          // Désactiver le bouton si :
-      // 1. La partie est terminée
-      // 2. La case est déjà révélée
-      // 3. La partie est en cours et l'interaction n'est pas du joueur dont c'est le tour
+          // Récupérer l'ID de l'utilisateur qui interagit
       const interactionUserId = interaction?.user?.id;
+      
+      // Déterminer si c'est le tour du joueur actuel
       const isCurrentPlayer = interactionUserId && gameState.currentPlayer === interactionUserId;
+      
+      // La partie est en cours si elle a commencé et que les deux joueurs sont présents
       const isGameInProgress = gameState.status === 'playing' && gameState.player1 && gameState.player2;
       
-      // Ne pas désactiver si c'est le tour du joueur actuel OU si la partie n'est pas encore commencée
+      // Désactiver le bouton si :
+      // 1. La partie est terminée
+      // 2. La case est déjà révélée
+      // 3. La partie est en cours et ce n'est pas le tour du joueur actuel
+      // 4. Il n'y a pas d'interaction utilisateur (sécurité)
       const shouldDisable = gameState.status === 'finished' || 
                           cell.revealed ||
-                          (isGameInProgress && interactionUserId && gameState.currentPlayer !== interactionUserId);
+                          (isGameInProgress && (!interactionUserId || gameState.currentPlayer !== interactionUserId));
       
       console.log(`Case (${x}, ${y}): Statut=${gameState.status}, ` +
                  `JoueurActuel=${interactionUserId || 'none'}, ` +
