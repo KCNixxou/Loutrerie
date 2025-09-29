@@ -339,6 +339,20 @@ async function handleMinesMultiInteraction(interaction) {
       }
       
     } else if (action === 'quit') {
+      // Vérifier que l'utilisateur est un joueur de la partie
+      if (interaction.user.id !== gameState.player1.id && interaction.user.id !== gameState.player2?.id) {
+        console.log(`Tentative de quitter la partie par un non-participant: ${interaction.user.id}`);
+        try {
+          await interaction.reply({
+            content: '❌ Seuls les joueurs de cette partie peuvent la quitter !',
+            ephemeral: true
+          });
+        } catch (e) {
+          console.error('Erreur lors de l\'envoi du message d\'erreur:', e);
+        }
+        return;
+      }
+      
       // Gérer l'abandon
       await handleQuitGame(interaction, gameState, gameId);
     } else {
