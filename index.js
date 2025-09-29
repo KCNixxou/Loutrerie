@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const { Client, GatewayIntentBits, REST, Routes, Partials } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, Partials, EmbedBuilder } = require('discord.js');
 const { isMaintenanceMode, isAdmin, maintenanceMiddleware, setMaintenance } = require('./maintenance');
 
 // Modules personnalisés
@@ -829,34 +829,32 @@ async function handleSlashCommand(interaction) {
       break;
 
     case 'classement':
-      const type = interaction.options.getString('type');
-      const orderBy = type === 'xp' ? 'xp DESC' : 'balance DESC';
-      const topUsers = db.prepare(`SELECT * FROM users ORDER BY ${orderBy} LIMIT 10`).all();
-      
-      let leaderboardText = '';
-      topUsers.forEach((user, index) => {
-        const value = type === 'xp' ? `${user.xp} XP` : `${user.balance} ${config.currency.emoji}`;
-        leaderboardText += `**${index + 1}.** <@${user.user_id}> - ${value}\n`;
-      });
-      
-      const leaderboardEmbed = new EmbedBuilder()
-        .setTitle(` Classement ${type.toUpperCase()}`)
-        .setDescription(leaderboardText || 'Aucun utilisateur trouvé')
-        .setColor(0xffd700);
-      
-      await interaction.reply({ embeds: [leaderboardEmbed] });
-      break;
-
-    case 'blackjack':
-      await gameFunctions.handleBlackjackStart(interaction);
-      break;
-
-    case 'roulette':
-      await gameFunctions.handleRouletteStart(interaction);
-      break;
-
-    case 'slots':
-      await gameFunctions.handleSlots(interaction);
+      try {
+        const type = interaction.options.getString('type');
+        const orderBy = type === 'xp' ? 'xp DESC' : 'balance DESC';
+        const topUsers = db.prepare(`SELECT * FROM users ORDER BY ${orderBy} LIMIT 10`).all();
+        
+        let leaderboardText = '';
+        topUsers.forEach((user, index) => {
+          const value = type === 'xp' ? `${user.xp} XP` : `${user.balance} ${config.currency.emoji}`;
+          leaderboardText += `**${index + 1}.** <@${user.user_id}> - ${value}\n`;
+        });
+        
+        const leaderboardEmbed = new EmbedBuilder()
+          .setTitle(`🏆 Classement ${type.toUpperCase()}`)
+          .setDescription(leaderboardText || 'Aucun utilisateur trouvé')
+          .setColor(0xffd700);
+        
+        await interaction.reply({ embeds: [leaderboardEmbed] });
+      } catch (error) {
+        console.error('Erreur dans la commande /classement:', error);
+        if (!interaction.replied) {
+          await interaction.reply({
+            content: '❌ Une erreur est survenue lors de la récupération du classement.',
+            ephemeral: true
+          });
+        }
+      }
       break;
 
     case 'pileface':
@@ -1483,10 +1481,10 @@ async function handleGiveAdmin(interaction) {
       balance: receiverBalance + amount 
     });
 
-    // Cr�er et envoyer l'embed de confirmation
+    // Créer et envoyer l'embed de confirmation
     const embed = new EmbedBuilder()
-      .setTitle('?? Don de coquillages (Admin)')
-      .setDescription(`L'administrateur <@${interaction.user.id}> a donn� **${amount}** ${config.currency.emoji} � <@${targetUser.id}> !`)
+      .setTitle('🎁 Don de coquillages (Admin)')
+      .setDescription(`L'administrateur <@${interaction.user.id}> a donné **${amount}** ${config.currency.emoji} à <@${targetUser.id}> !`)
       .addFields(
         { 
           name: 'Receveur', 
@@ -1503,7 +1501,7 @@ async function handleGiveAdmin(interaction) {
     console.error('Erreur dans la commande /givea:', error);
     if (!interaction.replied) {
       await interaction.reply({
-        content: '? Une erreur est survenue lors du traitement de la commande.',
+        content: '❌ Une erreur est survenue lors du traitement de la commande.',
         ephemeral: true
       });
     }

@@ -1,9 +1,10 @@
+const { EmbedBuilder } = require('discord.js');
+
 // Gestion de la boutique
 
 // Fonction pour gérer l'affichage de la boutique
 async function handleShop(interaction) {
     try {
-        const { EmbedBuilder } = require('discord.js');
         const shopItems = interaction.client.config.shop;
         
         // Log pour déboguer
