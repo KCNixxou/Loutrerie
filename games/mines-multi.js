@@ -311,25 +311,17 @@ async function handleMinesMultiInteraction(interaction) {
       if (gameState.status === 'finished' && gameState.winner) {
         console.log(`Fin de partie détectée, vainqueur: ${gameState.winner}`);
         const winner = gameState.winner === gameState.player1.id ? gameState.player1 : gameState.player2;
+        const loser = gameState.winner === gameState.player1.id ? gameState.player2 : gameState.player1;
         
         try {
           // Calculer les gains en fonction du nombre de cases révélées
           const multiplier = MULTIPLIERS[gameState.revealedCount] || 1;
           const winnings = Math.floor(gameState.bet * multiplier);
-          const totalWon = winnings + gameState.bet; // Le gagnant récupère sa mise + les gains
           
           // Mettre à jour les soldes dans la base de données
           console.log(`Mise à jour du solde du gagnant (${winner.id})...`);
-          await updateUserBalance(winner.id, totalWon);
+          await updateUserBalance(winner.id, gameState.bet + winnings);
           console.log('Solde mis à jour avec succès');
-          
-          // Envoyer un message de fin de partie plus simple
-          console.log('Envoi du message de félicitations...');
-          await interaction.followUp({
-            content: `🎉 Félicitations <@${winner.id}> ! Vous avez gagné !`,
-            ephemeral: false
-          });
-          console.log('Message de félicitations envoyé');
         } catch (error) {
           console.error('Erreur lors de la finalisation de la partie:', error);
           console.error('Détails de l\'erreur:', error.stack);
@@ -962,27 +954,19 @@ async function updateGameInterface(interaction, gameState) {
     
     // Créer les composants de la grille
     const components = createGridComponents(gameState);
-    
     if (gameState.status === 'finished') {
       // La partie est terminée
       content += `\n\n🏆 **PARTIE TERMINÉE**`;
-      
       if (gameState.winner) {
-        const winner = gameState.winner === gameState.player1.id ? gameState.player1 : gameState.player2;
-        const loser = gameState.winner === gameState.player1.id ? gameState.player2 : gameState.player1;
         const multiplier = MULTIPLIERS[gameState.revealedCount] || 1;
         const winnings = Math.floor(gameState.bet * multiplier);
-        const totalWon = winnings + gameState.bet;
-        
-        content += `\n> 🎉 **${winner.username} a gagné !**`;
+        content += `\n> 🎉 **${gameState.winner.username} a gagné !**`;
         content += `\n> Multiplicateur: x${multiplier.toFixed(2)}`;
-        content += `\n> Gains: ${winnings} ${config.currency.emoji}`;
+        content += `\n> Gains: ${winnings} ${config.currency.emoji} (x${multiplier.toFixed(2)})`;
       } else {
-        content += `\n> 🤝 **Match nul !**`;
+        content += '\n> 🤝 **Match nul !**';
         content += `\n> Chaque joueur récupère sa mise de ${gameState.bet} ${config.currency.emoji}`;
       }
-      
-      // Désactiver tous les boutons
       for (const row of components) {
         for (const component of row.components) {
           component.setDisabled(true);
