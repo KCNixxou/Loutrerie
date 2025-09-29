@@ -172,7 +172,7 @@ async function handleMinesMultiInteraction(interaction) {
       
       try {
         const embed = createGameEmbed(gameState);
-        const components = createGridComponents(gameState, interaction);
+        const components = createGridComponents(gameState, interaction.user.id);
         
         console.log('Mise à jour de l\'interface...');
         await interaction.editReply({
@@ -431,7 +431,7 @@ async function handleQuitGame(interaction, gameState, gameId) {
     
     // Mettre à jour l'affichage
     const embed = createGameEmbed(gameState);
-    const components = createGridComponents(gameState, interaction);
+    const components = createGridComponents(gameState, interaction.user.id);
     
     // Désactiver tous les boutons
     for (const row of components) {
@@ -929,8 +929,8 @@ async function updateGameInterface(interaction, gameState) {
       content += `**C'est au tour de :** <@${gameState.currentPlayer}>`;
     }
     
-    // Créer les composants avec l'interaction actuelle
-    const components = createGridComponents(gameState, interaction);
+    // Créer les composants avec l'ID de l'utilisateur actuel
+    const components = createGridComponents(gameState, interaction.user.id);
     
     if (gameState.status === 'finished') {
       // La partie est terminée
@@ -989,8 +989,8 @@ async function updateGameInterface(interaction, gameState) {
 }
 
 // Créer les composants de la grille (boutons)
-function createGridComponents(gameState, interaction) { // interaction n'est plus utilisé pour la logique, seulement pour le contexte de l'appelant si besoin
-  console.log(`Création des composants de la grille pour le joueur ${gameState.currentPlayer}`);
+function createGridComponents(gameState, userId) { // userId est l'ID de l'utilisateur qui consulte la grille
+  console.log(`Création des composants de la grille pour le joueur ${userId}, tour actuel: ${gameState.currentPlayer}`);
   const components = [];
   
   for (let x = 0; x < GRID_SIZE; x++) {
@@ -1014,16 +1014,16 @@ function createGridComponents(gameState, interaction) { // interaction n'est plu
         console.log(`Case (${x}, ${y}): Cachée`);
       }
       
-          // Le bouton est désactivé si la partie est terminée ou si la case est déjà révélée.
-      let shouldDisable = gameState.status === 'finished' || cell.revealed;
+          // Le bouton est désactivé si :
+      // 1. La partie est terminée
+      // 2. La case est déjà révélée
+      // 3. Ce n'est pas le tour de l'utilisateur qui consulte la grille
+      const shouldDisable = 
+        gameState.status === 'finished' || 
+        cell.revealed || 
+        (gameState.status === 'playing' && userId !== gameState.currentPlayer);
 
-      // Si la partie est en cours et que la case n'est pas encore désactivée,
-      // on vérifie si c'est le tour de l'utilisateur qui a déclenché l'interaction.
-      if (gameState.status === 'playing' && !shouldDisable) {
-        shouldDisable = interaction.user.id !== gameState.currentPlayer;
-      }
-
-      console.log(`Case (${x}, ${y}): Statut=${gameState.status}, Révélée=${cell.revealed}, TourJoueur=${gameState.currentPlayer}, JoueurActuel=${interaction.user.id}, Désactivée=${shouldDisable}`);
+      console.log(`Case (${x}, ${y}): Statut=${gameState.status}, Révélée=${cell.revealed}, TourJoueur=${gameState.currentPlayer}, JoueurActuel=${userId}, Désactivée=${shouldDisable}`);
       
       row.addComponents(
         new ButtonBuilder()
