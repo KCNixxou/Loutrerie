@@ -303,9 +303,30 @@ async function handleMinesMultiInteraction(interaction) {
       // Si la partie n'est pas terminée, changer de joueur
       if (gameState.status !== 'finished') {
         const previousPlayer = gameState.currentPlayer;
+        // S'assurer que le prochain joueur est bien défini
         gameState.currentPlayer = gameState.currentPlayer === gameState.player1.id ? 
           gameState.player2.id : gameState.player1.id;
+          
         console.log(`Changement de joueur: ${previousPlayer} -> ${gameState.currentPlayer}`);
+        
+        // Mettre à jour le message pour indiquer le tour du joueur
+        const content = `🎮 **Partie de Mines Multijoueur**\n` +
+          `**Joueur 1:** <@${gameState.player1.id}> ${PLAYER1_EMOJI}${gameState.currentPlayer === gameState.player1.id ? ' 👈' : ''}\n` +
+          `**Joueur 2:** <@${gameState.player2.id}> ${PLAYER2_EMOJI}${gameState.currentPlayer === gameState.player2.id ? ' 👈' : ''}\n` +
+          `**Mise par joueur:** ${gameState.bet} ${config.currency.emoji}\n` +
+          `**C'est au tour de :** <@${gameState.currentPlayer}>`;
+        
+        // Mettre à jour l'interface avec le nouveau tour
+        console.log('Mise à jour de l\'interface pour le prochain joueur...');
+        try {
+          await interaction.editReply({
+            content: content,
+            embeds: [createGameEmbed(gameState)],
+            components: createGridComponents(gameState, interaction)
+          });
+        } catch (error) {
+          console.error('Erreur lors de la mise à jour du tour:', error);
+        }
       } else {
         console.log(`La partie est terminée, pas de changement de joueur`);
       }
@@ -313,7 +334,19 @@ async function handleMinesMultiInteraction(interaction) {
       // Mettre à jour l'interface
       console.log('Mise à jour de l\'interface...');
       try {
-        await updateGameInterface(interaction, gameState);
+        // Préparer le contenu du message avec l'indication du tour actuel
+        const content = `🎮 **Partie de Mines Multijoueur**\n` +
+          `**Joueur 1:** <@${gameState.player1.id}> ${PLAYER1_EMOJI}${gameState.currentPlayer === gameState.player1.id ? ' 👈' : ''}\n` +
+          `**Joueur 2:** <@${gameState.player2.id}> ${PLAYER2_EMOJI}${gameState.currentPlayer === gameState.player2.id ? ' 👈' : ''}\n` +
+          `**Mise par joueur:** ${gameState.bet} ${config.currency.emoji}\n` +
+          `**C'est au tour de :** <@${gameState.currentPlayer}>`;
+        
+        // Mettre à jour l'interface avec le contenu mis à jour
+        await interaction.editReply({
+          content: content,
+          embeds: [createGameEmbed(gameState)],
+          components: createGridComponents(gameState, interaction)
+        });
         console.log('Interface mise à jour avec succès');
       } catch (error) {
         console.error('Erreur lors de la mise à jour de l\'interface:', error);
@@ -900,13 +933,26 @@ function createGameGrid(minesCount) {
 async function updateGameInterface(interaction, gameState) {
   try {
     const embed = createGameEmbed(gameState);
-    const components = createGridComponents(gameState, interaction);
     
-    // Préparer le contenu du message
+    // Préparer le contenu du message avec l'indication du tour actuel
     let content = `🎮 **Partie de Mines Multijoueur**\n` +
-      `**Joueur 1:** <@${gameState.player1.id}> ${PLAYER1_EMOJI}\n` +
-      `**Joueur 2:** <@${gameState.player2.id}> ${PLAYER2_EMOJI}\n` +
-      `**Mise par joueur:** ${gameState.bet} ${config.currency.emoji}\n`;
+      `**Joueur 1:** <@${gameState.player1.id}> ${PLAYER1_EMOJI}${gameState.status === 'playing' && gameState.currentPlayer === gameState.player1.id ? ' 👈' : ''}`;
+      
+    // Afficher le deuxième joueur s'il a rejoint
+    if (gameState.player2) {
+      content += `\n**Joueur 2:** <@${gameState.player2.id}> ${PLAYER2_EMOJI}${gameState.status === 'playing' && gameState.currentPlayer === gameState.player2.id ? ' 👈' : ''}`;
+    } else {
+      content += `\n**En attente du deuxième joueur...**`;
+    }
+    
+    content += `\n**Mise par joueur:** ${gameState.bet} ${config.currency.emoji}\n`;
+    
+    if (gameState.status === 'playing') {
+      content += `**C'est au tour de :** <@${gameState.currentPlayer}>`;
+    }
+    
+    // Créer les composants avec l'interaction actuelle
+    const components = createGridComponents(gameState, interaction);
     
     if (gameState.status === 'finished') {
       // La partie est terminée
@@ -1000,7 +1046,10 @@ function createGridComponents(gameState, interaction = null) {
                           cell.revealed ||
                           (isGameInProgress && !isCurrentPlayer);
       
-      console.log(`Case (${x}, ${y}): Statut=${gameState.status}, Révélée=${cell.revealed}, TourJoueur=${isCurrentPlayer}, Désactivée=${shouldDisable}`);
+      console.log(`Case (${x}, ${y}): Statut=${gameState.status}, ` +
+                 `JoueurActuel=${interaction?.user?.id || 'none'}, ` +
+                 `TourJoueur=${gameState.currentPlayer || 'none'}, ` +
+                 `EstSonTour=${isCurrentPlayer}, Désactivée=${shouldDisable}`);
       
       row.addComponents(
         new ButtonBuilder()
