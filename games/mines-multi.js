@@ -606,7 +606,7 @@ async function createGame(interaction, bet) {
     player1: { id: userId, username: interaction.user.username, balance: user.balance },
     player2: null,
     bet: bet,
-    minesCount: 5, // 5 mines par défaut
+    minesCount: 3, // 3 mines par défaut
     grid: grid,
     revealed: Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill({ revealed: false, markedBy: null })),
     revealedCount: 0,
