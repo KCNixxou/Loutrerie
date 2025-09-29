@@ -323,10 +323,10 @@ async function handleMinesMultiInteraction(interaction) {
           await updateUserBalance(winner.id, totalWon);
           console.log('Solde mis à jour avec succès');
           
-          // Envoyer un message de fin de partie
+          // Envoyer un message de fin de partie plus simple
           console.log('Envoi du message de félicitations...');
           await interaction.followUp({
-            content: `🎉 Félicitations <@${winner.id}> ! Vous avez gagné ${winnings} ${config.currency.emoji} (x${multiplier.toFixed(2)}) !\n💰 Total reçu : ${totalWon} ${config.currency.emoji} (mise incluse)`,
+            content: `🎉 Félicitations <@${winner.id}> ! Vous avez gagné !`,
             ephemeral: false
           });
           console.log('Message de félicitations envoyé');
@@ -931,16 +931,34 @@ async function updateGameInterface(interaction, gameState) {
     let content = `🎮 **Partie de Mines Multijoueur**\n`;
     
     // Ajouter les informations des joueurs avec mise en forme
-    content += `\n**Joueur 1:** <@${gameState.player1.id}> ${PLAYER1_EMOJI}`;
+    const isPlayer1Turn = gameState.currentPlayer === gameState.player1.id;
+    const player1Mention = `<@${gameState.player1.id}>`;
+    const player2Mention = gameState.player2 ? `<@${gameState.player2.id}>` : 'En attente...';
     
+    // Afficher le tour actuel de manière très visible
+    if (gameState.status === 'playing') {
+      const currentPlayerMention = isPlayer1Turn ? player1Mention : player2Mention;
+      content += `\n🎮 **TOUR ACTUEL**\n> 👤 C'est à ${currentPlayerMention} de jouer !\n`;
+    }
+    
+    // Afficher la liste des joueurs avec indicateur de tour
+    content += `\n**Joueurs :**`;
+    
+    // Joueur 1
+    content += `\n${isPlayer1Turn ? '🟢' : '⚫'} **Joueur 1:** ${player1Mention} ${PLAYER1_EMOJI}`;
+    
+    // Joueur 2 ou en attente
     if (gameState.player2) {
-      content += `\n**Joueur 2:** <@${gameState.player2.id}> ${PLAYER2_EMOJI}`;
+      content += `\n${!isPlayer1Turn ? '🟢' : '⚫'} **Joueur 2:** ${player2Mention} ${PLAYER2_EMOJI}`;
     } else {
-      content += '\n🕒 **En attente du deuxième joueur...**';
+      content += '\n⚪ **Joueur 2:** En attente...';
     }
     
     // Ajouter la mise
     content += `\n\n💰 **Mise par joueur:** ${gameState.bet} ${config.currency.emoji}`;
+    
+    // Ajouter un séparateur visuel
+    content += '\n' + '⎯'.repeat(30);
     
     // Créer les composants de la grille
     const components = createGridComponents(gameState);
@@ -957,9 +975,8 @@ async function updateGameInterface(interaction, gameState) {
         const totalWon = winnings + gameState.bet;
         
         content += `\n> 🎉 **${winner.username} a gagné !**`;
-        content += `\n> 💰 Gains: ${winnings} ${config.currency.emoji} (x${multiplier.toFixed(2)})`;
-        content += `\n> 💵 Total reçu: ${totalWon} ${config.currency.emoji} (mise incluse)`;
-        content += `\n> 😢 ${loser.username} a perdu sa mise de ${gameState.bet} ${config.currency.emoji}`;
+        content += `\n> Multiplicateur: x${multiplier.toFixed(2)}`;
+        content += `\n> Gains: ${winnings} ${config.currency.emoji}`;
       } else {
         content += `\n> 🤝 **Match nul !**`;
         content += `\n> Chaque joueur récupère sa mise de ${gameState.bet} ${config.currency.emoji}`;
@@ -1023,13 +1040,7 @@ async function updateGameInterface(interaction, gameState) {
 
 // Créer les composants de la grille (boutons)
 function createGridComponents(gameState) {
-  console.log('=== CRÉATION DES COMPOSANTS DE GRILLE ===');
-  console.log(`- ID du joueur actuel: ${gameState.currentPlayer} (type: ${typeof gameState.currentPlayer})`);
-  console.log(`- Statut de la partie: ${gameState.status}`);
-  console.log(`- Joueur 1: ${gameState.player1.id} (type: ${typeof gameState.player1.id})`);
-  console.log(`- Joueur 2: ${gameState.player2?.id || 'non défini'}`);
-  
-  const components = [];
+  const rows = [];
   const currentPlayerId = gameState.currentPlayer;
   
   for (let x = 0; x < GRID_SIZE; x++) {
@@ -1038,8 +1049,6 @@ function createGridComponents(gameState) {
     for (let y = 0; y < GRID_SIZE; y++) {
       const cell = gameState.revealed[x][y];
       const isMine = gameState.grid[x][y] === 'mine';
-      let emoji = HIDDEN_EMOJI;
-      let style = ButtonStyle.Secondary;
       
       // Désactiver le bouton si :
       // 1. La partie est terminée
@@ -1050,59 +1059,34 @@ function createGridComponents(gameState) {
         cell.revealed || 
         (gameState.status === 'playing' && gameState.currentPlayer !== currentPlayerId);
       
+      // Déterminer l'émoji et le style
+      let emoji = HIDDEN_EMOJI;
+      let style = ButtonStyle.Secondary;
+      
       if (cell.revealed) {
         emoji = isMine ? MINE_EMOJI : GEM_EMOJI;
         style = isMine ? ButtonStyle.Danger : ButtonStyle.Success;
-        console.log(`Case (${x}, ${y}): Révélée (${isMine ? 'Mine' : 'Sûre'})`);
       } else if (cell.markedBy) {
         emoji = cell.markedBy === gameState.player1.id ? PLAYER1_EMOJI : PLAYER2_EMOJI;
-        style = ButtonStyle.Primary;
-        console.log(`Case (${x}, ${y}): Marquée par ${cell.markedBy}`);
-      } else {
-        console.log(`Case (${x}, ${y}): Cachée`);
+        style = ButtonStyle.primary;
       }
       
-      // Déterminer le style du bouton en fonction de l'état
-      let buttonLabel = '❓';
-      let buttonStyle = ButtonStyle.Secondary;
-      
-      if (cell.revealed) {
-        buttonLabel = isMine ? '💣' : '💎';
-        buttonStyle = isMine ? ButtonStyle.Danger : ButtonStyle.Success;
-      } else if (cell.markedBy) {
-        buttonLabel = cell.markedBy === gameState.player1.id ? '1️⃣' : '2️⃣';
-        buttonStyle = ButtonStyle.Primary;
-      } else {
-        buttonLabel = '❔';
-        buttonStyle = ButtonStyle.Secondary;
-      }
-
-      console.log(`Case (${x}, ${y}):`);
-      console.log(`- Statut: ${gameState.status}`);
-      console.log(`- Révélée: ${cell.revealed}`);
-      console.log(`- Tour du joueur: ${gameState.currentPlayer} (${gameState.currentPlayer === gameState.player1.id ? 'Joueur 1' : 'Joueur 2'})`);
-      console.log(`- Désactivée: ${shouldDisable}`);
-      
+      // Créer le bouton
       const button = new ButtonBuilder()
         .setCustomId(`mines_multi_${gameState.id}_${x}_${y}`)
-        .setLabel(buttonLabel)
-        .setStyle(buttonStyle)
+        .setEmoji(emoji)
+        .setStyle(style)
         .setDisabled(shouldDisable);
-        
-      // Ajouter un style pour les cases non révélées
-      if (!cell.revealed && !cell.markedBy) {
-        button.setStyle(ButtonStyle.Primary);
-      }
       
       row.addComponents(button);
     }
     
-    components.push(row);
+    rows.push(row);
   }
   
   // Ajouter le bouton pour quitter la partie si la partie est en cours
   if (gameState.status === 'playing' || gameState.status === 'waiting') {
-    components.push(
+    rows.push(
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(`mines_multi_${gameState.id}_quit`)
