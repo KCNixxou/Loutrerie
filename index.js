@@ -1,12 +1,13 @@
 require('dotenv').config();
 const express = require('express');
+const { Client, GatewayIntentBits, REST, Routes, Partials } = require('discord.js');
 const { isMaintenanceMode, isAdmin, maintenanceMiddleware, setMaintenance } = require('./maintenance');
+
 // Modules personnalisés
 const config = require('./config');
 const { ensureUser, updateUser, updateMissionProgress, db, getSpecialBalance, updateSpecialBalance } = require('./database');
 const { random, now, getXpMultiplier, scheduleMidnightReset, calculateLevel, getLevelInfo } = require('./utils');
 const commands = require('./commands');
-console.log('Commandes chargées:', JSON.stringify(commands, null, 2));
 
 // Vérifier la commande /acheter
 const acheterCommand = commands.find(cmd => cmd.name === 'acheter');
