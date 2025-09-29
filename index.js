@@ -1694,95 +1694,13 @@ async function handleLoutreGiveaway(interaction) {
     });
   }
 
-  try {
-    await startGiveaway(channel);
-    
-    // Planifier le prochain giveaway
-    await scheduleNextGiveaway();
-    
-    await interaction.reply({
-      content: '? Le giveaway a �t� lanc� avec succ�s !',
-      ephemeral: true
-    });
-  } catch (error) {
-    console.error('Erreur lors du lancement du giveaway:', error);
-    await interaction.reply({
-      content: '? Une erreur est survenue lors du lancement du giveaway.',
-      ephemeral: true
-    });
-  }
+  // Fonctionnalité de giveaway désactivée
+  console.log('Fonctionnalité de giveaway désactivée');
+  await interaction.reply({
+    content: '? La fonctionnalité de giveaway est actuellement désactivée.',
+    ephemeral: true
+  });
 }
-
-// Gestion des r�actions aux messages de giveaway
-client.on('messageReactionAdd', async (reaction, user) => {
-  try {
-    // Ignorer les r�actions du bot
-    if (user.bot) return;
-
-    // V�rifier si c'est une r�action � un message de giveaway
-    const giveaway = Array.from(activeGiveaways.values())
-      .find(g => g.messageId === reaction.message.id);
-
-    // Si pas trouv� dans le cache, v�rifier dans la base de donn�es
-    let dbGiveaway = null;
-    if (!giveaway) {
-      dbGiveaway = getActiveGiveaway(reaction.message.channelId);
-      if (dbGiveaway && dbGiveaway.message_id === reaction.message.id) {
-        // Ajouter au cache
-        activeGiveaways.set(dbGiveaway.channel_id, {
-          messageId: dbGiveaway.message_id,
-          channelId: dbGiveaway.channel_id,
-          prize: dbGiveaway.prize,
-          endTime: dbGiveaway.end_time,
-          hasWinner: dbGiveaway.has_winner,
-          isAuto: true
-        });
-      }
-    }
-
-    const currentGiveaway = giveaway || (dbGiveaway ? {
-      messageId: dbGiveaway.message_id,
-      channelId: dbGiveaway.channel_id,
-      prize: dbGiveaway.prize,
-      endTime: dbGiveaway.end_time,
-      hasWinner: dbGiveaway.has_winner,
-      isAuto: true
-    } : null);
-
-    if (!currentGiveaway || currentGiveaway.hasWinner || reaction.emoji.name !== '??') return;
-
-    // Marquer qu'il y a un gagnant dans le cache
-    currentGiveaway.hasWinner = true;
-    activeGiveaways.set(currentGiveaway.channelId, currentGiveaway);
-
-    // Mettre � jour la base de donn�es
-    setGiveawayWinner(currentGiveaway.channelId, user.id);
-    
-    // Mettre � jour le solde de l'utilisateur
-    const userData = ensureUser(user.id);
-    updateUser(user.id, { balance: userData.balance + currentGiveaway.prize });
-    
-    // Envoyer un message de f�licitations
-    const channel = reaction.message.channel;
-    await channel.send(`?? F�licitations <@${user.id}> ! Tu as gagn� **${currentGiveaway.prize.toLocaleString()} ??** dans le giveaway !`);
-
-    // Mettre � jour le message
-    const embed = new EmbedBuilder()
-      .setTitle('?? GIVEAWAY TERMIN� ! ??')
-      .setDescription(`F�licitations <@${user.id}> ! Tu as gagn� **${currentGiveaway.prize} ??** !`)
-      .setColor('#00ff00')
-      .setFooter({ text: 'Giveaway termin�' });
-
-    await reaction.message.edit({ embeds: [embed] });
-    await reaction.message.reactions.removeAll();
-
-    // Supprimer le giveaway (sera nettoy� par la fonction endGiveaway)
-    removeGiveaway(currentGiveaway.channelId);
-    
-  } catch (error) {
-    console.error('Erreur dans la gestion des réactions:', error);
-  }
-});
 
 // Fonction pour restaurer les giveaways actifs au d�marrage
 async function restoreActiveGiveaways() {
@@ -1841,8 +1759,8 @@ async function restoreActiveGiveaways() {
   }
 }
 
-// Restaurer les giveaways actifs au démarrage
-restoreActiveGiveaways();
+// Désactivé: Restaurer les giveaways actifs au démarrage
+// restoreActiveGiveaways();
 
 // Gestion des erreurs non capturées
 process.on('unhandledRejection', error => {
