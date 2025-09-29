@@ -574,7 +574,7 @@ async function createGame(interaction, bet) {
     revealed: Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill({ revealed: false, markedBy: null })),
     revealedCount: 0,
     status: 'waiting', // waiting, playing, finished
-    currentPlayer: null,
+    currentPlayer: userId, // Définir le créateur de la partie comme joueur actuel par défaut
     createdAt: Date.now(),
     lastActivity: Date.now()
   };
@@ -990,14 +990,15 @@ function createGridComponents(gameState, interaction = null) {
         console.log(`Case (${x}, ${y}): Cachée`);
       }
       
-      // Désactiver le bouton si :
+          // Désactiver le bouton si :
       // 1. La partie est terminée
       // 2. La case est déjà révélée
-      // 3. Ce n'est pas au tour du joueur actuel
+      // 3. La partie est en cours et ce n'est pas au tour du joueur actuel
       const isCurrentPlayer = interaction && gameState.currentPlayer === interaction.user.id;
+      const isGameInProgress = gameState.status === 'playing' && gameState.player1 && gameState.player2;
       const shouldDisable = gameState.status === 'finished' || 
                           cell.revealed ||
-                          (gameState.status === 'playing' && !isCurrentPlayer);
+                          (isGameInProgress && !isCurrentPlayer);
       
       console.log(`Case (${x}, ${y}): Statut=${gameState.status}, Révélée=${cell.revealed}, TourJoueur=${isCurrentPlayer}, Désactivée=${shouldDisable}`);
       
