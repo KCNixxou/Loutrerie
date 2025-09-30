@@ -298,10 +298,8 @@ async function handleHighLowAction(interaction) {
   } else {
     // Le joueur a perdu
     const user = ensureUser(game.userId);
-    const updatedBalance = user.balance - game.currentBet;
-    
-    // Mettre à jour le solde de l'utilisateur
-    updateUser(game.userId, { balance: updatedBalance });
+    // Ne pas soustraire la mise ici car elle a déjà été déduite au début de la partie
+    const updatedBalance = user.balance; // Utiliser le solde actuel sans nouvelle soustraction
     
     const lossEmbed = new EmbedBuilder()
       .setTitle('🎴 High Low - Partie terminée')
