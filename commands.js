@@ -2,6 +2,32 @@ const { SlashCommandBuilder } = require('discord.js');
 
 const commands = [
   new SlashCommandBuilder()
+    .setName('morpion')
+    .setDescription('Jouer au morpion (tic-tac-toe) contre un autre joueur ou l\'IA')
+    .addUserOption(option =>
+      option.setName('adversaire')
+        .setDescription('Joueur contre qui vous voulez jouer (laissez vide pour jouer contre l\'IA)')
+        .setRequired(false)
+    )
+    .addIntegerOption(option =>
+      option.setName('mise')
+        .setDescription('Montant à miser (optionnel)')
+        .setRequired(false)
+        .setMinValue(1)
+    ),
+
+  new SlashCommandBuilder()
+    .setName('morpion-classement')
+    .setDescription('Afficher le classement du morpion')
+    .addIntegerOption(option =>
+      option.setName('limite')
+        .setDescription('Nombre de joueurs à afficher (défaut: 10)')
+        .setRequired(false)
+        .setMinValue(1)
+        .setMaxValue(25)
+    ),
+
+  new SlashCommandBuilder()
     .setName('de')
     .setDescription('Lancer un dé à 6 faces 🎲'),
 
