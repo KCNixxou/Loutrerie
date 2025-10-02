@@ -272,7 +272,7 @@ async function handleTicTacToeMove(interaction) {
           (game.board[cellIndex] === 'X' ? ButtonStyle.Danger : ButtonStyle.Primary) : 
           ButtonStyle.Secondary
         )
-        .setDisabled(winner || isDraw || game.board[cellIndex] !== null); // Désactiver si partie terminée ou case déjà prise
+        .setDisabled(!!(winner || isDraw || game.board[cellIndex] !== null)); // Désactiver si partie terminée ou case déjà prise
       
       row.addComponents(button);
     }
