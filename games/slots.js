@@ -1,6 +1,6 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
-const config = require('../config');
 const { ensureUser, updateUser } = require('../database');
+const { getGameConfig } = require('../game-utils');
 
 // Variables pour stocker les parties en cours
 const activeSlotsGames = new Map();
@@ -27,6 +27,7 @@ async function handleSlots(interaction) {
   const bet = interaction.options.getInteger('mise');
   const userId = interaction.user.id;
   const user = ensureUser(userId);
+  const config = getGameConfig(interaction);
 
   if (bet > user.balance) {
     return interaction.reply({ 
@@ -68,16 +69,21 @@ async function handleSlots(interaction) {
   gameState.result = result;
   
   // Calculer les gains
-  const winAmount = calculateWinnings(result, bet);
-  gameState.winnings = winAmount;
+  const winnings = calculateWinnings(result, bet, config);
+  const newBalance = user.balance - bet + winnings;
   
-  // Mettre à jour le solde si le joueur a gagné
-  if (winAmount > 0) {
-    updateUser(userId, { balance: user.balance - bet + winAmount });
-  }
+  // Mettre à jour le solde de l'utilisateur avec les gains
+  updateUser(userId, { balance: user.balance - bet + winnings });
   
   // Créer l'embed
-  const embed = createSlotsEmbed(gameState, interaction.user);
+  const embed = createSlotsEmbed(interaction, {
+    result,
+    bet,
+    winnings,
+    newBalance,
+    userId: interaction.user.id,
+    username: interaction.user.username
+  });
   
   // Envoyer le message
   await interaction.reply({
@@ -104,59 +110,28 @@ function spinSlots() {
 }
 
 // Fonction pour calculer les gains
-function calculateWinnings(result, bet) {
-  // Vérifier d'abord les 3 symboles identiques
-  if (result[0] === result[1] && result[1] === result[2]) {
-    const pattern = result[0].repeat(3);
-    return PAYOUTS[pattern] ? bet * PAYOUTS[pattern] : 0;
-  }
-  
-  // Vérifier les paires (deux symboles identiques)
-  if (result[0] === result[1] || result[1] === result[2] || result[0] === result[2]) {
-    // Trouver les symboles qui forment une paire
-    let pairSymbol;
-    if (result[0] === result[1]) pairSymbol = result[0];
-    else if (result[1] === result[2]) pairSymbol = result[1];
-    else pairSymbol = result[0]; // pour le cas où result[0] === result[2]
-    
-    const pattern = pairSymbol.repeat(2);
-    return PAYOUTS[pattern] ? bet * PAYOUTS[pattern] : 0;
-  }
-  
-  return 0; // Aucun gain
+function calculateWinnings(result, bet, config) {
+  const resultStr = result.join('');
+  const multiplier = PAYOUTS[resultStr] || 0;
+  return Math.floor(bet * multiplier);
 }
 
 // Fonction pour créer l'embed de la machine à sous
-function createSlotsEmbed(gameState, user) {
-  const { bet, result, winnings } = gameState;
-  
-  const embed = new EmbedBuilder()
-    .setTitle('🎰 MACHINE À SOUS')
-    .setColor(0x0099FF);
-    
+function createSlotsEmbed(interaction, gameState) {
+  const config = getGameConfig(interaction);
+  const { result, bet, winnings, newBalance, userId, username } = gameState;
   const isWin = winnings > 0;
   
-  // Créer l'affichage des rouleaux avec un meilleur formatage
-  const display = `[ ${result[0]} | ${result[1]} | ${result[2]} ]`;
-  
-  // Calculer le résultat net
-  const netResult = isWin ? winnings - bet : -bet;
-  const resultText = isWin 
-    ? `🎉 **Gain : +${winnings} ${config.currency.emoji}** (Net: +${netResult} ${config.currency.emoji})`
-    : `😢 **Perte : -${bet} ${config.currency.emoji}**`;
-  
-  embed.setDescription(
-    `### 🎰 **MACHINE À SOUS**\n` +
-    `\n${display}\n` +
-    `\n**Mise :** ${bet} ${config.currency.emoji}\n` +
-    `${resultText}`
-  );
-  
-  // Ajouter un champ pour afficher la combinaison obtenue
-  embed.addFields(
-    { name: 'Résultat', value: result.join(' '), inline: true },
-    { name: 'Multiplicateur', value: isWin ? `x${(winnings / bet).toFixed(1)}` : 'x0', inline: true }
-  );
+  const embed = new EmbedBuilder()
+    .setTitle('🎰 Machine à sous')
+    .setDescription(`[ ${result[0]} | ${result[1]} | ${result[2]} ]`)
+    .addFields(
+      { name: 'Mise', value: `${bet} ${config.currency.emoji}`, inline: true },
+      { name: 'Gains', value: `${winnings} ${config.currency.emoji}`, inline: true },
+      { name: 'Nouveau solde', value: `${newBalance} ${config.currency.emoji}`, inline: true },
+      { name: 'Résultat', value: result.join(' '), inline: true },
+      { name: 'Multiplicateur', value: isWin ? `x${(winnings / bet).toFixed(1)}` : 'x0', inline: true }
+    );
   
   // Mettre à jour la couleur en fonction du résultat
   if (isWin) {

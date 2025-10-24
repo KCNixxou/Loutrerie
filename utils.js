@@ -1,4 +1,4 @@
-const config = require('./config');
+// La configuration sera passée par le client
 
 // Fonctions utilitaires générales
 const random = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -27,6 +27,8 @@ function getXpMultiplier(member) {
   if (!member || !member.roles) return 1;
   const roles = member.roles.cache;
   let multiplier = 1;
+  
+  const config = client.getConfig(roles.guild?.id);
   
   if (roles.some(role => role.name === 'VIP')) {
     multiplier *= config.xp.vipMultiplier;
@@ -96,7 +98,8 @@ function getRouletteColor(number) {
 }
 
 // Fonctions pour les slots
-function playSlots() {
+function playSlots(client, guildId) {
+  const config = client.getConfig(guildId);
   const symbols = config.casino.slots.symbols;
   const result = [
     symbols[random(0, symbols.length - 1)],

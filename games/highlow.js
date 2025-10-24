@@ -1,6 +1,6 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
-const config = require('../config');
 const { ensureUser, updateUser } = require('../database');
+const { getGameConfig } = require('../game-utils');
 
 // Stockage des parties en cours
 const activeHighLowGames = new Map();
@@ -38,6 +38,7 @@ function endHighLowGame(gameId, interaction, isAdmin = false) {
   activeHighLowGames.delete(gameId);
   
   if (interaction) {
+    const config = getGameConfig(interaction);
     const embed = new EmbedBuilder()
       .setTitle('🎴 High Low - Partie clôturée' + (isAdmin ? ' (par un administrateur)' : ''))
       .setDescription(`La partie a été clôturée avec un gain net de **${netWinnings} ${config.currency.emoji}** !\n(Mise initiale: ${game.initialBet} + Gains: ${netWinnings})` )
@@ -69,11 +70,11 @@ function createDeck() {
 }
 
 // Fonction pour comparer deux cartes
-function compareCards(card1, card2, action) {
+function compareCards(card1, card2, action, bet, config) {
   const value1 = getCardValue(card1);
   const value2 = getCardValue(card2);
   
-  if (action === 'same') {
+  if (bet > config.casino.maxBet) {
     return { result: value1 === value2, sameCard: true };
   } else if (action === 'higher') {
     return { result: value2 > value1, sameCard: false };
@@ -113,7 +114,8 @@ function drawCard(excludeCard = null) {
 }
 
 // Fonction utilitaire pour formater un montant avec l'emoji de la devise
-function formatCurrency(amount) {
+function formatCurrency(amount, interaction) {
+  const config = getGameConfig(interaction);
   return `${amount} ${config.currency.emoji}`;
 }
 
@@ -160,7 +162,7 @@ async function handleHighLowAction(interaction) {
   if (game.userId !== interaction.user.id) {
     // Vérifier si c'est un administrateur qui tente de clôturer la partie
     if (interaction.customId && interaction.customId.startsWith('admin_close_')) {
-      const { specialHighLow } = require('./config');
+      const { specialHighLow } = getGameConfig(interaction);
       if (!specialHighLow.isAdmin(interaction.user.id)) {
         console.log(`[Security] Tentative d'accès non autorisée à la commande admin par ${interaction.user.id}`);
         return interaction.reply({
@@ -174,7 +176,7 @@ async function handleHighLowAction(interaction) {
     
     // Pour le High Low spécial, vérifier les permissions spéciales
     if (game.isSpecial) {
-      const { specialHighLow } = require('./config');
+      const { specialHighLow } = getGameConfig(interaction);
       const isAdminOrSpecialUser = specialHighLow.isAdmin(interaction.user.id) || 
                                  interaction.user.id === specialHighLow.specialUserId;
       
@@ -199,7 +201,8 @@ async function handleHighLowAction(interaction) {
   console.log('[HighLow] New card drawn:', newCard);
   
   // Utiliser la fonction compareCards pour gérer les comparaisons
-  const { result: userWon, sameCard } = compareCards(game.currentCard, newCard, action);
+  const config = getGameConfig(interaction);
+  const { result: userWon, sameCard } = compareCards(game.currentCard, newCard, action, game.currentBet, config);
   
   // Déterminer le résultat pour l'affichage
   const currentValue = getCardValue(game.currentCard);
@@ -284,8 +287,8 @@ async function handleHighLowAction(interaction) {
       .setDescription(`**Carte précédente:** ${formatCard(game.previousCard)}\n**Nouvelle carte:** ${formatCard(newCard)}\n\n✅ **Vous avez gagné !**`)
       .addFields(
         { name: 'Multiplicateur', value: `${multiplier.toFixed(2)}x`, inline: true },
-        { name: 'Gains potentiels', value: formatCurrency(potentialWinnings), inline: true },
-        { name: 'Mise initiale', value: formatCurrency(game.initialBet), inline: true }
+        { name: 'Gains potentiels', value: formatCurrency(potentialWinnings, interaction), inline: true },
+        { name: 'Mise initiale', value: formatCurrency(game.initialBet, interaction), inline: true }
       )
       .setColor(0x57F287); // Vert pour la victoire
     
@@ -305,13 +308,13 @@ async function handleHighLowAction(interaction) {
       .setTitle('🎴 High Low - Partie terminée')
       .setDescription(`**Dernière carte:** ${formatCard(game.currentCard)}\n**Nouvelle carte:** ${formatCard(newCard)}\n\n❌ **Vous avez perdu !**`)
       .addFields(
-        { name: 'Mise perdue', value: formatCurrency(game.currentBet), inline: true },
-        { name: 'Gains totaux', value: formatCurrency(0), inline: true },
-        { name: 'Nouveau solde', value: formatCurrency(updatedBalance), inline: false }
+        { name: 'Mise perdue', value: formatCurrency(game.currentBet, interaction), inline: true },
+        { name: 'Gains totaux', value: formatCurrency(0, interaction), inline: true },
+        { name: 'Nouveau solde', value: formatCurrency(updatedBalance, interaction), inline: false }
       )
       .setColor(0xED4245) // Rouge pour la défaite
       .setFooter({ 
-        text: `Solde mis à jour: ${formatCurrency(updatedBalance)}`,
+        text: `Solde mis à jour: ${formatCurrency(updatedBalance, interaction)}`,
         iconURL: interaction.user.displayAvatarURL() 
       });
     
@@ -397,19 +400,19 @@ async function handleHighLowDecision(interaction) {
         .setColor(0x57F287) // Vert Discord
         .setDescription(
           `✅ **Cashout effectué avec succès !**\n` +
-          `💰 **Gains :** ${winnings} ${config.currency.emoji}\n` +
+          `💰 **Gains :** ${winnings} ${getGameConfig(interaction).currency.emoji}\n` +
           `📈 **Multiplicateur final :** x${gameState.currentMultiplier.toFixed(2)}\n` +
-          `💵 **Nouveau solde :** ${newBalance} ${config.currency.emoji}`
+          `💵 **Nouveau solde :** ${newBalance} ${getGameConfig(interaction).currency.emoji}`
         )
         .setFooter({ 
-          text: `Joueur: ${interaction.user.username} | Mise initiale: ${gameState.initialBet} ${config.currency.emoji}`,
+          text: `Joueur: ${interaction.user.username} | Mise initiale: ${gameState.initialBet} ${getGameConfig(interaction).currency.emoji}`,
           iconURL: interaction.user.displayAvatarURL()
         });
       
       try {
         // Mettre à jour le message avec les gains
         await interaction.update({
-          content: `💰 **${interaction.user.username}** a choisi de s'arrêter et empoche **${winnings}** ${config.currency.emoji} !`,
+          content: `💰 **${interaction.user.username}** a choisi de s'arrêter et empoche **${winnings}** ${getGameConfig(interaction).currency.emoji} !`,
           embeds: [embed],
           components: []
         });
@@ -417,7 +420,7 @@ async function handleHighLowDecision(interaction) {
         console.error('Erreur lors de la mise à jour du message (cashout):', error);
         try {
           await interaction.followUp({
-            content: `✅ Cashout réussi ! Vous avez gagné **${winnings}** ${config.currency.emoji}`,
+            content: `✅ Cashout réussi ! Vous avez gagné **${winnings}** ${getGameConfig(interaction).currency.emoji}`,
             flags: 1 << 6
           });
         } catch (e) {
@@ -438,9 +441,9 @@ async function handleHighLowDecision(interaction) {
         .setTitle('🎴 High Low - Tour suivant')
         .setDescription(`**Carte actuelle:** ${formatCard(gameState.currentCard)}\n\nChoisissez si la prochaine carte sera plus haute, plus basse ou égale.`)
         .addFields(
-          { name: 'Mise', value: formatCurrency(gameState.currentBet), inline: true },
+          { name: 'Mise', value: formatCurrency(gameState.currentBet, interaction), inline: true },
           { name: 'Multiplicateur actuel', value: `${gameState.currentMultiplier.toFixed(2)}x`, inline: true },
-          { name: 'Gains potentiels', value: formatCurrency(Math.floor(gameState.currentBet * gameState.currentMultiplier)), inline: true }
+          { name: 'Gains potentiels', value: formatCurrency(Math.floor(gameState.currentBet * gameState.currentMultiplier), interaction), inline: true }
         )
         .setColor(0x3498DB); // Bleu pour le tour suivant
       
@@ -512,19 +515,26 @@ async function handleHighLowDecision(interaction) {
 
 // Fonction pour démarrer une nouvelle partie de High Low
 async function handleHighLow(interaction, isSpecial = false) {
-  const bet = parseInt(interaction.options.getInteger('mise'));
   const userId = interaction.user.id;
+  const user = ensureUser(userId);
+  const bet = interaction.options.getInteger('mise');
+  const config = getGameConfig(interaction);
   
-  // Vérifier la mise minimale
-  if (bet < 10) {
+  if (bet < config.casino.minBet) {
     return interaction.reply({
-      content: '❌ La mise minimale est de 10 ' + config.currency.emoji,
+      content: `❌ La mise minimale est de ${config.casino.minBet} ${config.currency.emoji}`,
+      ephemeral: true
+    });
+  }
+
+  if (bet > user.balance) {
+    return interaction.reply({
+      content: `❌ Vous n'avez pas assez de solde pour cette mise. (Solde: ${user.balance} ${config.currency.emoji})`,
       ephemeral: true
     });
   }
   
   // Vérifier le solde du joueur
-  const user = ensureUser(userId);
   
   if (isSpecial) {
     const { getSpecialBalance, updateSpecialBalance } = require('./database');
@@ -620,8 +630,8 @@ async function handleHighLow(interaction, isSpecial = false) {
 }
 
 // Fonction pour vérifier si l'utilisateur a accès au High Low spécial
-function hasSpecialAccess(userId, channelId) {
-  const { specialHighLow } = require('./config');
+function hasSpecialAccess(interaction, userId, channelId) {
+  const { specialHighLow } = getGameConfig(interaction);
   
   // Vérifier si l'utilisateur est un administrateur
   if (specialHighLow.isAdmin(userId)) {
@@ -644,7 +654,7 @@ function hasSpecialAccess(userId, channelId) {
 // Gestion du High Low spécial
 async function handleSpecialHighLow(interaction) {
   // Vérifier si l'utilisateur a accès au High Low spécial
-  if (!hasSpecialAccess(interaction.user.id, interaction.channelId)) {
+  if (!hasSpecialAccess(interaction, interaction.user.id, interaction.channelId)) {
     return interaction.reply({
       content: '❌ Vous n\'avez pas accès au High Low Spécial.',
       ephemeral: true

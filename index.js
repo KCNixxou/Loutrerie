@@ -78,7 +78,7 @@ const client = new Client({
 });
 
 // Ajouter la configuration au client
-client.config = config;
+client.getConfig = (guildId) => guildId ? config.getConfig(guildId) : config;
 
 // Ajouter les fonctions de base de données au client si elles ne sont pas déjà définies
 if (!client.database) {

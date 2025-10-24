@@ -1,5 +1,9 @@
 const { ensureUser, updateUser } = require('./database');
-const config = require('./config');
+
+// Fonction utilitaire pour obtenir la configuration du jeu
+function getGameConfig(interaction) {
+  return interaction.client.getConfig(interaction.guild?.id);
+}
 
 // Variables globales pour les jeux
 const activeCoinflipGames = new Map();
@@ -12,6 +16,7 @@ async function addMoney(userId, amount, interaction) {
   
   // Mettre à jour le message si une interaction est fournie
   if (interaction) {
+    const config = getGameConfig(interaction);
     await interaction.followUp({ 
       content: `+${amount} ${config.currency.emoji} ont été ajoutés à votre solde.`,
       ephemeral: true 

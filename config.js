@@ -1,10 +1,12 @@
-module.exports = {
+// Configuration par défaut (pour la rétrocompatibilité)
+const defaultConfig = {
   currency: {
     emoji: '🐚',
     dailyReward: 200,  // Augmenté de 100 à 200
     startingBalance: 500
   },
   casino: {
+    minBet: 10, // Mise minimale par défaut
     maxBet: 10000,
     slots: {
       symbols: ['🦦', '🐳', '🪼', '🐚', '🪸', '🏝️'],
@@ -61,4 +63,33 @@ module.exports = {
       return this.adminIds.includes(userId);
     }
   }
+};
+
+// Configuration pour le nouveau serveur (ID: 1429516623651541210)
+const newServerConfig = {
+  ...defaultConfig,
+  xp: {
+    ...defaultConfig.xp,
+    excludedChannels: [] // Aucun salon exclu pour le nouveau serveur
+  },
+  specialHighLow: {
+    ...defaultConfig.specialHighLow,
+    enabled: false, // Désactive le salon spécial High Low
+    channelId: null // Aucun salon spécial défini
+  }
+};
+
+// Fonction pour obtenir la configuration en fonction du serveur
+function getConfig(guildId) {
+  // ID du nouveau serveur
+  const NEW_SERVER_ID = '1429516623651541210';
+  
+  // Retourne la configuration spécifique au serveur ou la configuration par défaut
+  return guildId === NEW_SERVER_ID ? newServerConfig : defaultConfig;
+}
+
+// Exporte la configuration par défaut et la fonction getConfig
+module.exports = {
+  ...defaultConfig,
+  getConfig
 };
