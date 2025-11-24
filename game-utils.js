@@ -29,6 +29,7 @@ async function addMoney(userId, amount, interaction) {
 module.exports = {
   // Fonctions utilitaires
   addMoney,
+  getGameConfig,
   
   // Variables globales
   activeCoinflipGames,

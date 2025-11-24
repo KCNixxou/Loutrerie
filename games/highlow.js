@@ -537,7 +537,7 @@ async function handleHighLow(interaction, isSpecial = false) {
   // Vérifier le solde du joueur
   
   if (isSpecial) {
-    const { getSpecialBalance, updateSpecialBalance } = require('./database');
+    const { getSpecialBalance, updateSpecialBalance } = require('../database');
     const specialBalance = getSpecialBalance(userId);
     
     if (specialBalance < bet) {
@@ -612,9 +612,9 @@ async function handleHighLow(interaction, isSpecial = false) {
     .setTitle('🎴 High Low' + (isSpecial ? ' Spécial' : '') + ' - Nouvelle partie')
     .setDescription(`**Carte actuelle:** ${formatCard(game.currentCard)}\n\nChoisissez si la prochaine carte sera plus haute, plus basse ou égale.`)
     .addFields(
-      { name: 'Mise', value: formatCurrency(bet), inline: true },
+      { name: 'Mise', value: formatCurrency(bet, interaction), inline: true },
       { name: 'Multiplicateur', value: '1.00x', inline: true },
-      { name: 'Gains potentiels', value: formatCurrency(bet), inline: true }
+      { name: 'Gains potentiels', value: formatCurrency(bet, interaction), inline: true }
     )
     .setFooter({ 
       text: `Joueur: ${interaction.user.username} | Utilisez les boutons ci-dessous pour jouer`,
@@ -702,5 +702,6 @@ module.exports = {
   handleSpecialHighLow: handleSpecialHighLowAlias,
   handleHighLowAction: handleHighLowInteraction,
   handleHighLowDecision,
-  hasSpecialAccess
+  hasSpecialAccess,
+  endHighLowGame
 };
