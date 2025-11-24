@@ -48,26 +48,30 @@ async function handleBlackjackStart(interaction) {
   const gameId = Date.now().toString();
   
   // Distribuer les cartes initiales
-  const playerHand = [drawCard(), drawCard()];
+  const initialHand = [drawCard(), drawCard()];
   const dealerHand = [drawCard(), drawCard()];
-  
+
   const gameState = {
     userId,
-    bet,
-    playerHand,
+    baseBet: bet,
+    playerHands: [initialHand],
+    bets: [bet],
+    handStatuses: ['playing'], // playing | bust | stand | win | lose | push
+    activeHandIndex: 0,
     dealerHand,
-    playerScore: calculateHandValue(playerHand),
-    dealerScore: calculateHandValue([dealerHand[0]]), // Seulement la première carte du croupier est visible
+    dealerScore: null,
     isPlayerTurn: true,
     isGameOver: false,
+    hasSplit: false,
     lastAction: Date.now()
   };
 
   // Mettre à jour le solde de l'utilisateur
   updateUser(userId, { balance: user.balance - bet });
   
-  // Vérifier le blackjack immédiat
-  if (gameState.playerScore === 21) {
+  // Vérifier le blackjack immédiat (21 sur la main initiale)
+  const playerScore = calculateHandValue(initialHand);
+  if (playerScore === 21) {
     return handleBlackjack(gameState, interaction);
   }
   
@@ -103,51 +107,118 @@ async function handleBlackjackAction(interaction) {
   
   // Mettre à jour le timestamp de la dernière action
   gameState.lastAction = Date.now();
-  
+
+  const currentIndex = gameState.activeHandIndex;
+  const currentHand = gameState.playerHands[currentIndex];
+
   // Gérer l'action du joueur
   if (action === 'hit') {
-    // Le joueur tire une carte
-    gameState.playerHand.push(drawCard());
-    gameState.playerScore = calculateHandValue(gameState.playerHand);
+    // Le joueur tire une carte sur la main en cours
+    currentHand.push(drawCard());
+    const score = calculateHandValue(currentHand);
     
-    // Vérifier si le joueur a dépassé 21
-    if (gameState.playerScore > 21) {
-      return handleBust(gameState, interaction);
+    // Vérifier si la main dépasse 21
+    if (score > 21) {
+      gameState.handStatuses[currentIndex] = 'bust';
+      
+      const nextIndex = gameState.handStatuses.findIndex((status, i) => status === 'playing' && i > currentIndex);
+      if (nextIndex !== -1) {
+        gameState.activeHandIndex = nextIndex;
+      } else {
+        // Toutes les mains sont résolues, c'est au tour du croupier
+        gameState.isPlayerTurn = false;
+        await playDealerTurn(gameState, interaction);
+        return;
+      }
     }
   } 
   else if (action === 'stand') {
-    // Le joueur s'arrête, c'est au tour du croupier
-    gameState.isPlayerTurn = false;
-    await playDealerTurn(gameState, interaction);
-    return; // La fonction playDealerTurn gère déjà la mise à jour de l'interaction
+    // Le joueur s'arrête sur la main en cours
+    gameState.handStatuses[currentIndex] = 'stand';
+    
+    const nextIndex = gameState.handStatuses.findIndex((status, i) => status === 'playing' && i > currentIndex);
+    if (nextIndex !== -1) {
+      gameState.activeHandIndex = nextIndex;
+    } else {
+      // Toutes les mains sont résolues, c'est au tour du croupier
+      gameState.isPlayerTurn = false;
+      await playDealerTurn(gameState, interaction);
+      return;
+    }
   }
   else if (action === 'double') {
-    // Le joueur double sa mise et tire une seule carte
+    // Le joueur double la mise sur la main en cours et tire une seule carte
     const user = ensureUser(gameState.userId);
-    if (user.balance < gameState.bet) {
+    const currentBet = gameState.bets[currentIndex];
+    if (user.balance < currentBet) {
       return interaction.reply({ 
         content: `❌ Vous n'avez pas assez de ${config.currency.emoji} pour doubler !`, 
         ephemeral: true 
       });
     }
     
-    // Doubler la mise
-    updateUser(gameState.userId, { balance: user.balance - gameState.bet });
-    gameState.bet *= 2;
+    // Doubler la mise de cette main
+    updateUser(gameState.userId, { balance: user.balance - currentBet });
+    gameState.bets[currentIndex] = currentBet * 2;
     
     // Tirer une seule carte
-    gameState.playerHand.push(drawCard());
-    gameState.playerScore = calculateHandValue(gameState.playerHand);
+    currentHand.push(drawCard());
+    const score = calculateHandValue(currentHand);
     
-    // Vérifier si le joueur a dépassé 21
-    if (gameState.playerScore > 21) {
-      return handleBust(gameState, interaction);
+    if (score > 21) {
+      gameState.handStatuses[currentIndex] = 'bust';
+    } else {
+      // Après un double, le joueur doit rester sur cette main
+      gameState.handStatuses[currentIndex] = 'stand';
     }
-    
-    // Le joueur ne peut plus tirer après avoir doublé
-    gameState.isPlayerTurn = false;
-    await playDealerTurn(gameState, interaction);
-    return; // La fonction playDealerTurn gère déjà la mise à jour de l'interaction
+
+    const nextIndex = gameState.handStatuses.findIndex((status, i) => status === 'playing' && i > currentIndex);
+    if (nextIndex !== -1) {
+      gameState.activeHandIndex = nextIndex;
+    } else {
+      gameState.isPlayerTurn = false;
+      await playDealerTurn(gameState, interaction);
+      return;
+    }
+  }
+  else if (action === 'split') {
+    // Le joueur sépare sa main en deux (un seul split autorisé)
+    if (gameState.hasSplit || gameState.playerHands.length !== 1 || currentHand.length !== 2) {
+      return interaction.deferUpdate();
+    }
+
+    const [card1, card2] = currentHand;
+    const value1 = CARD_VALUES[card1.value];
+    const value2 = CARD_VALUES[card2.value];
+
+    // Autoriser le split seulement si les cartes ont la même valeur de jeu
+    if (value1 !== value2) {
+      return interaction.reply({
+        content: '❌ Vous ne pouvez splitter que deux cartes de même valeur.',
+        ephemeral: true
+      });
+    }
+
+    const user = ensureUser(gameState.userId);
+    if (user.balance < gameState.baseBet) {
+      return interaction.reply({
+        content: `❌ Vous n'avez pas assez de ${config.currency.emoji} pour splitter !`,
+        ephemeral: true
+      });
+    }
+
+    // Débiter la deuxième mise
+    updateUser(gameState.userId, { balance: user.balance - gameState.baseBet });
+
+    // Créer deux mains séparées
+    const hand1 = [card1, drawCard()];
+    const hand2 = [card2, drawCard()];
+
+    gameState.playerHands = [hand1, hand2];
+    gameState.bets = [gameState.baseBet, gameState.baseBet];
+    gameState.handStatuses = ['playing', 'playing'];
+    gameState.activeHandIndex = 0;
+    gameState.hasSplit = true;
   }
   
   // Mettre à jour l'affichage
@@ -171,27 +242,44 @@ async function playDealerTurn(gameState, interaction) {
     gameState.dealerScore = calculateHandValue(gameState.dealerHand);
   }
   
-  // Déterminer le résultat
+  // Déterminer le résultat pour chaque main
   gameState.isGameOver = true;
-  let result;
-  
-  if (gameState.dealerScore > 21) {
-    result = 'Le croupier a dépassé 21 ! Vous gagnez !';
-    const winnings = gameState.bet * 2;
-    updateUser(gameState.userId, { balance: ensureUser(gameState.userId).balance + winnings });
-  } 
-  else if (gameState.dealerScore > gameState.playerScore) {
-    result = 'Le croupier gagne avec un meilleur score !';
-  } 
-  else if (gameState.dealerScore < gameState.playerScore) {
-    result = 'Vous gagnez avec un meilleur score !';
-    const winnings = gameState.bet * 2;
-    updateUser(gameState.userId, { balance: ensureUser(gameState.userId).balance + winnings });
-  } 
-  else {
-    result = 'Égalité ! Votre mise vous est rendue.';
-    updateUser(gameState.userId, { balance: ensureUser(gameState.userId).balance + gameState.bet });
+  let totalWinnings = 0;
+  let resultLines = [];
+
+  gameState.playerHands.forEach((hand, index) => {
+    const status = gameState.handStatuses[index];
+    const bet = gameState.bets[index];
+    const score = calculateHandValue(hand);
+
+    if (status === 'bust') {
+      resultLines.push(`Main ${index + 1}: **BUST** (perdu)`);
+      return;
+    }
+
+    if (gameState.dealerScore > 21) {
+      const winnings = bet * 2;
+      totalWinnings += winnings;
+      resultLines.push(`Main ${index + 1}: Croupier BUST → gagné (+${winnings} ${config.currency.emoji})`);
+    } else if (score > gameState.dealerScore) {
+      const winnings = bet * 2;
+      totalWinnings += winnings;
+      resultLines.push(`Main ${index + 1}: ${score} contre ${gameState.dealerScore} → gagné (+${winnings} ${config.currency.emoji})`);
+    } else if (score < gameState.dealerScore) {
+      resultLines.push(`Main ${index + 1}: ${score} contre ${gameState.dealerScore} → perdu`);
+    } else {
+      // Égalité, on rend la mise
+      totalWinnings += bet;
+      resultLines.push(`Main ${index + 1}: ${score} contre ${gameState.dealerScore} → égalité (mise rendue)`);
+    }
+  });
+
+  if (totalWinnings > 0) {
+    const user = ensureUser(gameState.userId);
+    updateUser(gameState.userId, { balance: user.balance + totalWinnings });
   }
+
+  const result = resultLines.join('\n');
   
   // Mettre à jour l'affichage avec le résultat final
   const embed = createBlackjackEmbed(gameState, interaction.user, result);
@@ -202,14 +290,15 @@ async function playDealerTurn(gameState, interaction) {
   });
   
   // Supprimer la partie
-  activeBlackjackGames.delete(interaction.customId.split('_')[2]);
+  activeBlackjackGames.delete(gameIdFromInteraction(interaction));
 }
 
 // Fonction pour gérer un blackjack
 async function handleBlackjack(gameState, interaction) {
   gameState.isGameOver = true;
-  const winnings = Math.floor(gameState.bet * 2.5); // Paiement 3:2 pour un blackjack
-  updateUser(gameState.userId, { balance: ensureUser(gameState.userId).balance + winnings });
+  const winnings = Math.floor(gameState.baseBet * 2.5); // Paiement 3:2 pour un blackjack
+  const user = ensureUser(gameState.userId);
+  updateUser(gameState.userId, { balance: user.balance + winnings });
   
   const embed = createBlackjackEmbed(gameState, interaction.user, 'Blackjack ! Vous gagnez 3:2 !');
   
@@ -219,25 +308,15 @@ async function handleBlackjack(gameState, interaction) {
   });
 }
 
-// Fonction pour gérer un dépassement (bust)
-async function handleBust(gameState, interaction) {
-  gameState.isGameOver = true;
-  gameState.isPlayerTurn = false;
-  
-  const embed = createBlackjackEmbed(gameState, interaction.user, 'Dépassement ! Vous avez perdu votre mise.');
-  
-  await interaction.update({
-    embeds: [embed],
-    components: []
-  });
-  
-  // Supprimer la partie
-  activeBlackjackGames.delete(interaction.customId.split('_')[2]);
+// Fonction utilitaire pour extraire l'ID de partie depuis une interaction
+function gameIdFromInteraction(interaction) {
+  const parts = interaction.customId.split('_');
+  return parts[parts.length - 1];
 }
 
 // Fonction pour créer l'embed du blackjack
 function createBlackjackEmbed(gameState, user, result = null) {
-  const { playerHand, dealerHand, playerScore, dealerScore, bet, isPlayerTurn } = gameState;
+  const { playerHands, dealerHand, dealerScore, bets, isPlayerTurn, activeHandIndex, handStatuses } = gameState;
   
   const embed = new EmbedBuilder()
     .setTitle('🃏 BLACKJACK')
@@ -252,22 +331,27 @@ function createBlackjackEmbed(gameState, user, result = null) {
     ? `(${calculateHandValue([dealerHand[0]])}+?)` 
     : `(${dealerScore})`;
     
-  // Afficher la main du joueur
-  const playerHandStr = playerHand.map(card => formatCard(card)).join(' ');
-  
   // Construire la description
-  let description = `**Croupier :** ${dealerHandStr} ${dealerScoreStr}\n`;
-  description += `**Votre main :** ${playerHandStr} (${playerScore})\n`;
-  description += `**Mise :** ${bet} ${config.currency.emoji}\n\n`;
+  let description = `**Croupier :** ${dealerHandStr} ${dealerScoreStr}\n\n`;
+
+  playerHands.forEach((hand, index) => {
+    const score = calculateHandValue(hand);
+    const status = handStatuses[index];
+    const bet = bets[index];
+    const isActive = isPlayerTurn && index === activeHandIndex;
+
+    let line = `**Main ${index + 1}${isActive ? ' (en cours)' : ''} :** ${hand.map(card => formatCard(card)).join(' ')} (${score})`;
+
+    if (status === 'bust') {
+      line += ' — **BUST**';
+    }
+
+    line += `\nMise : ${bet} ${config.currency.emoji}\n\n`;
+    description += line;
+  });
   
   if (result) {
-    description += `**Résultat :** ${result}`;
-    if (result.includes('gagnez')) {
-      const winnings = result.includes('Blackjack') 
-        ? Math.floor(bet * 2.5)
-        : bet * 2;
-      description += `\n💰 **Gains :** ${winnings} ${config.currency.emoji}`;
-    }
+    description += `**Résultat :**\n${result}`;
   } else if (!isPlayerTurn) {
     description += 'Le croupier joue...';
   } else {
@@ -280,7 +364,7 @@ function createBlackjackEmbed(gameState, user, result = null) {
   if (result) {
     if (result.includes('Blackjack')) {
       embed.setThumbnail('https://i.imgur.com/xyz1234.png'); // Remplacez par une image de blackjack
-    } else if (result.includes('gagnez')) {
+    } else if (result.includes('gagn')) { // "gagnez" ou "gagné"
       embed.setThumbnail('https://i.imgur.com/abc5678.png'); // Remplacez par une image de victoire
     } else {
       embed.setThumbnail('https://i.imgur.com/def9012.png'); // Remplacez par une image de défaite
@@ -292,7 +376,7 @@ function createBlackjackEmbed(gameState, user, result = null) {
 
 // Fonction pour créer les composants du blackjack
 function createBlackjackComponents(gameId) {
-  return new ActionRowBuilder().addComponents(
+  const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`blackjack_hit_${gameId}`)
       .setLabel('Tirer')
@@ -306,6 +390,16 @@ function createBlackjackComponents(gameId) {
       .setLabel('Doubler')
       .setStyle(ButtonStyle.Danger)
   );
+
+  // Bouton de split (sera simplement ignoré côté handler si non valide)
+  row.addComponents(
+    new ButtonBuilder()
+      .setCustomId(`blackjack_split_${gameId}`)
+      .setLabel('Split')
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  return row;
 }
 
 // Fonction pour tirer une carte aléatoire

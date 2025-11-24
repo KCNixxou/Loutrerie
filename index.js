@@ -895,6 +895,10 @@ async function handleSlashCommand(interaction) {
       await gameFunctions.handleCoinflipMulti(interaction);
       break;
 
+    case 'blackjack':
+      await gameFunctions.handleBlackjackStart(interaction);
+      break;
+
     case 'slots':
       await gameFunctions.handleSlots(interaction);
       break;
