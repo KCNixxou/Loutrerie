@@ -258,17 +258,19 @@ async function playDealerTurn(gameState, interaction) {
     }
 
     if (gameState.dealerScore > 21) {
-      const winnings = bet * 2;
+      // Croupier bust: joueur gagne 1:1
+      const winnings = bet * 2; // mise retournée + gain égal à la mise
       totalWinnings += winnings;
       resultLines.push(`Main ${index + 1}: Croupier BUST → gagné (+${winnings} ${config.currency.emoji})`);
     } else if (score > gameState.dealerScore) {
+      // Joueur gagne 1:1
       const winnings = bet * 2;
       totalWinnings += winnings;
       resultLines.push(`Main ${index + 1}: ${score} contre ${gameState.dealerScore} → gagné (+${winnings} ${config.currency.emoji})`);
     } else if (score < gameState.dealerScore) {
       resultLines.push(`Main ${index + 1}: ${score} contre ${gameState.dealerScore} → perdu`);
     } else {
-      // Égalité, on rend la mise
+      // Égalité: on rend la mise (push)
       totalWinnings += bet;
       resultLines.push(`Main ${index + 1}: ${score} contre ${gameState.dealerScore} → égalité (mise rendue)`);
     }
@@ -296,7 +298,8 @@ async function playDealerTurn(gameState, interaction) {
 // Fonction pour gérer un blackjack
 async function handleBlackjack(gameState, interaction) {
   gameState.isGameOver = true;
-  const winnings = Math.floor(gameState.baseBet * 2.5); // Paiement 3:2 pour un blackjack
+  const bet = gameState.baseBet;
+  const winnings = bet + Math.floor(bet * 1.5); // 3:2 = mise + 1.5x mise
   const user = ensureUser(gameState.userId);
   updateUser(gameState.userId, { balance: user.balance + winnings });
   
@@ -363,11 +366,11 @@ function createBlackjackEmbed(gameState, user, result = null) {
   // Ajouter une image en fonction du résultat
   if (result) {
     if (result.includes('Blackjack')) {
-      embed.setThumbnail('https://i.imgur.com/xyz1234.png'); // Remplacez par une image de blackjack
+      embed.setThumbnail('https://imgur.com/gallery/easy-blackjack-OnJrGU9#bTwtAYh'); // Remplacez par une image de blackjack
     } else if (result.includes('gagn')) { // "gagnez" ou "gagné"
-      embed.setThumbnail('https://i.imgur.com/abc5678.png'); // Remplacez par une image de victoire
+      embed.setThumbnail('https://imgur.com/gallery/finished-project-with-this-much-yarn-left-HUz1E#xuVfb2r'); // Remplacez par une image de victoire
     } else {
-      embed.setThumbnail('https://i.imgur.com/def9012.png'); // Remplacez par une image de défaite
+      embed.setThumbnail('https://imgur.com/gallery/face-of-defeat-lhajGzo'); // Remplacez par une image de défaite
     }
   }
   
@@ -471,12 +474,13 @@ module.exports = {
     const gameState = activeBlackjackGames.get(gameId);
     
     if (gameState) {
-      // Rembourser le joueur
-      updateUser(gameState.userId, { balance: ensureUser(gameState.userId).balance + gameState.bet });
+      // Rembourser le joueur (total des mises de toutes les mains)
+      const totalBets = gameState.bets.reduce((sum, bet) => sum + bet, 0);
+      updateUser(gameState.userId, { balance: ensureUser(gameState.userId).balance + totalBets });
       activeBlackjackGames.delete(gameId);
       
       return interaction.reply({
-        content: 'La partie a été résolue. Votre mise vous a été remboursée.',
+        content: `La partie a été résolue. Vos mises (${totalBets} ${config.currency.emoji}) vous ont été remboursées.`,
         ephemeral: true
       });
     }
