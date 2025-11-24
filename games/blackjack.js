@@ -20,10 +20,13 @@ const CARD_EMOJIS = {
 // Fonction pour démarrer une nouvelle partie de blackjack
 async function handleBlackjackStart(interaction) {
   const bet = interaction.options.getInteger('mise');
+  const sideBet = interaction.options.getInteger('sidebet') || 0;
   const userId = interaction.user.id;
   const user = ensureUser(userId);
 
-  if (bet > user.balance) {
+  const totalCost = bet + sideBet;
+
+  if (totalCost > user.balance) {
     return interaction.reply({ 
       content: `❌ Vous n'avez pas assez de ${config.currency.emoji} pour cette mise !`, 
       ephemeral: true 
@@ -63,11 +66,51 @@ async function handleBlackjackStart(interaction) {
     isPlayerTurn: true,
     isGameOver: false,
     hasSplit: false,
-    lastAction: Date.now()
+    lastAction: Date.now(),
+    sideBet,
+    sideBetResult: null,
+    sideBetPayout: 0
   };
 
-  // Mettre à jour le solde de l'utilisateur
-  updateUser(userId, { balance: user.balance - bet });
+  // Mettre à jour le solde de l'utilisateur (mise principale + side bet)
+  updateUser(userId, { balance: user.balance - totalCost });
+
+  // Résoudre immédiatement le side bet Perfect Pairs
+  if (sideBet > 0) {
+    const [card1, card2] = initialHand;
+    let multiplier = 0;
+    let resultLabel = 'Aucune paire';
+
+    if (card1.value === card2.value) {
+      const redSuits = ['H', 'D'];
+      const isRed1 = redSuits.includes(card1.suit);
+      const isRed2 = redSuits.includes(card2.suit);
+
+      if (card1.suit === card2.suit) {
+        // Paire parfaite (même valeur, même couleur)
+        multiplier = 25;
+        resultLabel = 'Paire parfaite (25:1)';
+      } else if ((isRed1 && isRed2) || (!isRed1 && !isRed2)) {
+        // Paire de couleur (même valeur, même couleur rouge/noir)
+        multiplier = 12;
+        resultLabel = 'Paire de couleur (12:1)';
+      } else {
+        // Paire mixte (même valeur, couleurs différentes)
+        multiplier = 6;
+        resultLabel = 'Paire mixte (6:1)';
+      }
+    }
+
+    if (multiplier > 0) {
+      const sideWinnings = sideBet * multiplier;
+      const current = ensureUser(userId);
+      updateUser(userId, { balance: current.balance + sideWinnings });
+      gameState.sideBetPayout = sideWinnings;
+      gameState.sideBetResult = resultLabel;
+    } else {
+      gameState.sideBetResult = 'Perdu';
+    }
+  }
   
   // Vérifier le blackjack immédiat (21 sur la main initiale)
   const playerScore = calculateHandValue(initialHand);
@@ -319,7 +362,7 @@ function gameIdFromInteraction(interaction) {
 
 // Fonction pour créer l'embed du blackjack
 function createBlackjackEmbed(gameState, user, result = null) {
-  const { playerHands, dealerHand, dealerScore, bets, isPlayerTurn, activeHandIndex, handStatuses } = gameState;
+  const { playerHands, dealerHand, dealerScore, bets, isPlayerTurn, activeHandIndex, handStatuses, sideBet, sideBetResult, sideBetPayout } = gameState;
   
   const embed = new EmbedBuilder()
     .setTitle('🃏 BLACKJACK')
@@ -353,6 +396,17 @@ function createBlackjackEmbed(gameState, user, result = null) {
     description += line;
   });
   
+  if (sideBet && sideBet > 0) {
+    description += `**Side bet Perfect Pairs :** ${sideBet} ${config.currency.emoji}`;
+    if (sideBetResult) {
+      description += `\nRésultat side bet : ${sideBetResult}`;
+      if (sideBetPayout && sideBetPayout > 0) {
+        description += ` (+${sideBetPayout} ${config.currency.emoji})`;
+      }
+    }
+    description += '\n\n';
+  }
+
   if (result) {
     description += `**Résultat :**\n${result}`;
   } else if (!isPlayerTurn) {
@@ -361,6 +415,10 @@ function createBlackjackEmbed(gameState, user, result = null) {
     description += 'Que souhaitez-vous faire ?';
   }
   
+  // Ajouter le solde actuel du joueur
+  const userData = ensureUser(gameState.userId);
+  description += `\n**Solde actuel :** ${userData.balance} ${config.currency.emoji}`;
+
   embed.setDescription(description);
   
   // Ajouter une image en fonction du résultat

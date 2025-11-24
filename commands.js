@@ -158,6 +158,12 @@ const commands = [
         .setDescription('Montant à miser en coquillages')
         .setRequired(true)
         .setMinValue(1)
+    )
+    .addIntegerOption(option =>
+      option.setName('sidebet')
+        .setDescription('Mise pour le side bet Perfect Pairs')
+        .setRequired(false)
+        .setMinValue(0)
     ),
 
   new SlashCommandBuilder()
