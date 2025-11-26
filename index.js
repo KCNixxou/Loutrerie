@@ -926,6 +926,7 @@ async function handleSlashCommand(interaction) {
       
       const targetUser = interaction.options.getUser('utilisateur');
       const amount = interaction.options.getInteger('montant');
+      const guildId = interaction.guildId;
       
       // Vérifier que l'utilisateur existe dans la base de données et mettre à jour le solde
       ensureUser(targetUser.id, guildId);
