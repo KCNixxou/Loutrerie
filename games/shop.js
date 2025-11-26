@@ -6,7 +6,8 @@ const { ensureUser, updateUser, getUserEffects, addUserEffect } = require('../da
 // Fonction pour gérer l'affichage de la boutique
 async function handleShop(interaction) {
     try {
-        const shopItems = interaction.client.config.shop;
+        const config = interaction.client.getConfig(interaction.guildId);
+        const shopItems = config.shop;
         
         // Créer un embed pour la boutique avec style thématique
         const embed = new EmbedBuilder()
@@ -20,7 +21,7 @@ async function handleShop(interaction) {
             .filter(([key, item]) => item.type === 'boost' || key === 'boosts')
             .map(([key, item]) => {
                 const emoji = item.emoji || '🧠';
-                return `${emoji} **${item.name}** - ${item.price.toLocaleString()} ${interaction.client.config.currency.emoji}\n   *${item.description}*`;
+                return `${emoji} **${item.name}** - ${item.price.toLocaleString()} ${config.currency.emoji}\n   *${item.description}*`;
             })
             .join('\n\n');
         
@@ -29,7 +30,7 @@ async function handleShop(interaction) {
             .filter(([key, item]) => item.type === 'consumable')
             .map(([key, item]) => {
                 const emoji = item.emoji || '💊';
-                return `${emoji} **${item.name}** - ${item.price.toLocaleString()} ${interaction.client.config.currency.emoji}\n   *${item.description}*`;
+                return `${emoji} **${item.name}** - ${item.price.toLocaleString()} ${config.currency.emoji}\n   *${item.description}*`;
             })
             .join('\n\n');
         
@@ -38,7 +39,7 @@ async function handleShop(interaction) {
             .filter(([key, item]) => ['mystery_box', 'event_access', 'vip_temporary'].includes(item.type))
             .map(([key, item]) => {
                 const emoji = item.emoji || '🎁';
-                return `${emoji} **${item.name}** - ${item.price.toLocaleString()} ${interaction.client.config.currency.emoji}\n   *${item.description}*`;
+                return `${emoji} **${item.name}** - ${item.price.toLocaleString()} ${config.currency.emoji}\n   *${item.description}*`;
             })
             .join('\n\n');
         
@@ -70,13 +71,13 @@ async function handleShop(interaction) {
         // Catégorie des rôles BDG (existants)
         const bdgItems = Object.entries(shopItems)
             .filter(([key]) => key.startsWith('bdg'))
-            .map(([_, item]) => `• **${item.name}** - ${item.price.toLocaleString()} ${interaction.client.config.currency.emoji}`)
+            .map(([_, item]) => `• **${item.name}** - ${item.price.toLocaleString()} ${config.currency.emoji}`)
             .join('\n');
         
         // Catégorie des rôles BDH (existants)
         const bdhItems = Object.entries(shopItems)
             .filter(([key]) => key.startsWith('bdh'))
-            .map(([_, item]) => `• **${item.name}** - ${item.price.toLocaleString()} ${interaction.client.config.currency.emoji}`)
+            .map(([_, item]) => `• **${item.name}** - ${item.price.toLocaleString()} ${config.currency.emoji}`)
             .join('\n');
         
         if (bdgItems) {
@@ -100,7 +101,7 @@ async function handleShop(interaction) {
         const userEffects = getUserEffects(interaction.user.id);
         const activeEffects = userEffects.filter(effect => effect.expires_at > Date.now());
         
-        let footerText = `Solde: ${user.balance || 0} ${interaction.client.config.currency.emoji}`;
+        let footerText = `Solde: ${user.balance || 0} ${config.currency.emoji}`;
         if (activeEffects.length > 0) {
             footerText += ` | ${activeEffects.length} effet(s) actif(s)`;
         }
@@ -174,6 +175,7 @@ function applyConsumableEffect(userId, item, interaction) {
 
 // Fonction pour ouvrir une boîte mystère
 function openMysteryBox(userId, item, interaction) {
+    const config = interaction.client.getConfig(interaction.guildId);
     const rewards = item.rewards;
     const randomReward = rewards[Math.floor(Math.random() * rewards.length)];
     
@@ -183,10 +185,10 @@ function openMysteryBox(userId, item, interaction) {
         // Récompense en argent
         const user = ensureUser(userId);
         updateUser(userId, { balance: user.balance + randomReward });
-        rewardText = `Vous avez gagné **${randomReward}** ${interaction.client.config.currency.emoji} !`;
+        rewardText = `Vous avez gagné **${randomReward}** ${config.currency.emoji} !`;
     } else {
         // Récompense en item
-        const rewardItem = interaction.client.config.shop[randomReward];
+        const rewardItem = config.shop[randomReward];
         if (rewardItem) {
             applyConsumableEffect(userId, rewardItem, interaction);
             rewardText = `Vous avez gagné **${rewardItem.name}** !`;
@@ -205,13 +207,16 @@ async function handlePurchase(interaction) {
     try {
         console.log(`[Achat] Début de la transaction pour ${interaction.user.tag}`);
         
+        // Récupération de la configuration
+        const config = interaction.client.getConfig(interaction.guildId);
+        
         // Récupération des informations de base
         itemId = interaction.options.getString('item');
         userId = interaction.user.id;
         member = interaction.member;
         
         // Vérification de l'existence de l'article
-        item = interaction.client.config.shop[itemId];
+        item = config.shop[itemId];
         if (!item) {
             reply.content = '❌ Cet article n\'existe pas dans la boutique.';
             console.log(`[Achat] Article non trouvé: ${itemId}`);
@@ -224,7 +229,7 @@ async function handlePurchase(interaction) {
         user = interaction.client.database.ensureUser(userId, interaction.guild.id);
         if (user.balance < item.price) {
             const manquant = item.price - user.balance;
-            reply.content = `❌ Tu n'as pas assez de coquillages pour acheter ${item.name}. Il te manque ${manquant} ${interaction.client.config.currency.emoji}.`;
+            reply.content = `❌ Tu n'as pas assez de coquillages pour acheter ${item.name}. Il te manque ${manquant} ${config.currency.emoji}.`;
             console.log(`[Achat] Solde insuffisant: ${user.balance}/${item.price}`);
             return interaction.reply(reply);
         }
@@ -331,7 +336,7 @@ async function handlePurchase(interaction) {
             await member.roles.add(role);
             
             // 3. Confirmation de l'achat
-            reply.content = `✅ Félicitations ! Tu as acheté **${item.name}** pour ${item.price} ${interaction.client.config.currency.emoji} !`;
+            reply.content = `✅ Félicitations ! Tu as acheté **${item.name}** pour ${item.price} ${config.currency.emoji} !`;
             console.log(`[Achat] Achat réussi pour ${interaction.user.tag}`);
             
         } catch (transactionError) {
