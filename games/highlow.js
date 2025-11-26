@@ -1,5 +1,5 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
-const { ensureUser, updateUser } = require('../database');
+const { ensureUser, updateUser, getUserEffects, useEffect, hasActiveEffect } = require('../database');
 const { getGameConfig } = require('../game-utils');
 
 // Stockage des parties en cours
@@ -14,6 +14,33 @@ const CARD_EMOJIS = {
   '♦': '♦️',
   '♣': '♣️'
 };
+
+// Fonctions pour les effets temporaires
+function calculateEffectMultiplier(userId, guildId) {
+  const effects = getUserEffects(userId, guildId);
+  let multiplier = 1.0;
+  
+  effects.forEach(effect => {
+    switch (effect.effect) {
+      case 'casino_bonus':
+        multiplier *= (1 + effect.value); // +15% par défaut
+        break;
+      case 'double_winnings':
+        multiplier *= effect.value; // x2 par défaut
+        break;
+    }
+  });
+  
+  return multiplier;
+}
+
+function checkLossProtection(userId, guildId, lossAmount) {
+  if (hasActiveEffect(userId, 'loss_protection', guildId)) {
+    useEffect(userId, 'loss_protection', guildId);
+    return true;
+  }
+  return false;
+}
 
 // Fonction utilitaire pour clôturer une partie High Low
 function endHighLowGame(gameId, interaction, isAdmin = false) {
@@ -301,18 +328,26 @@ async function handleHighLowAction(interaction) {
   } else {
     // Le joueur a perdu
     const user = ensureUser(game.userId, game.guildId);
-    // Ne pas soustraire la mise ici car elle a déjà été déduite au début de la partie
-    const updatedBalance = user.balance; // Utiliser le solde actuel sans nouvelle soustraction
+    let updatedBalance = user.balance;
+    let lossMessage = `❌ **Vous avez perdu !**`;
+    
+    // Vérifier la protection contre les pertes
+    const hasProtection = checkLossProtection(game.userId, game.guildId, game.currentBet);
+    if (hasProtection) {
+      updatedBalance += game.currentBet; // Rembourser la mise
+      updateUser(game.userId, game.guildId, { balance: updatedBalance });
+      lossMessage = `🫀 **Cœur de Remplacement activé !**\n\n❌ Vous avez perdu, mais votre mise a été remboursée !`;
+    }
     
     const lossEmbed = new EmbedBuilder()
       .setTitle('🎴 High Low - Partie terminée')
-      .setDescription(`**Dernière carte:** ${formatCard(game.currentCard)}\n**Nouvelle carte:** ${formatCard(newCard)}\n\n❌ **Vous avez perdu !**`)
+      .setDescription(`**Dernière carte:** ${formatCard(game.currentCard)}\n**Nouvelle carte:** ${formatCard(newCard)}\n\n${lossMessage}`)
       .addFields(
         { name: 'Mise perdue', value: formatCurrency(game.currentBet, interaction), inline: true },
         { name: 'Gains totaux', value: formatCurrency(0, interaction), inline: true },
         { name: 'Nouveau solde', value: formatCurrency(updatedBalance, interaction), inline: false }
       )
-      .setColor(0xED4245) // Rouge pour la défaite
+      .setColor(hasProtection ? 0xFF6B6B : 0xED4245) // Couleur différente si protection
       .setFooter({ 
         text: `Solde mis à jour: ${formatCurrency(updatedBalance, interaction)}`,
         iconURL: interaction.user.displayAvatarURL() 
@@ -385,7 +420,9 @@ async function handleHighLowDecision(interaction) {
   try {
     if (action === 'stop') {
       // Le joueur choisit de s'arrêter (bouton 'Petite couille')
-      const winnings = Math.floor(gameState.currentBet * gameState.currentMultiplier);
+      const effectMultiplier = calculateEffectMultiplier(gameState.userId, gameState.guildId);
+      let winnings = Math.floor(gameState.currentBet * gameState.currentMultiplier);
+      winnings = Math.floor(winnings * effectMultiplier);
       const user = ensureUser(gameState.userId, gameState.guildId);
       
       // Calculer le nouveau solde

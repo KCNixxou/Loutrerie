@@ -619,6 +619,57 @@ async function handleSlashCommand(interaction) {
       await handleShop(interaction);
       break;
       
+    case 'effets':
+      const { getUserEffects } = require('./database');
+      const effectsTargetUser = interaction.options.getUser('utilisateur') || interaction.user;
+      const isSelf = effectsTargetUser.id === interaction.user.id;
+      
+      try {
+        const userEffects = getUserEffects(effectsTargetUser.id, interaction.guild.id);
+        const activeEffects = userEffects.filter(effect => effect.expires_at > Date.now());
+        
+        if (activeEffects.length === 0) {
+          await interaction.reply({
+            content: isSelf ? '💊 Vous n\'avez aucun effet temporaire actif.' : `💊 ${effectsTargetUser.username} n\'a aucun effet temporaire actif.`,
+            ephemeral: true
+          });
+          return;
+        }
+        
+        const embed = new EmbedBuilder()
+          .setTitle(`💊 Effets temporaires de ${effectsTargetUser.username}`)
+          .setDescription('Voici vos effets temporaires actuellement actifs :')
+          .setColor(0x9b59b6)
+          .setThumbnail(effectsTargetUser.displayAvatarURL());
+        
+        activeEffects.forEach(effect => {
+          const timeLeft = effect.expires_at ? Math.floor((effect.expires_at - Date.now()) / 1000 / 60) : null;
+          const timeText = timeLeft ? ` (${timeLeft} min restantes)` : ' (Illimité)';
+          const usesText = effect.uses > 0 ? ` | ${effect.uses} utilisation(s)` : '';
+          
+          embed.addFields({
+            name: `🔮 ${effect.description || effect.effect}`,
+            value: `**Effet:** ${effect.effect}${timeText}${usesText}`,
+            inline: false
+          });
+        });
+        
+        embed.setFooter({ 
+          text: isSelf ? 'Vos effets temporaires' : `Effets de ${effectsTargetUser.username}`,
+          iconURL: interaction.user.displayAvatarURL()
+        });
+        
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+        
+      } catch (error) {
+        console.error('Erreur lors de l\'affichage des effets:', error);
+        await interaction.reply({
+          content: '❌ Une erreur est survenue lors de l\'affichage des effets.',
+          ephemeral: true
+        });
+      }
+      break;
+      
     case 'acheter':
       const { handlePurchase } = require('./games/shop');
       await handlePurchase(interaction);
@@ -924,16 +975,15 @@ async function handleSlashCommand(interaction) {
         return interaction.reply({ content: ' Cette commande est réservée à l\'administrateur.', ephemeral: true });
       }
       
-      const targetUser = interaction.options.getUser('utilisateur');
+      const giveTargetUser = interaction.options.getUser('utilisateur');
       const amount = interaction.options.getInteger('montant');
-      const guildId = interaction.guildId;
       
       // Vérifier que l'utilisateur existe dans la base de données et mettre à jour le solde
-      ensureUser(targetUser.id, guildId);
-      updateUser(targetUser.id, guildId, { balance: amount });
+      ensureUser(giveTargetUser.id, guildId);
+      updateUser(giveTargetUser.id, guildId, { balance: amount });
       
       await interaction.reply({
-        content: ` Le solde de ${targetUser.tag} a été défini à **${amount}** ${config.currency.emoji}`,
+        content: ` Le solde de ${giveTargetUser.tag} a été défini à **${amount}** ${config.currency.emoji}`,
         ephemeral: true
       });
       break;

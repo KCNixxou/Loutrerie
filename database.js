@@ -50,6 +50,22 @@ function updateDatabaseSchema() {
   addColumnIfNotExists('users', 'last_bdg_claim', 'INTEGER DEFAULT 0');
   addColumnIfNotExists('users', 'last_bdh_claim', 'INTEGER DEFAULT 0');
 
+  // Création de la table pour les effets temporaires des consommables
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_effects (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      guild_id TEXT,
+      effect TEXT NOT NULL,
+      value REAL,
+      uses INTEGER DEFAULT 1,
+      expires_at INTEGER,
+      description TEXT,
+      created_at INTEGER DEFAULT (strftime('%s', 'current_timestamp')),
+      FOREIGN KEY (user_id, guild_id) REFERENCES users(user_id, guild_id)
+    );
+  `);
+
   // Migration vers un schéma par serveur si nécessaire
   try {
     const hasGuildId = columnExists('users', 'guild_id');
@@ -674,6 +690,143 @@ function drawLotteryWinner() {
   }
 }
 
+// Fonctions pour gérer les effets temporaires des consommables
+
+// Ajouter un effet à un utilisateur
+function addUserEffect(userId, effectData) {
+  try {
+    const guildId = effectData.guildId || null;
+    const now = Date.now();
+    
+    const stmt = db.prepare(`
+      INSERT INTO user_effects (user_id, guild_id, effect, value, uses, expires_at, description, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    
+    stmt.run(
+      userId,
+      guildId,
+      effectData.effect,
+      effectData.value || null,
+      effectData.uses || 1,
+      effectData.expires_at || null,
+      effectData.description || '',
+      now
+    );
+    
+    console.log(`[Effects] Effet ${effectData.effect} ajouté pour l'utilisateur ${userId}`);
+    return true;
+  } catch (error) {
+    console.error('[Effects] Erreur lors de l\'ajout de l\'effet:', error);
+    return false;
+  }
+}
+
+// Récupérer tous les effets actifs d'un utilisateur
+function getUserEffects(userId, guildId = null) {
+  try {
+    const now = Date.now();
+    let stmt;
+    
+    if (guildId) {
+      stmt = db.prepare(`
+        SELECT * FROM user_effects 
+        WHERE user_id = ? AND guild_id = ? AND (expires_at IS NULL OR expires_at > ?)
+        ORDER BY created_at DESC
+      `);
+      return stmt.all(userId, guildId, now);
+    } else {
+      stmt = db.prepare(`
+        SELECT * FROM user_effects 
+        WHERE user_id = ? AND (expires_at IS NULL OR expires_at > ?)
+        ORDER BY created_at DESC
+      `);
+      return stmt.all(userId, now);
+    }
+  } catch (error) {
+    console.error('[Effects] Erreur lors de la récupération des effets:', error);
+    return [];
+  }
+}
+
+// Utiliser un effet (décrémenter les utilisations)
+function useEffect(userId, effectType, guildId = null) {
+  try {
+    const now = Date.now();
+    let stmt;
+    
+    if (guildId) {
+      stmt = db.prepare(`
+        UPDATE user_effects 
+        SET uses = uses - 1 
+        WHERE user_id = ? AND guild_id = ? AND effect = ? AND uses > 0 
+        AND (expires_at IS NULL OR expires_at > ?)
+      `);
+      const result = stmt.run(userId, guildId, effectType, now);
+      return result.changes > 0;
+    } else {
+      stmt = db.prepare(`
+        UPDATE user_effects 
+        SET uses = uses - 1 
+        WHERE user_id = ? AND effect = ? AND uses > 0 
+        AND (expires_at IS NULL OR expires_at > ?)
+      `);
+      const result = stmt.run(userId, effectType, now);
+      return result.changes > 0;
+    }
+  } catch (error) {
+    console.error('[Effects] Erreur lors de l\'utilisation de l\'effet:', error);
+    return false;
+  }
+}
+
+// Supprimer les effets expirés (nettoyage)
+function cleanupExpiredEffects() {
+  try {
+    const now = Date.now();
+    const stmt = db.prepare('DELETE FROM user_effects WHERE expires_at IS NOT NULL AND expires_at <= ?');
+    const result = stmt.run(now);
+    
+    if (result.changes > 0) {
+      console.log(`[Effects] Nettoyage de ${result.changes} effets expirés`);
+    }
+    
+    return result.changes;
+  } catch (error) {
+    console.error('[Effects] Erreur lors du nettoyage des effets expirés:', error);
+    return 0;
+  }
+}
+
+// Vérifier si un utilisateur a un effet actif
+function hasActiveEffect(userId, effectType, guildId = null) {
+  try {
+    const now = Date.now();
+    let stmt;
+    
+    if (guildId) {
+      stmt = db.prepare(`
+        SELECT COUNT(*) as count FROM user_effects 
+        WHERE user_id = ? AND guild_id = ? AND effect = ? 
+        AND (expires_at IS NULL OR expires_at > ?) AND uses > 0
+      `);
+      const result = stmt.get(userId, guildId, effectType, now);
+      return result.count > 0;
+    } else {
+      stmt = db.prepare(`
+        SELECT COUNT(*) as count FROM user_effects 
+        WHERE user_id = ? AND effect = ? 
+        AND (expires_at IS NULL OR expires_at > ?) AND uses > 0
+      `);
+      const result = stmt.get(userId, effectType, now);
+      return result.count > 0;
+    }
+  } catch (error) {
+    console.error('[Effects] Erreur lors de la vérification de l\'effet:', error);
+    return false;
+  }
+}
+
 module.exports = {
   db,
   ensureUser,
@@ -698,5 +851,11 @@ module.exports = {
   getSpecialBalance,
   updateSpecialBalance,
   addSpecialWinnings,
-  addSpecialWagered
+  addSpecialWagered,
+  // Fonctions pour les effets temporaires
+  addUserEffect,
+  getUserEffects,
+  useEffect,
+  cleanupExpiredEffects,
+  hasActiveEffect
 };

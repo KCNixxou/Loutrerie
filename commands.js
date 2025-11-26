@@ -200,6 +200,15 @@ const commands = [
     .setDescription('Voir la boutique '),
 
   new SlashCommandBuilder()
+    .setName('effets')
+    .setDescription('Voir vos effets temporaires actifs')
+    .addUserOption(option =>
+      option.setName('utilisateur')
+        .setDescription('Voir les effets d\'un autre utilisateur')
+        .setRequired(false)
+    ),
+
+  new SlashCommandBuilder()
     .setName('acheter')
     .setDescription('Acheter un item de la boutique')
     .addStringOption(option =>
@@ -207,19 +216,27 @@ const commands = [
         .setDescription('Item à acheter')
         .setRequired(true)
         .addChoices(
-          { name: 'Bébé BDG (10,000 )', value: 'bdgBaby' },
-          { name: 'Petit BDG (50,000 )', value: 'bdgPetit' },
-          { name: 'Gros BDG (200,000 )', value: 'bdgGros' },
-          { name: 'BDG Ultime (1,000,000 )', value: 'bdgUltime' },
-          { name: 'Bébé BDH (10,000 )', value: 'bdhBaby' },
-          { name: 'Petit BDH (50,000 )', value: 'bdhPetit' },
-          { name: 'Gros BDH (200,000 )', value: 'bdhGros' },
-          { name: 'BDH Ultime (1,000,000 )', value: 'bdhUltime' },
-          { name: 'VIP (10,000 )', value: 'vip' },
-          { name: 'Super VIP (20,000 )', value: 'superVip' },
-          { name: 'Changement de couleurs (10,000 )', value: 'colorChange' },
-          { name: 'Surprise Mystère #1 (100,000 )', value: 'surprise1' },
-          { name: 'Surprise Mystère #2 (100,000 )', value: 'surprise2' }
+          // Rôles BDG
+          { name: '👶 Bébé BDG (10,000 🐚)', value: 'bdgBaby' },
+          { name: '🚶 Petit BDG (50,000 🐚)', value: 'bdgPetit' },
+          { name: '💪 Gros BDG (200,000 🐚)', value: 'bdgGros' },
+          { name: '👑 BDG Ultime (1,000,000 🐚)', value: 'bdgUltime' },
+          // Rôles BDH
+          { name: '👶 Bébé BDH (10,000 🐚)', value: 'bdhBaby' },
+          { name: '🚶 Petit BDH (50,000 🐚)', value: 'bdhPetit' },
+          { name: '💪 Gros BDH (200,000 🐚)', value: 'bdhGros' },
+          { name: '👑 BDH Ultime (1,000,000 🐚)', value: 'bdhUltime' },
+          // Article classique
+          { name: '🎨 Changement de couleurs (10,000 🐚)', value: 'colorChange' },
+          // Nouveaux items thématiques
+          { name: '🧠 BOOSTS & AVANTAGES (50,000 🐚)', value: 'boosts' },
+          { name: '🧪 Sérum de Chance (70,000 🐚)', value: 'serumChance' },
+          { name: '🫀 Cœur de Remplacement (15,000 🐚)', value: 'coeurRemplacement' },
+          { name: '🔪 Jeton "Double Ou Crève" (12,500 🐚)', value: 'jetonDouble' },
+          { name: '🩸 Pack Saignée (100,000 🐚)', value: 'packSaignee' },
+          { name: '📦 Boîte à Organes (35,000 🐚)', value: 'boiteOrganes' },
+          { name: '🕯️ Entrée à la Messe Noire Mensuelle (150,000 🐚)', value: 'messeNoire' },
+          { name: '💉 Patient·e VIP 7 jours (200,000 🐚)', value: 'patientVip' }
         )
     ),
 

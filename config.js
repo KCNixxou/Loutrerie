@@ -30,19 +30,112 @@ const defaultConfig = {
     ]
   },
   shop: {
-    vip: { price: 10000, name: 'VIP' },
-    superVip: { price: 20000, name: 'Super VIP' },
-    colorChange: { price: 10000, name: 'Changement de couleurs' },
-    surprise1: { price: 100000, name: 'Surprise Mystère #1' },
-    surprise2: { price: 100000, name: 'Surprise Mystère #2' },
-    bdgBaby: { price: 10000, name: 'Bébé BDG', role: 'Bébé BDG', dailyReward: 500 },
-    bdgPetit: { price: 50000, name: 'Petit BDG', role: 'Petit BDG', dailyReward: 1000 },
-    bdgGros: { price: 200000, name: 'Gros BDG', role: 'Gros BDG', dailyReward: 5000 },
-    bdgUltime: { price: 1000000, name: 'BDG Ultime', role: 'BDG Ultime', dailyReward: 20000 },
-    bdhBaby: { price: 10000, name: 'Bébé BDH', role: 'Bébé BDH', dailyReward: 500 },
-    bdhPetit: { price: 50000, name: 'Petit BDH', role: 'Petit BDH', dailyReward: 1000 },
-    bdhGros: { price: 200000, name: 'Gros BDH', role: 'Gros BDH', dailyReward: 5000 },
-    bdhUltime: { price: 1000000, name: 'BDH Ultime', role: 'BDH Ultime', dailyReward: 20000 }
+    // Rôles BDG existants
+    bdgBaby: { price: 10000, name: '👶 Bébé BDG', role: 'Bébé BDG', dailyReward: 500 },
+    bdgPetit: { price: 50000, name: '🚶 Petit BDG', role: 'Petit BDG', dailyReward: 1000 },
+    bdgGros: { price: 200000, name: '💪 Gros BDG', role: 'Gros BDG', dailyReward: 5000 },
+    bdgUltime: { price: 1000000, name: '👑 BDG Ultime', role: 'BDG Ultime', dailyReward: 20000 },
+    
+    // Rôles BDH existants
+    bdhBaby: { price: 10000, name: '👶 Bébé BDH', role: 'Bébé BDH', dailyReward: 500 },
+    bdhPetit: { price: 50000, name: '🚶 Petit BDH', role: 'Petit BDH', dailyReward: 1000 },
+    bdhGros: { price: 200000, name: '💪 Gros BDH', role: 'Gros BDH', dailyReward: 5000 },
+    bdhUltime: { price: 1000000, name: '👑 BDH Ultime', role: 'BDH Ultime', dailyReward: 20000 },
+    
+    // Article classique
+    colorChange: { price: 10000, name: '🎨 Changement de couleurs', role: null, description: 'Personnalise tes couleurs sur le serveur' },
+    
+    // Nouveaux items thématiques
+    boosts: {
+      price: 50000,
+      name: '🧠 BOOSTS & AVANTAGES',
+      emoji: '🧠',
+      description: 'Améliore tes capacités de jeu',
+      type: 'boost'
+    },
+    
+    serumChance: {
+      price: 70000,
+      name: '🧪 Sérum de Chance',
+      emoji: '🧪',
+      description: '+15% de gains au casino pendant 24h',
+      type: 'consumable',
+      duration: 86400000, // 24h en ms
+      effect: 'casino_bonus',
+      value: 0.15
+    },
+    
+    coeurRemplacement: {
+      price: 15000,
+      name: '🫀 Cœur de Remplacement',
+      emoji: '🫀',
+      description: 'Annule une perte importante (1 fois)',
+      type: 'consumable',
+      effect: 'loss_protection',
+      uses: 1
+    },
+    
+    jetonDouble: {
+      price: 12500,
+      name: '🔪 Jeton "Double Ou Crève"',
+      emoji: '🔪',
+      description: 'Double tes gains sur un jeu… ou tu perds tout',
+      type: 'consumable',
+      effect: 'double_or_nothing',
+      uses: 1
+    },
+    
+    packSaignee: {
+      price: 100000,
+      name: '🩸 Pack Saignée',
+      emoji: '🩸',
+      description: 'Gains x2 pendant 1 heure',
+      type: 'consumable',
+      duration: 3600000, // 1h en ms
+      effect: 'double_winnings',
+      value: 2.0
+    },
+    
+    boiteOrganes: {
+      price: 35000,
+      name: '📦 Boîte à Organes',
+      emoji: '📦',
+      description: 'Contient une récompense aléatoire (bonus, gains, items rares)',
+      type: 'mystery_box',
+      rewards: [
+        10000, // 10% - 1 entrée
+        25000, // 35% - 3.5 entrées
+        25000, // 35% - 3.5 entrées  
+        25000, // 35% - 3.5 entrées
+        25000, // 35% - 3.5 entrées
+        50000, // 35% - 3.5 entrées
+        50000, // 35% - 3.5 entrées
+        50000, // 35% - 3.5 entrées
+        50000, // 35% - 3.5 entrées
+        100000, // 10% - 1 entrée
+        'serumChance', // 5% - 0.5 entrée
+        'packSaignee'  // 5% - 0.5 entrée
+      ]
+    },
+    
+    messeNoire: {
+      price: 150000,
+      name: '🕯️ Entrée à la Messe Noire Mensuelle',
+      emoji: '🕯️',
+      description: 'Tirage spécial avec gros lots',
+      type: 'event_access',
+      effect: 'monthly_lottery'
+    },
+    
+    patientVip: {
+      price: 200000,
+      name: '💉 Patient·e VIP (7 jours)',
+      emoji: '💉',
+      description: 'Couleur exclusive + accès chambre isolée',
+      type: 'vip_temporary',
+      duration: 604800000, // 7 jours en ms
+      effect: 'temporary_vip'
+    }
   },
   missions: {
     daily: [

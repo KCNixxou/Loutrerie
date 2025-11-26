@@ -1,6 +1,6 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const config = require('../config');
-const { ensureUser, updateUser } = require('../database');
+const { ensureUser, updateUser, getUserEffects, useEffect, hasActiveEffect } = require('../database');
 
 // Variables pour stocker les parties en cours
 const activeBlackjackGames = new Map();
@@ -16,6 +16,33 @@ const CARD_EMOJIS = {
   'D': '♦️', // Carreaux
   'C': '♣️'  // Trèfles
 };
+
+// Fonctions pour les effets temporaires
+function calculateEffectMultiplier(userId, guildId) {
+  const effects = getUserEffects(userId, guildId);
+  let multiplier = 1.0;
+  
+  effects.forEach(effect => {
+    switch (effect.effect) {
+      case 'casino_bonus':
+        multiplier *= (1 + effect.value); // +15% par défaut
+        break;
+      case 'double_winnings':
+        multiplier *= effect.value; // x2 par défaut
+        break;
+    }
+  });
+  
+  return multiplier;
+}
+
+function checkLossProtection(userId, guildId, lossAmount) {
+  if (hasActiveEffect(userId, 'loss_protection', guildId)) {
+    useEffect(userId, 'loss_protection', guildId);
+    return true;
+  }
+  return false;
+}
 
 // Fonction pour démarrer une nouvelle partie de blackjack
 async function handleBlackjackStart(interaction) {
@@ -291,6 +318,7 @@ async function playDealerTurn(gameState, interaction) {
   gameState.isGameOver = true;
   let totalWinnings = 0;
   let resultLines = [];
+  const effectMultiplier = calculateEffectMultiplier(gameState.userId, gameState.guildId);
 
   gameState.playerHands.forEach((hand, index) => {
     const status = gameState.handStatuses[index];
@@ -298,22 +326,40 @@ async function playDealerTurn(gameState, interaction) {
     const score = calculateHandValue(hand);
 
     if (status === 'bust') {
-      resultLines.push(`Main ${index + 1}: **BUST** (perdu)`);
+      // Vérifier la protection contre les pertes
+      const hasProtection = checkLossProtection(gameState.userId, gameState.guildId, bet);
+      if (hasProtection) {
+        totalWinnings += bet; // Rembourser la mise
+        resultLines.push(`Main ${index + 1}: **BUST** → 🫀 Cœur de Remplacement activé ! (mise remboursée)`);
+      } else {
+        resultLines.push(`Main ${index + 1}: **BUST** (perdu)`);
+      }
       return;
     }
 
     if (gameState.dealerScore > 21) {
       // Croupier bust: joueur gagne 1:1
-      const winnings = bet * 2; // mise retournée + gain égal à la mise
+      let winnings = bet * 2; // mise retournée + gain égal à la mise
+      winnings = Math.floor(winnings * effectMultiplier);
       totalWinnings += winnings;
-      resultLines.push(`Main ${index + 1}: Croupier BUST → gagné (+${winnings} ${config.currency.emoji})`);
+      const bonusText = effectMultiplier > 1 ? ` (x${effectMultiplier.toFixed(2)})` : '';
+      resultLines.push(`Main ${index + 1}: Croupier BUST → gagné (+${winnings} ${config.currency.emoji}${bonusText})`);
     } else if (score > gameState.dealerScore) {
       // Joueur gagne 1:1
-      const winnings = bet * 2;
+      let winnings = bet * 2;
+      winnings = Math.floor(winnings * effectMultiplier);
       totalWinnings += winnings;
-      resultLines.push(`Main ${index + 1}: ${score} contre ${gameState.dealerScore} → gagné (+${winnings} ${config.currency.emoji})`);
+      const bonusText = effectMultiplier > 1 ? ` (x${effectMultiplier.toFixed(2)})` : '';
+      resultLines.push(`Main ${index + 1}: ${score} contre ${gameState.dealerScore} → gagné (+${winnings} ${config.currency.emoji}${bonusText})`);
     } else if (score < gameState.dealerScore) {
-      resultLines.push(`Main ${index + 1}: ${score} contre ${gameState.dealerScore} → perdu`);
+      // Vérifier la protection contre les pertes
+      const hasProtection = checkLossProtection(gameState.userId, gameState.guildId, bet);
+      if (hasProtection) {
+        totalWinnings += bet; // Rembourser la mise
+        resultLines.push(`Main ${index + 1}: ${score} contre ${gameState.dealerScore} → 🫀 Cœur de Remplacement activé ! (mise remboursée)`);
+      } else {
+        resultLines.push(`Main ${index + 1}: ${score} contre ${gameState.dealerScore} → perdu`);
+      }
     } else {
       // Égalité: on rend la mise (push)
       totalWinnings += bet;

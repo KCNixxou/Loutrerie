@@ -1,45 +1,84 @@
 const { EmbedBuilder } = require('discord.js');
+const { ensureUser, updateUser, getUserEffects, addUserEffect } = require('../database');
 
-// Gestion de la boutique
+// Gestion de la boutique et des effets temporaires
 
 // Fonction pour gérer l'affichage de la boutique
 async function handleShop(interaction) {
     try {
         const shopItems = interaction.client.config.shop;
         
-        // Log pour déboguer
-        console.log('Articles disponibles dans la boutique:', Object.keys(shopItems));
-        
-        // Créer un embed pour la boutique
+        // Créer un embed pour la boutique avec style thématique
         const embed = new EmbedBuilder()
-            .setTitle('🛍️ Boutique de la Loutrerie')
-            .setDescription('Utilisez la commande `/acheter` avec le nom de l\'article pour effectuer un achat.')
-            .setColor(0x00bfff);
+            .setTitle('🏥 **BOUTIQUE DE LA LOUTRERIE** 🏥')
+            .setDescription('Bienvenue dans notre boutique médicale... Utilisez `/acheter` avec le nom de l\'article pour effectuer un achat.')
+            .setColor(0x8B0000) // Rouge sang
+            .setThumbnail('https://emoji.discord.stickers/🏥.png');
         
-        // Catégorie des rôles BDG
+        // Catégorie BOOSTS & AVANTAGES
+        const boostItems = Object.entries(shopItems)
+            .filter(([key, item]) => item.type === 'boost' || key === 'boosts')
+            .map(([key, item]) => {
+                const emoji = item.emoji || '🧠';
+                return `${emoji} **${item.name}** - ${item.price.toLocaleString()} ${interaction.client.config.currency.emoji}\n   *${item.description}*`;
+            })
+            .join('\n\n');
+        
+        // Catégorie CONSOMMABLES
+        const consumableItems = Object.entries(shopItems)
+            .filter(([key, item]) => item.type === 'consumable')
+            .map(([key, item]) => {
+                const emoji = item.emoji || '💊';
+                return `${emoji} **${item.name}** - ${item.price.toLocaleString()} ${interaction.client.config.currency.emoji}\n   *${item.description}*`;
+            })
+            .join('\n\n');
+        
+        // Catégorie SPÉCIAL
+        const specialItems = Object.entries(shopItems)
+            .filter(([key, item]) => ['mystery_box', 'event_access', 'vip_temporary'].includes(item.type))
+            .map(([key, item]) => {
+                const emoji = item.emoji || '🎁';
+                return `${emoji} **${item.name}** - ${item.price.toLocaleString()} ${interaction.client.config.currency.emoji}\n   *${item.description}*`;
+            })
+            .join('\n\n');
+        
+        // Ajouter les champs à l'embed
+        if (boostItems) {
+            embed.addFields({
+                name: '🧠 BOOSTS & AVANTAGES',
+                value: boostItems,
+                inline: false
+            });
+        }
+        
+        if (consumableItems) {
+            embed.addFields({
+                name: '💊 CONSOMMABLES',
+                value: consumableItems,
+                inline: false
+            });
+        }
+        
+        if (specialItems) {
+            embed.addFields({
+                name: '🎁 ARTICLES SPÉCIAUX',
+                value: specialItems,
+                inline: false
+            });
+        }
+        
+        // Catégorie des rôles BDG (existants)
         const bdgItems = Object.entries(shopItems)
             .filter(([key]) => key.startsWith('bdg'))
             .map(([_, item]) => `• **${item.name}** - ${item.price.toLocaleString()} ${interaction.client.config.currency.emoji}`)
             .join('\n');
         
-        // Catégorie des rôles BDH
+        // Catégorie des rôles BDH (existants)
         const bdhItems = Object.entries(shopItems)
             .filter(([key]) => key.startsWith('bdh'))
-            .map(([key, item]) => {
-                console.log(`Article BDH trouvé: ${key} - ${item.name}`);
-                return `• **${item.name}** - ${item.price.toLocaleString()} ${interaction.client.config.currency.emoji}`;
-            })
-            .join('\n');
-            
-        console.log('Articles BDH formatés:', bdhItems);
-        
-        // Autres articles
-        const otherItems = Object.entries(shopItems)
-            .filter(([key]) => !key.startsWith('bdg') && !key.startsWith('bdh'))
             .map(([_, item]) => `• **${item.name}** - ${item.price.toLocaleString()} ${interaction.client.config.currency.emoji}`)
             .join('\n');
         
-        // Ajouter les champs à l'embed
         if (bdgItems) {
             embed.addFields({
                 name: '🏆 Rôles BDG',
@@ -48,29 +87,26 @@ async function handleShop(interaction) {
             });
         }
         
-        if (bdhItems && bdhItems.length > 0) {
-            console.log('Ajout des rôles BDH à l\'embed');
+        if (bdhItems) {
             embed.addFields({
                 name: '🏆 Rôles BDH',
                 value: bdhItems,
-                inline: false
-            });
-        } else {
-            console.log('Aucun rôle BDH à afficher');
-        }
-        
-        if (otherItems) {
-            embed.addFields({
-                name: '🎁 Autres articles',
-                value: otherItems,
                 inline: false
             });
         }
         
         // Ajouter le solde de l'utilisateur
         const user = interaction.client.database.ensureUser(interaction.user.id, interaction.guild.id);
+        const userEffects = getUserEffects(interaction.user.id);
+        const activeEffects = userEffects.filter(effect => effect.expires_at > Date.now());
+        
+        let footerText = `Solde: ${user.balance || 0} ${interaction.client.config.currency.emoji}`;
+        if (activeEffects.length > 0) {
+            footerText += ` | ${activeEffects.length} effet(s) actif(s)`;
+        }
+        
         embed.setFooter({ 
-            text: `Votre solde: ${user.balance || 0} ${interaction.client.config.currency.emoji}`,
+            text: footerText,
             iconURL: interaction.user.displayAvatarURL()
         });
         
@@ -86,6 +122,78 @@ async function handleShop(interaction) {
             ephemeral: true
         });
     }
+}
+
+// Fonction pour appliquer les effets des consommables
+function applyConsumableEffect(userId, item, interaction) {
+    const now = Date.now();
+    
+    switch (item.effect) {
+        case 'casino_bonus':
+            // +15% de gains au casino pendant 24h
+            addUserEffect(userId, {
+                effect: 'casino_bonus',
+                value: item.value,
+                expires_at: now + item.duration,
+                description: `+${(item.value * 100)}% de gains au casino`
+            });
+            return `✅ **${item.name}** activé ! Vos gains au casino sont augmentés de 15% pendant 24h.`;
+            
+        case 'loss_protection':
+            // Protection contre une perte importante
+            addUserEffect(userId, {
+                effect: 'loss_protection',
+                uses: item.uses,
+                description: 'Protection contre une perte importante'
+            });
+            return `✅ **${item.name}** équipé ! Votre prochaine perte importante sera annulée.`;
+            
+        case 'double_or_nothing':
+            // Jeton double ou crève
+            addUserEffect(userId, {
+                effect: 'double_or_nothing',
+                uses: item.uses,
+                description: 'Double ou crève activé'
+            });
+            return `✅ **${item.name}** équipé ! Utilisez-le lors de votre prochain jeu pour doubler vos gains... ou tout perdre.`;
+            
+        case 'double_winnings':
+            // Gains x2 pendant 1h
+            addUserEffect(userId, {
+                effect: 'double_winnings',
+                value: item.value,
+                expires_at: now + item.duration,
+                description: `Gains x${item.value} pendant 1 heure`
+            });
+            return `✅ **${item.name}** activé ! Vos gains sont multipliés par 2 pendant 1 heure.`;
+            
+        default:
+            return `✅ **${item.name}** acheté !`;
+    }
+}
+
+// Fonction pour ouvrir une boîte mystère
+function openMysteryBox(userId, item, interaction) {
+    const rewards = item.rewards;
+    const randomReward = rewards[Math.floor(Math.random() * rewards.length)];
+    
+    let rewardText = '';
+    
+    if (typeof randomReward === 'number') {
+        // Récompense en argent
+        const user = ensureUser(userId);
+        updateUser(userId, { balance: user.balance + randomReward });
+        rewardText = `Vous avez gagné **${randomReward}** ${interaction.client.config.currency.emoji} !`;
+    } else {
+        // Récompense en item
+        const rewardItem = interaction.client.config.shop[randomReward];
+        if (rewardItem) {
+            applyConsumableEffect(userId, rewardItem, interaction);
+            rewardText = `Vous avez gagné **${rewardItem.name}** !`;
+        }
+    }
+    
+    return `🎉 **${item.name}** ouverte !\n${rewardText}`;
 }
 
 // Fonction pour gérer les achats de manière sécurisée
@@ -121,7 +229,51 @@ async function handlePurchase(interaction) {
             return interaction.reply(reply);
         }
         
-        // Vérification des rôles existants
+        // Gérer les différents types d'items
+        if (item.type === 'consumable') {
+            // Consommable - appliquer l'effet directement
+            const updateResult = interaction.client.database.updateUser(userId, {
+                balance: user.balance - item.price
+            });
+            
+            if (updateResult) {
+                const effectMessage = applyConsumableEffect(userId, item, interaction);
+                reply.content = effectMessage;
+                console.log(`[Achat] Consommable ${item.name} utilisé par ${interaction.user.tag}`);
+            } else {
+                reply.content = '❌ Erreur lors de la transaction.';
+            }
+            
+            return interaction.reply(reply);
+            
+        } else if (item.type === 'mystery_box') {
+            // Boîte mystère - ouvrir immédiatement
+            const updateResult = interaction.client.database.updateUser(userId, {
+                balance: user.balance - item.price
+            });
+            
+            if (updateResult) {
+                const boxMessage = openMysteryBox(userId, item, interaction);
+                reply.content = boxMessage;
+                console.log(`[Achat] Boîte mystère ${item.name} ouverte par ${interaction.user.tag}`);
+            } else {
+                reply.content = '❌ Erreur lors de la transaction.';
+            }
+            
+            return interaction.reply(reply);
+            
+        } else if (item.type === 'event_access' || item.type === 'vip_temporary') {
+            // Accès événement ou VIP temporaire - à implémenter plus tard
+            reply.content = `⚠️ **${item.name}** sera bientôt disponible ! Cet article est en cours de développement.`;
+            return interaction.reply(reply);
+            
+        } else if (item.type === 'boost') {
+            // Item de boost - information pour le moment
+            reply.content = `ℹ️ **${item.name}** - ${item.description}\n\nCet article donne accès à des avantages permanents. Contactez un administrateur pour l'activer.`;
+            return interaction.reply(reply);
+        }
+        
+        // Pour les rôles BDG/BDH (gestion existante)
         const roleType = itemId.startsWith('bdg') ? 'BDG' : itemId.startsWith('bdh') ? 'BDH' : null;
         if (roleType) {
             const existingRole = member.roles.cache.find(role => role.name.includes(roleType));
@@ -162,7 +314,7 @@ async function handlePurchase(interaction) {
             return interaction.reply(reply);
         }
         
-        // Début de la transaction
+        // Début de la transaction pour les rôles
         try {
             // 1. Mise à jour du solde utilisateur
             console.log(`[Achat] Mise à jour du solde: ${user.balance} -> ${user.balance - item.price}`);
@@ -195,7 +347,6 @@ async function handlePurchase(interaction) {
                     console.log('[Achat] Remboursement effectué');
                 } catch (refundError) {
                     console.error('[Achat] Échec du remboursement:', refundError);
-                    // Log l'erreur pour suivi manuel si nécessaire
                 }
             }
             

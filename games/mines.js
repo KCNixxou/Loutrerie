@@ -1,6 +1,6 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const config = require('../config');
-const { ensureUser, updateUser } = require('../database');
+const { ensureUser, updateUser, getUserEffects, useEffect, hasActiveEffect } = require('../database');
 
 // Objet pour stocker les parties en cours
 // Utilise l'ID du message comme clé pour permettre plusieurs parties en même temps
@@ -125,6 +125,9 @@ function createGridComponents(gameState, showAll = false) {
 // Créer l'embed du jeu
 function createGameEmbed(gameState, interaction) {
   const winAmount = calculateCurrentWin(gameState);
+  const effects = getUserEffects(gameState.userId, gameState.guildId);
+  const effectMultiplier = calculateEffectMultiplier(gameState.userId, gameState.guildId);
+  
   const embed = new EmbedBuilder()
     .setTitle('💎 Jeu des Mines')
     .setDescription(`Cliquez sur les cases pour trouver des gemmes !\nChaque gemme augmente vos gains, mais attention aux mines...`)
@@ -139,6 +142,31 @@ function createGameEmbed(gameState, interaction) {
       text: `Joueur: ${interaction.user.username}`, 
       iconURL: interaction.user.displayAvatarURL() 
     });
+  
+  // Ajouter les effets actifs s'il y en a
+  if (effects.length > 0) {
+    const effectDescriptions = effects.map(effect => {
+      const timeLeft = effect.expires_at ? Math.floor((effect.expires_at - Date.now()) / 1000 / 60) : null;
+      const timeText = timeLeft ? ` (${timeLeft}min)` : '';
+      const usesText = effect.uses > 0 ? ` (${effect.uses}x)` : '';
+      return `🔮 ${effect.description || effect.effect}${timeText}${usesText}`;
+    }).join('\n');
+    
+    embed.addFields({
+      name: '💊 Effets actifs',
+      value: effectDescriptions,
+      inline: false
+    });
+    
+    // Ajouter le multiplicateur total si > 1
+    if (effectMultiplier > 1.0) {
+      embed.addFields({
+        name: '✨ Multiplicateur total',
+        value: `x${effectMultiplier.toFixed(2)}`,
+        inline: true
+      });
+    }
+  }
     
   if (gameState.gameOver) {
     // Récupérer le solde actuel de l'utilisateur
@@ -155,19 +183,33 @@ function createGameEmbed(gameState, interaction) {
            .setFields([])
            .setColor(CASH_OUT_EMBED_COLOR);
     } else {
-      // En cas de perte, la mise a déjà été déduite au début de la partie
+      // En cas de perte, vérifier la protection contre les pertes
       const originalBet = gameState.originalBet || gameState.bet;
-      // Récupérer le solde actuel pour l'affichage
       const guildId = gameState.guildId || interaction.guildId || null;
-const currentUser = ensureUser(gameState.userId, guildId);
+      const currentUser = ensureUser(gameState.userId, guildId);
       
-      embed.setTitle('💥 BOOM !')
-           .setDescription(
-             `Vous avez cliqué sur une mine ! Votre mise de **${originalBet}** ${config.currency.emoji} est perdue.\n` +
-             `💵 Votre solde actuel : **${currentUser.balance}** ${config.currency.emoji}`
-           )
-           .setFields([])
-           .setColor(GAME_OVER_EMBED_COLOR);
+      // Vérifier si l'utilisateur a une protection contre les pertes
+      const hasProtection = checkLossProtection(gameState.userId, guildId, originalBet);
+      
+      if (hasProtection) {
+        // Protection appliquée : rembourser la mise
+        updateUser(gameState.userId, guildId, { balance: currentUser.balance + originalBet });
+        
+        embed.setTitle('🫀 Cœur de Remplacement Activé !')
+             .setDescription(
+               `💥 BOOM ! Vous avez cliqué sur une mine, mais votre **Cœur de Remplacement** a protégé votre mise !\n` +
+               `💰 Votre mise de **${originalBet}** ${config.currency.emoji} a été remboursée.\n` +
+               `💵 Votre solde actuel : **${currentUser.balance + originalBet}** ${config.currency.emoji}`
+             )
+             .setColor(0xFF6B6B); // Couleur spéciale pour la protection
+      } else {
+        embed.setTitle('💥 BOOM !')
+             .setDescription(
+               `Vous avez cliqué sur une mine ! Votre mise de **${originalBet}** ${config.currency.emoji} est perdue.\n` +
+               `💵 Votre solde actuel : **${currentUser.balance}** ${config.currency.emoji}`
+             )
+             .setColor(GAME_OVER_EMBED_COLOR);
+      }
     }
   }
   
@@ -203,7 +245,36 @@ function revealCell(gameState, x, y) {
   console.log('Nombre de cases révélées:', gameState.revealedCount);
 }
 
-// Calculer les gains actuels
+// Fonction pour calculer les multiplicateurs d'effets temporaires
+function calculateEffectMultiplier(userId, guildId) {
+  const effects = getUserEffects(userId, guildId);
+  let multiplier = 1.0;
+  
+  effects.forEach(effect => {
+    switch (effect.effect) {
+      case 'casino_bonus':
+        multiplier *= (1 + effect.value); // +15% par défaut
+        break;
+      case 'double_winnings':
+        multiplier *= effect.value; // x2 par défaut
+        break;
+    }
+  });
+  
+  return multiplier;
+}
+
+// Fonction pour vérifier et utiliser la protection contre les pertes
+function checkLossProtection(userId, guildId, lossAmount) {
+  if (hasActiveEffect(userId, 'loss_protection', guildId)) {
+    // Utiliser l'effet de protection
+    useEffect(userId, 'loss_protection', guildId);
+    return true; // Protection appliquée
+  }
+  return false; // Pas de protection
+}
+
+// Calculer les gains actuels avec effets
 function calculateCurrentWin(gameState) {
   if (gameState.revealedCount === 0) return 0;
   
@@ -218,7 +289,11 @@ function calculateCurrentWin(gameState) {
     multiplier = MULTIPLIERS[baseIndex] + (additionalGems * 0.5);
   }
   
-  return Math.floor(gameState.bet * multiplier);
+  // Appliquer les effets temporaires
+  const effectMultiplier = calculateEffectMultiplier(gameState.userId, gameState.guildId);
+  const finalMultiplier = multiplier * effectMultiplier;
+  
+  return Math.floor(gameState.bet * finalMultiplier);
 }
 
 // Commande pour démarrer une nouvelle partie
