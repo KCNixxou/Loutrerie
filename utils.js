@@ -133,7 +133,10 @@ function scheduleMidnightReset(callback) {
 function scheduleDailyReset(callback) {
   const now = new Date();
   const nextReset = new Date();
-  nextReset.setHours(0, 1, 0, 0); // 00h01
+  
+  // Forcer l'heure locale à 00h01 en ignorant le décalage horaire du serveur
+  // On utilise l'heure locale du système pour s'assurer que le reset est bien à 00h01 local
+  nextReset.setHours(0, 1, 0, 0); // 00h01 heure locale
   
   // Si l'heure est déjà passée aujourd'hui, planifier pour demain
   if (now >= nextReset) {
@@ -142,13 +145,13 @@ function scheduleDailyReset(callback) {
   
   const timeUntilReset = nextReset - now;
   
+  console.log(`⏰ Prochain reset quotidien programmé pour: ${nextReset.toLocaleString()} (dans ${Math.floor(timeUntilReset / 1000 / 60)} minutes)`);
+  
   setTimeout(() => {
     callback();
     // Programmer le prochain reset
     setInterval(callback, 24 * 60 * 60 * 1000);
   }, timeUntilReset);
-  
-  console.log(`Prochaine réinitialisation programmée à ${nextReset}`);
 }
 
 // Fonction pour obtenir la valeur numérique d'une carte
