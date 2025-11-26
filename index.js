@@ -1555,7 +1555,7 @@ async function handleGiveAdmin(interaction) {
 
     const targetUser = interaction.options.getUser('utilisateur');
     const amount = interaction.options.getInteger('montant');
-    const guildId = interaction.guild.id;
+    const guildId = interaction.guildId;
 
     // V�rifications de base
     if (!targetUser || amount === null) {
