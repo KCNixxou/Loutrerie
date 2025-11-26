@@ -561,7 +561,7 @@ async function handleHighLow(interaction, isSpecial = false) {
     }
     
     // Déduire la mise du solde normal
-    updateUser(userId, { balance: user.balance - bet });
+    updateUser(userId, guildId, { balance: user.balance - bet });
   }
   
   // Créer un nouvel ID de partie
@@ -571,6 +571,7 @@ async function handleHighLow(interaction, isSpecial = false) {
   const game = {
     id: gameId,
     userId,
+    guildId,
     isSpecial,
     deck: createDeck(),
     currentBet: bet,
