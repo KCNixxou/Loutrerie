@@ -142,7 +142,7 @@ function createGameEmbed(gameState, interaction) {
     
   if (gameState.gameOver) {
     // Récupérer le solde actuel de l'utilisateur
-    const guildId = gameState.guildId || interaction.guild?.id || null;
+    const guildId = gameState.guildId || interaction.guildId || null;
   const user = ensureUser(gameState.userId, guildId);
     
     if (gameState.won) {
@@ -158,7 +158,7 @@ function createGameEmbed(gameState, interaction) {
       // En cas de perte, la mise a déjà été déduite au début de la partie
       const originalBet = gameState.originalBet || gameState.bet;
       // Récupérer le solde actuel pour l'affichage
-      const guildId = gameState.guildId || interaction.guild?.id || null;
+      const guildId = gameState.guildId || interaction.guildId || null;
 const currentUser = ensureUser(gameState.userId, guildId);
       
       embed.setTitle('💥 BOOM !')
@@ -225,7 +225,7 @@ function calculateCurrentWin(gameState) {
 async function handleMinesCommand(interaction) {
   const bet = interaction.options.getInteger('mise');
   const minesCount = 3; // Nombre fixe de mines
-  const guildId = interaction.guild?.id || null;
+  const guildId = interaction.guildId || (interaction.guild && interaction.guild.id) || null;
 
   if (bet < 10) {
     return interaction.reply({ content: `La mise minimale est de 10 ${config.currency.emoji}.`, ephemeral: true });
@@ -354,11 +354,11 @@ async function handleMinesButtonInteraction(interaction) {
       gameState.winAmount = winAmount;
       
       // Récupérer le solde actuel de l'utilisateur
-      const user = ensureUser(interaction.user.id, gameState.guildId || interaction.guild?.id || null);
+      const user = ensureUser(interaction.user.id, gameState.guildId || interaction.guildId || null);
       // Les gains sont déjà calculés dans winAmount (qui inclut la mise initiale)
       console.log(`Cashout: Gains de ${winAmount} (déjà inclus la mise initiale)`);
       // Mettre à jour le solde (ne pas ajouter la mise deux fois)
-      updateUser(interaction.user.id, gameState.guildId || interaction.guild?.id || null, { balance: user.balance + winAmount });
+      updateUser(interaction.user.id, gameState.guildId || interaction.guildId || null, { balance: user.balance + winAmount });
       
       console.log('Mise à jour de l\'interface avec le cashout');
       

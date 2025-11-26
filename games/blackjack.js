@@ -22,7 +22,7 @@ async function handleBlackjackStart(interaction) {
   const bet = interaction.options.getInteger('mise');
   const sideBet = interaction.options.getInteger('sidebet') || 0;
   const userId = interaction.user.id;
-  const guildId = interaction.guild?.id || null;
+  const guildId = interaction.guildId || (interaction.guild && interaction.guild.id) || null;
   const user = ensureUser(userId, guildId);
 
   const totalCost = bet + sideBet;

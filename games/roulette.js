@@ -40,7 +40,7 @@ async function handleRouletteStart(interaction) {
   const bet = interaction.options.getInteger('mise');
   const choice = interaction.options.getString('choix');
   const userId = interaction.user.id;
-  const guildId = interaction.guild?.id || null;
+  const guildId = interaction.guildId || (interaction.guild && interaction.guild.id) || null;
   const user = ensureUser(userId, guildId);
 
   if (bet > user.balance) {

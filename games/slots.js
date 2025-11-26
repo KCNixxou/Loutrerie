@@ -26,7 +26,7 @@ const PAYOUTS = {
 async function handleSlots(interaction) {
   const bet = interaction.options.getInteger('mise');
   const userId = interaction.user.id;
-  const guildId = interaction.guild?.id || null;
+  const guildId = interaction.guildId || (interaction.guild && interaction.guild.id) || null;
   console.log(`[SLOTS] guildId utilisé: ${guildId} pour ${interaction.user.tag}`);
   const user = ensureUser(userId, guildId);
   console.log(`[SLOTS] solde lu: ${user.balance} pour ${interaction.user.tag}`);
