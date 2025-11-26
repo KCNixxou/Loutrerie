@@ -860,14 +860,22 @@ async function handleSlashCommand(interaction) {
       break;
 
     case 'classement':
-  try {
-    const type = interaction.options.getString('type');
-    const orderBy = type === 'xp' ? 'xp DESC' : 'balance DESC';
-    const guildId = interaction.guild.id;
+      try {
+        // La commande doit être utilisée dans un serveur
+        if (!interaction.guild) {
+          return interaction.reply({
+            content: '❌ Cette commande ne peut être utilisée que dans un serveur.',
+            ephemeral: true
+          });
+        }
 
-    const topUsers = db.prepare(
-      `SELECT * FROM users WHERE guild_id = ? ORDER BY ${orderBy} LIMIT 10`
-    ).all(guildId);
+        const type = interaction.options.getString('type');
+        const orderBy = type === 'xp' ? 'xp DESC' : 'balance DESC';
+        const guildId = interaction.guild.id;
+
+        const topUsers = db.prepare(
+          `SELECT * FROM users WHERE guild_id = ? ORDER BY ${orderBy} LIMIT 10`
+        ).all(guildId);
         
         let leaderboardText = '';
         topUsers.forEach((user, index) => {
