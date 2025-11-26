@@ -778,9 +778,10 @@ async function handleSlashCommand(interaction) {
       break;
       
     case 'daily':
-      const dailyUserId = interaction.user.id;
-      const dailyUser = ensureUser(dailyUserId);
-      const now = new Date();
+  const guildId = interaction.guild.id;
+  const dailyUserId = interaction.user.id;
+  const dailyUser = ensureUser(dailyUserId, guildId);
+  const now = new Date();
       let lastClaim = dailyUser.last_daily_claim || 0;
       const today = new Date(now);
       today.setHours(0, 0, 0, 0);
@@ -824,10 +825,10 @@ async function handleSlashCommand(interaction) {
       
       const newBalance = (dailyUser.balance || 0) + config.currency.dailyReward;
       
-      updateUser(dailyUserId, {
-        balance: newBalance,
-        last_daily_claim: Math.floor(now.getTime() / 1000)
-      });
+      updateUser(dailyUserId, guildId, {
+  balance: newBalance,
+  last_daily_claim: Math.floor(now.getTime() / 1000)
+});
       
       await interaction.reply({
         content: ` Tu as reçu ta récompense journalière de **${config.currency.dailyReward}** ${config.currency.emoji} !\nNouveau solde: **${newBalance}** ${config.currency.emoji}`
@@ -859,10 +860,14 @@ async function handleSlashCommand(interaction) {
       break;
 
     case 'classement':
-      try {
-        const type = interaction.options.getString('type');
-        const orderBy = type === 'xp' ? 'xp DESC' : 'balance DESC';
-        const topUsers = db.prepare(`SELECT * FROM users ORDER BY ${orderBy} LIMIT 10`).all();
+  try {
+    const type = interaction.options.getString('type');
+    const orderBy = type === 'xp' ? 'xp DESC' : 'balance DESC';
+    const guildId = interaction.guild.id;
+
+    const topUsers = db.prepare(
+      `SELECT * FROM users WHERE guild_id = ? ORDER BY ${orderBy} LIMIT 10`
+    ).all(guildId);
         
         let leaderboardText = '';
         topUsers.forEach((user, index) => {
@@ -1074,7 +1079,8 @@ async function handleResetDailyBdh(interaction) {
 async function handleDailyBdg(interaction) {
   try {
     const userId = interaction.user.id;
-    const member = interaction.member;
+const guildId = interaction.guild.id;
+const member = interaction.member;
     const currentTime = Math.floor(Date.now() / 1000);
     const oneDayInSeconds = 24 * 60 * 60;
     
@@ -1096,7 +1102,7 @@ async function handleDailyBdg(interaction) {
     }
     
     // Vérifier si l'utilisateur a déjà réclamé sa récompense aujourd'hui
-    const user = ensureUser(userId);
+    const user = ensureUser(userId, guildId);
     
     if (user.last_bdg_claim) {
       const lastClaim = new Date(user.last_bdg_claim * 1000);
@@ -1136,10 +1142,10 @@ async function handleDailyBdg(interaction) {
     // Mettre à jour le solde de l'utilisateur avec le timestamp actuel
     const newBalance = (user.balance || 0) + rewardAmount;
     const currentTimestamp = Math.floor(Date.now() / 1000);
-    updateUser(userId, { 
-      balance: newBalance,
-      last_bdg_claim: currentTimestamp
-    });
+    updateUser(userId, guildId, {
+  balance: newBalance,
+  last_bdg_claim: currentTimestamp
+});
 
     // Créer l'embed de confirmation
     const embed = new EmbedBuilder()
@@ -1172,6 +1178,7 @@ async function handleDailyBdg(interaction) {
 async function handleDailyBdh(interaction) {
   try {
     const userId = interaction.user.id;
+    const guildId = interaction.guild.id;
     const member = interaction.member;
     const currentTime = Math.floor(Date.now() / 1000);
     const oneDayInSeconds = 24 * 60 * 60;
@@ -1269,6 +1276,7 @@ async function handleDailyBdh(interaction) {
 async function handleGive(interaction) {
   try {
     const targetUser = interaction.options.getUser('utilisateur');
+    const guildId = interaction.guild.id;
     const amount = interaction.options.getInteger('montant');
     const giverId = interaction.user.id;
 
@@ -1306,7 +1314,7 @@ async function handleGive(interaction) {
     }
 
     // R�cup�rer les informations des utilisateurs
-    const giver = ensureUser(giverId);
+    const giver = ensureUser(giverId, guildId);
     const currentTime = Math.floor(Date.now() / 1000); // timestamp en secondes
     const oneDayInSeconds = 24 * 60 * 60;
 
@@ -1346,20 +1354,20 @@ async function handleGive(interaction) {
     }
 
     // Effectuer le transfert
-    const receiver = ensureUser(targetUser.id);
+    const receiver = ensureUser(targetUser.id, guildId);
     const receiverBalance = receiver.balance || 0;
     
     // Mise � jour du donneur avec le nouveau montant quotidien
-    updateUser(giverId, { 
-      balance: giverBalance - amount,
-      daily_given: newDailyGiven,
-      last_give_reset: currentTime
-    });
+    updateUser(giverId, guildId, { 
+  balance: giverBalance - amount,
+  daily_given: newDailyGiven,
+  last_give_reset: currentTime
+});
     
     // Mise � jour du receveur
-    updateUser(targetUser.id, { 
-      balance: receiverBalance + amount 
-    });
+    updateUser(targetUser.id, guildId, { 
+  balance: receiverBalance + amount 
+});
 
     // Cr�er et envoyer l'embed de confirmation
     const embed = new EmbedBuilder()
