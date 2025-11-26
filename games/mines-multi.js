@@ -320,7 +320,7 @@ async function handleMinesMultiInteraction(interaction) {
           
           // Mettre à jour les soldes dans la base de données
           console.log(`Mise à jour du solde du gagnant (${winner.id})...`);
-          await updateUserBalance(winner.id, gameState.bet + winnings);
+          await updateUserBalance(winner.id, gameState.bet + winnings, gameState.guildId);
           console.log('Solde mis à jour avec succès');
         } catch (error) {
           console.error('Erreur lors de la finalisation de la partie:', error);
@@ -405,13 +405,13 @@ async function handleMinesMultiInteraction(interaction) {
 }
 
 // Mettre à jour le solde d'un utilisateur
-async function updateUserBalance(userId, amount) {
+async function updateUserBalance(userId, amount, guildId) {
   try {
-    const user = ensureUser(userId);
+    const user = ensureUser(userId, guildId);
     const newBalance = user.balance + amount;
     
     // Mettre à jour la base de données via la fonction updateUser
-    await updateUser(userId, { balance: newBalance });
+    await updateUser(userId, guildId, { balance: newBalance });
     
     // Mettre à jour l'objet utilisateur localement
     user.balance = newBalance;

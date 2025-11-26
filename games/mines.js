@@ -142,7 +142,8 @@ function createGameEmbed(gameState, interaction) {
     
   if (gameState.gameOver) {
     // Récupérer le solde actuel de l'utilisateur
-    const user = ensureUser(interaction.user.id, guildId);
+    const guildId = gameState.guildId || interaction.guild?.id || null;
+  const user = ensureUser(gameState.userId, guildId);
     
     if (gameState.won) {
       // Pour un cashout, les gains sont déjà crédités
@@ -157,7 +158,8 @@ function createGameEmbed(gameState, interaction) {
       // En cas de perte, la mise a déjà été déduite au début de la partie
       const originalBet = gameState.originalBet || gameState.bet;
       // Récupérer le solde actuel pour l'affichage
-      const currentUser = ensureUser(gameState.userId);
+      const guildId = gameState.guildId || interaction.guild?.id || null;
+const currentUser = ensureUser(gameState.userId, guildId);
       
       embed.setTitle('💥 BOOM !')
            .setDescription(
@@ -229,7 +231,7 @@ async function handleMinesCommand(interaction) {
     return interaction.reply({ content: `La mise minimale est de 10 ${config.currency.emoji}.`, ephemeral: true });
   }
 
-  const user = ensureUser(interaction.user.id);
+  const user = ensureUser(interaction.user.id, guildId);
   if ((user.balance || 0) < bet) {
     return interaction.reply({ content: `Vous n'avez pas assez de ${config.currency.emoji} pour cette mise.`, ephemeral: true });
   }

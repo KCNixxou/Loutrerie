@@ -778,7 +778,6 @@ async function handleSlashCommand(interaction) {
       break;
       
     case 'daily':
-  const guildId = interaction.guild.id;
   const dailyUserId = interaction.user.id;
   const dailyUser = ensureUser(dailyUserId, guildId);
   const now = new Date();
@@ -929,8 +928,8 @@ async function handleSlashCommand(interaction) {
       const amount = interaction.options.getInteger('montant');
       
       // Vérifier que l'utilisateur existe dans la base de données et mettre à jour le solde
-      ensureUser(targetUser.id);
-      updateUser(targetUser.id, { balance: amount });
+      ensureUser(targetUser.id, guildId);
+      updateUser(targetUser.id, guildId, { balance: amount });
       
       await interaction.reply({
         content: ` Le solde de ${targetUser.tag} a été défini à **${amount}** ${config.currency.emoji}`,
@@ -1324,7 +1323,7 @@ async function handleGive(interaction) {
 
     if (currentTime - lastReset >= oneDayInSeconds) {
       dailyGiven = 0;
-      updateUser(giverId, {
+      updateUser(giverId, guildId, {
         daily_given: 0,
         last_give_reset: currentTime
       });
@@ -1556,6 +1555,7 @@ async function handleGiveAdmin(interaction) {
 
     const targetUser = interaction.options.getUser('utilisateur');
     const amount = interaction.options.getInteger('montant');
+    const guildId = interaction.guild.id;
 
     // V�rifications de base
     if (!targetUser || amount === null) {
@@ -1580,11 +1580,11 @@ async function handleGiveAdmin(interaction) {
     }
 
     // R�cup�rer les informations du receveur
-    const receiver = ensureUser(targetUser.id);
+    const receiver = ensureUser(targetUser.id, guildId);
     const receiverBalance = receiver.balance || 0;
     
     // Mise � jour du solde du receveur
-    updateUser(targetUser.id, { 
+    updateUser(targetUser.id, guildId, { 
       balance: receiverBalance + amount 
     });
 

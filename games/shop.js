@@ -68,7 +68,7 @@ async function handleShop(interaction) {
         }
         
         // Ajouter le solde de l'utilisateur
-        const user = interaction.client.database.ensureUser(interaction.user.id);
+        const user = interaction.client.database.ensureUser(interaction.user.id, interaction.guild.id);
         embed.setFooter({ 
             text: `Votre solde: ${user.balance || 0} ${interaction.client.config.currency.emoji}`,
             iconURL: interaction.user.displayAvatarURL()
@@ -113,7 +113,7 @@ async function handlePurchase(interaction) {
         console.log(`[Achat] Tentative d'achat de ${item.name} (${itemId}) par ${interaction.user.tag}`);
         
         // Vérification du solde utilisateur
-        user = interaction.client.database.ensureUser(userId);
+        user = interaction.client.database.ensureUser(userId, interaction.guild.id);
         if (user.balance < item.price) {
             const manquant = item.price - user.balance;
             reply.content = `❌ Tu n'as pas assez de coquillages pour acheter ${item.name}. Il te manque ${manquant} ${interaction.client.config.currency.emoji}.`;

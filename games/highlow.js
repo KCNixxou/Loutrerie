@@ -28,11 +28,11 @@ function endHighLowGame(gameId, interaction, isAdmin = false) {
     return false;
   }
 
-  const user = ensureUser(game.userId);
+  const user = ensureUser(game.userId, game.guildId);
   const netWinnings = game.totalWon - game.initialBet;
   
   // Créditer les gains totaux
-  updateUser(game.userId, { balance: user.balance + game.totalWon });
+  updateUser(game.userId, game.guildId, { balance: user.balance + game.totalWon });
   
   // Supprimer la partie
   activeHighLowGames.delete(gameId);
@@ -300,7 +300,7 @@ async function handleHighLowAction(interaction) {
     
   } else {
     // Le joueur a perdu
-    const user = ensureUser(game.userId);
+    const user = ensureUser(game.userId, game.guildId);
     // Ne pas soustraire la mise ici car elle a déjà été déduite au début de la partie
     const updatedBalance = user.balance; // Utiliser le solde actuel sans nouvelle soustraction
     
@@ -386,13 +386,13 @@ async function handleHighLowDecision(interaction) {
     if (action === 'stop') {
       // Le joueur choisit de s'arrêter (bouton 'Petite couille')
       const winnings = Math.floor(gameState.currentBet * gameState.currentMultiplier);
-      const user = ensureUser(gameState.userId);
+      const user = ensureUser(gameState.userId, gameState.guildId);
       
       // Calculer le nouveau solde
       const newBalance = user.balance + (gameState.totalWon || winnings);
       
       // Mettre à jour le solde du joueur
-      updateUser(gameState.userId, { balance: newBalance });
+      updateUser(gameState.userId, gameState.guildId, { balance: newBalance });
       
       // Créer l'embed de fin de partie
       const embed = new EmbedBuilder()
@@ -516,7 +516,8 @@ async function handleHighLowDecision(interaction) {
 // Fonction pour démarrer une nouvelle partie de High Low
 async function handleHighLow(interaction, isSpecial = false) {
   const userId = interaction.user.id;
-  const user = ensureUser(userId);
+  const guildId = interaction.guild.id;
+  const user = ensureUser(userId, guildId);
   const bet = interaction.options.getInteger('mise');
   const config = getGameConfig(interaction);
   
@@ -681,8 +682,8 @@ setInterval(() => {
           addSpecialWinnings(game.userId, game.totalWon);
           console.log(`[HighLow] Remboursement spécial de ${game.totalWon} à l'utilisateur ${game.userId}`);
         } else {
-          const user = ensureUser(game.userId);
-          updateUser(game.userId, { balance: user.balance + game.totalWon });
+          const user = ensureUser(game.userId, game.guildId);
+          updateUser(game.userId, game.guildId, { balance: user.balance + game.totalWon });
           console.log(`[HighLow] Remboursement de ${game.totalWon} à l'utilisateur ${game.userId}`);
         }
       }
