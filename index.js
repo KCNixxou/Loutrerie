@@ -9,10 +9,10 @@ const { ensureUser, updateUser, updateMissionProgress, db, getSpecialBalance, up
 const { random, now, getXpMultiplier, scheduleMidnightReset, scheduleDailyReset, calculateLevel, getLevelInfo } = require('./utils');
 const commands = require('./commands');
 
-// Vérifier la commande /acheter
-const acheterCommand = commands.find(cmd => cmd.name === 'acheter');
+// Vérifier la commande /achat
+const acheterCommand = commands.find(cmd => cmd.name === 'achat');
 if (!acheterCommand) {
-  console.error('❌ Commande /acheter introuvable dans les commandes chargées!');
+  console.error('❌ Commande /achat introuvable dans les commandes chargées!');
 }
 
 // Importer les fonctions de gestion des interactions
@@ -967,7 +967,7 @@ async function handleSlashCommand(interaction) {
       await gameFunctions.handleShop(interaction);
       break;
 
-    case 'acheter':
+    case 'achat':
       await gameFunctions.handlePurchase(interaction);
       break;
 

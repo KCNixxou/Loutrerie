@@ -166,8 +166,8 @@ function openMysteryBox(userId, item, interaction) {
     
     if (typeof randomReward === 'number') {
         // Récompense en argent
-        const user = ensureUser(userId);
-        updateUser(userId, { balance: user.balance + randomReward });
+        const user = ensureUser(userId, interaction.guildId);
+        updateUser(userId, interaction.guildId, { balance: user.balance + randomReward });
         rewardText = `Vous avez gagné **${randomReward}** ${config.currency.emoji} !`;
     } else {
         // Récompense en item

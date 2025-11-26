@@ -209,7 +209,7 @@ const commands = [
     ),
 
   new SlashCommandBuilder()
-    .setName('acheter')
+    .setName('achat')
     .setDescription('Acheter un item de la boutique')
     .addStringOption(option =>
       option.setName('item')
