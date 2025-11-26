@@ -516,8 +516,10 @@ async function handleHighLowDecision(interaction) {
 // Fonction pour démarrer une nouvelle partie de High Low
 async function handleHighLow(interaction, isSpecial = false) {
   const userId = interaction.user.id;
-  const guildId = interaction.guild.id;
+  const guildId = interaction.guildId || (interaction.guild && interaction.guild.id) || null;
+  console.log(`[HIGHLOW] guildId utilisé: ${guildId} pour ${interaction.user.tag} sur le serveur ${interaction.guild?.name || 'inconnu'}`);
   const user = ensureUser(userId, guildId);
+  console.log(`[HIGHLOW] solde lu: ${user.balance} pour ${interaction.user.tag} avec guildId=${guildId}`);
   const bet = interaction.options.getInteger('mise');
   const config = getGameConfig(interaction);
   
