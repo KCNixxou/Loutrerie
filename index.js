@@ -825,7 +825,16 @@ async function handleSlashCommand(interaction) {
       
     case 'daily':
       const dailyUserId = interaction.user.id;
-      const guildId = interaction.guild.id;
+      const guildId = interaction.guildId || (interaction.guild && interaction.guild.id) || null;
+      
+      // Vérifier si la commande est utilisée dans un serveur
+      if (!guildId) {
+        return interaction.reply({
+          content: '❌ Cette commande ne peut être utilisée que dans un serveur.',
+          flags: 'Ephemeral'
+        });
+      }
+      
       const dailyUser = ensureUser(dailyUserId, guildId);
       const now = new Date();
       let lastClaim = dailyUser.last_daily_claim || 0;
