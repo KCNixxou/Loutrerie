@@ -226,12 +226,14 @@ async function handleMinesCommand(interaction) {
   const bet = interaction.options.getInteger('mise');
   const minesCount = 3; // Nombre fixe de mines
   const guildId = interaction.guildId || (interaction.guild && interaction.guild.id) || null;
+  console.log(`[MINES] guildId utilisé: ${guildId} pour ${interaction.user.tag} sur le serveur ${interaction.guild?.name || 'inconnu'}`);
 
   if (bet < 10) {
     return interaction.reply({ content: `La mise minimale est de 10 ${config.currency.emoji}.`, ephemeral: true });
   }
 
   const user = ensureUser(interaction.user.id, guildId);
+  console.log(`[MINES] solde lu: ${user.balance} pour ${interaction.user.tag} avec guildId=${guildId}`);
   if ((user.balance || 0) < bet) {
     return interaction.reply({ content: `Vous n'avez pas assez de ${config.currency.emoji} pour cette mise.`, ephemeral: true });
   }
