@@ -185,7 +185,7 @@ function openMysteryBox(userId, item, interaction) {
 async function handlePurchase(interaction) {
     // Initialisation des variables
     let itemId, item, userId, member, user, role;
-    const reply = { content: '', ephemeral: true };
+    const reply = { content: '' }; // Supprimé ephemeral: true
     
     try {
         console.log(`[Achat] Début de la transaction pour ${interaction.user.tag}`);
@@ -212,7 +212,7 @@ async function handlePurchase(interaction) {
         user = interaction.client.database.ensureUser(userId, interaction.guildId);
         if (user.balance < item.price) {
             const manquant = item.price - user.balance;
-            reply.content = `❌ Tu n'as pas assez de coquillages pour acheter ${item.name}. Il te manque ${manquant} ${config.currency.emoji}.`;
+            reply.content = `❌ ${interaction.user.username} n'a pas assez de coquillages pour acheter ${item.name}. Il manque ${manquant} ${config.currency.emoji}.`;
             console.log(`[Achat] Solde insuffisant: ${user.balance}/${item.price}`);
             return interaction.reply(reply);
         }
@@ -343,7 +343,7 @@ async function handlePurchase(interaction) {
                 }
             }
             
-            reply.content = '❌ Une erreur est survenue lors de la transaction. Votre solde n\'a pas été débité.';
+            reply.content = '❌ Une erreur est survenue lors de la transaction. Le solde de l\'utilisateur n\'a pas été débité.';
             return interaction.reply(reply);
         }
         
