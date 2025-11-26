@@ -861,14 +861,6 @@ async function handleSlashCommand(interaction) {
 
     case 'classement':
       try {
-        // La commande doit être utilisée dans un serveur
-        if (!interaction.guild) {
-          return interaction.reply({
-            content: '❌ Cette commande ne peut être utilisée que dans un serveur.',
-            ephemeral: true
-          });
-        }
-
         const type = interaction.options.getString('type');
         const orderBy = type === 'xp' ? 'xp DESC' : 'balance DESC';
         const guildId = interaction.guild.id;
