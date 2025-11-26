@@ -26,7 +26,8 @@ const PAYOUTS = {
 async function handleSlots(interaction) {
   const bet = interaction.options.getInteger('mise');
   const userId = interaction.user.id;
-  const user = ensureUser(userId);
+  const guildId = interaction.guild?.id || null;
+  const user = ensureUser(userId, guildId);
   const config = getGameConfig(interaction);
 
   if (bet > user.balance) {
@@ -55,6 +56,7 @@ async function handleSlots(interaction) {
   
   const gameState = {
     userId,
+    guildId,
     bet,
     result: null,
     winnings: 0,
@@ -62,7 +64,7 @@ async function handleSlots(interaction) {
   };
 
   // Mettre à jour le solde de l'utilisateur
-  updateUser(userId, { balance: user.balance - bet });
+  updateUser(userId, guildId, { balance: user.balance - bet });
   
   // Jouer la partie
   const result = spinSlots();
@@ -73,7 +75,7 @@ async function handleSlots(interaction) {
   const newBalance = user.balance - bet + winnings;
   
   // Mettre à jour le solde de l'utilisateur avec les gains
-  updateUser(userId, { balance: user.balance - bet + winnings });
+  updateUser(userId, guildId, { balance: user.balance - bet + winnings });
   
   // Créer l'embed
   const embed = createSlotsEmbed(interaction, {

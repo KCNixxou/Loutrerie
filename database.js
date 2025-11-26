@@ -29,7 +29,7 @@ function addColumnIfNotExists(tableName, columnName, columnDef) {
 
 // Mise à jour du schéma de la base de données
 function updateDatabaseSchema() {
-  // Ajout des colonnes pour le jeu Crash
+  // Ajout des colonnes pour le jeu Crash (anciens schémas)
   addColumnIfNotExists('users', 'last_bet', 'INTEGER DEFAULT 0');
   addColumnIfNotExists('users', 'last_bet_time', 'INTEGER DEFAULT 0');
   addColumnIfNotExists('users', 'total_won', 'INTEGER DEFAULT 0');
@@ -37,18 +37,120 @@ function updateDatabaseSchema() {
   addColumnIfNotExists('users', 'last_win', 'INTEGER DEFAULT 0');
   addColumnIfNotExists('users', 'last_win_time', 'INTEGER DEFAULT 0');
   
-  // Ajout des colonnes pour le système de dons
+  // Ajout des colonnes pour le système de dons (anciens schémas)
   addColumnIfNotExists('users', 'daily_given', 'INTEGER DEFAULT 0');
   addColumnIfNotExists('users', 'last_give_reset', 'INTEGER DEFAULT 0');
   
-  // Ajout des colonnes pour le High Low spécial
+  // Ajout des colonnes pour le High Low spécial (anciens schémas)
   addColumnIfNotExists('users', 'special_balance', 'INTEGER DEFAULT 0');
   addColumnIfNotExists('users', 'special_total_won', 'INTEGER DEFAULT 0');
   addColumnIfNotExists('users', 'special_total_wagered', 'INTEGER DEFAULT 0');
   
-  // Ajout des colonnes pour le suivi des récompenses BDG et BDH quotidiennes
+  // Ajout des colonnes pour le suivi des récompenses BDG et BDH quotidiennes (anciens schémas)
   addColumnIfNotExists('users', 'last_bdg_claim', 'INTEGER DEFAULT 0');
   addColumnIfNotExists('users', 'last_bdh_claim', 'INTEGER DEFAULT 0');
+
+  // Migration vers un schéma par serveur si nécessaire
+  try {
+    const hasGuildId = columnExists('users', 'guild_id');
+    if (!hasGuildId) {
+      console.log('[Database] Migration du schéma users vers un modèle par serveur (ajout de guild_id)...');
+
+      db.exec(`
+        PRAGMA foreign_keys = OFF;
+        BEGIN TRANSACTION;
+
+        ALTER TABLE users RENAME TO users_old;
+
+        CREATE TABLE IF NOT EXISTS users (
+          user_id TEXT NOT NULL,
+          guild_id TEXT,
+          balance INTEGER DEFAULT ${config.currency.startingBalance},
+          xp INTEGER DEFAULT 0,
+          level INTEGER DEFAULT 1,
+          last_xp_gain INTEGER DEFAULT 0,
+          last_daily_claim INTEGER DEFAULT 0,
+          daily_messages INTEGER DEFAULT 0,
+          daily_missions TEXT DEFAULT '[]',
+          last_mission_reset INTEGER DEFAULT 0,
+          daily_given INTEGER DEFAULT 0,
+          last_give_reset INTEGER DEFAULT 0,
+          last_bet INTEGER DEFAULT 0,
+          last_bet_time INTEGER DEFAULT 0,
+          total_won INTEGER DEFAULT 0,
+          total_wagered INTEGER DEFAULT 0,
+          last_win INTEGER DEFAULT 0,
+          last_win_time INTEGER DEFAULT 0,
+          special_balance INTEGER DEFAULT 0,
+          special_total_won INTEGER DEFAULT 0,
+          special_total_wagered INTEGER DEFAULT 0,
+          last_bdg_claim INTEGER DEFAULT 0,
+          last_bdh_claim INTEGER DEFAULT 0,
+          PRIMARY KEY (user_id, guild_id)
+        );
+
+        INSERT INTO users (
+          user_id,
+          guild_id,
+          balance,
+          xp,
+          level,
+          last_xp_gain,
+          last_daily_claim,
+          daily_messages,
+          daily_missions,
+          last_mission_reset,
+          daily_given,
+          last_give_reset,
+          last_bet,
+          last_bet_time,
+          total_won,
+          total_wagered,
+          last_win,
+          last_win_time,
+          special_balance,
+          special_total_won,
+          special_total_wagered,
+          last_bdg_claim,
+          last_bdh_claim
+        )
+        SELECT
+          user_id,
+          NULL AS guild_id,
+          balance,
+          xp,
+          level,
+          last_xp_gain,
+          last_daily_claim,
+          daily_messages,
+          daily_missions,
+          last_mission_reset,
+          daily_given,
+          last_give_reset,
+          last_bet,
+          last_bet_time,
+          total_won,
+          total_wagered,
+          last_win,
+          last_win_time,
+          COALESCE(special_balance, 0),
+          COALESCE(special_total_won, 0),
+          COALESCE(special_total_wagered, 0),
+          COALESCE(last_bdg_claim, 0),
+          COALESCE(last_bdh_claim, 0)
+        FROM users_old;
+
+        DROP TABLE users_old;
+
+        COMMIT;
+        PRAGMA foreign_keys = ON;
+      `);
+
+      console.log('[Database] Migration users -> users(user_id, guild_id, ...) terminée avec succès');
+    }
+  } catch (error) {
+    console.error('[Database] Erreur lors de la migration du schéma users vers le modèle par serveur:', error);
+  }
   
   // Création des tables pour la loterie si elles n'existent pas
   try {
@@ -91,8 +193,10 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(user_id)
   );
 
+  -- Nouvelle définition par défaut de la table users (pour les nouvelles installations)
   CREATE TABLE IF NOT EXISTS users (
-    user_id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    guild_id TEXT,
     balance INTEGER DEFAULT ${config.currency.startingBalance},
     xp INTEGER DEFAULT 0,
     level INTEGER DEFAULT 1,
@@ -108,7 +212,13 @@ db.exec(`
     total_won INTEGER DEFAULT 0,
     total_wagered INTEGER DEFAULT 0,
     last_win INTEGER DEFAULT 0,
-    last_win_time INTEGER DEFAULT 0
+    last_win_time INTEGER DEFAULT 0,
+    special_balance INTEGER DEFAULT 0,
+    special_total_won INTEGER DEFAULT 0,
+    special_total_wagered INTEGER DEFAULT 0,
+    last_bdg_claim INTEGER DEFAULT 0,
+    last_bdh_claim INTEGER DEFAULT 0,
+    PRIMARY KEY (user_id, guild_id)
   )
 `);
 
@@ -145,35 +255,67 @@ db.exec(`
 `);
 
 // Fonctions utilitaires
-function ensureUser(userId) {
-  let user = db.prepare('SELECT * FROM users WHERE user_id = ?').get(userId);
-  if (!user) {
-    db.prepare(`
-      INSERT INTO users (user_id, balance, daily_missions, last_mission_reset) 
-      VALUES (?, ?, ?, ?)
-    `).run(userId, config.currency.startingBalance, JSON.stringify(generateDailyMissions()), Date.now());
-    user = db.prepare('SELECT * FROM users WHERE user_id = ?').get(userId);
+function ensureUser(userId, guildId = null) {
+  // On distingue maintenant les données par serveur via guildId.
+  // Pour conserver la compatibilité, un guildId nul représente les anciennes données globales
+  // et peuvent être "réattribuées" au premier serveur qui utilise le bot.
+
+  // 1. Tenter de récupérer l'utilisateur pour ce serveur précis
+  let user = db.prepare('SELECT * FROM users WHERE user_id = ? AND guild_id IS ?').get(userId, guildId);
+
+  // 2. Si aucune ligne pour ce serveur et qu'on a un guildId, essayer de reprendre l'ancienne ligne globale (guild_id NULL)
+  if (!user && guildId !== null) {
+    const globalUser = db.prepare('SELECT * FROM users WHERE user_id = ? AND guild_id IS NULL').get(userId);
+    if (globalUser) {
+      console.log(`[DB MIGRATION] Réattribution de l'utilisateur ${userId} du contexte global vers le serveur ${guildId}`);
+
+      // Mettre à jour la ligne existante en lui affectant ce guildId
+      db.prepare('UPDATE users SET guild_id = ? WHERE user_id = ? AND guild_id IS NULL').run(guildId, userId);
+
+      // Relire l'utilisateur avec le nouveau guildId
+      user = db.prepare('SELECT * FROM users WHERE user_id = ? AND guild_id IS ?').get(userId, guildId);
+    }
   }
+
+  // 3. Si toujours rien, créer un nouvel utilisateur pour ce serveur
+  if (!user) {
+    const missions = JSON.stringify(generateDailyMissions());
+    const startingBalance = config.currency.startingBalance;
+
+    db.prepare(`
+      INSERT INTO users (
+        user_id,
+        guild_id,
+        balance,
+        daily_missions,
+        last_mission_reset
+      ) 
+      VALUES (?, ?, ?, ?, ?)
+    `).run(userId, guildId, startingBalance, missions, Date.now());
+
+    user = db.prepare('SELECT * FROM users WHERE user_id = ? AND guild_id IS ?').get(userId, guildId);
+  }
+
   return user;
 }
 
-function updateUser(userId, data) {
+function updateUser(userId, guildId = null, data) {
   if (!data || Object.keys(data).length === 0) {
     console.error('[DB DEBUG] No data provided for update');
     return;
   }
   
-  console.log(`[DB DEBUG] Mise à jour de l'utilisateur ${userId} avec les données:`, JSON.stringify(data, null, 2));
+  console.log(`[DB DEBUG] Mise à jour de l'utilisateur ${userId} (guild: ${guildId || 'NULL'}) avec les données:`, JSON.stringify(data, null, 2));
   
   try {
     const keys = Object.keys(data);
     const setClause = keys.map(k => `${k} = ?`).join(', ');
     const values = keys.map(k => data[k]);
     
-    // Add userId as the last parameter for the WHERE clause
-    values.push(userId);
+    // Ajout des paramètres pour la clause WHERE (user_id, guild_id)
+    values.push(userId, guildId);
     
-    const query = `UPDATE users SET ${setClause} WHERE user_id = ?`;
+    const query = `UPDATE users SET ${setClause} WHERE user_id = ? AND guild_id IS ?`;
     console.log(`[DB DEBUG] Exécution de la requête: ${query}`, values);
     
     const stmt = db.prepare(query);
@@ -182,9 +324,9 @@ function updateUser(userId, data) {
     console.log(`[DB DEBUG] Résultat de la mise à jour:`, result);
     
     if (result.changes === 0) {
-      console.warn(`[DB DEBUG] Aucun utilisateur trouvé avec l'ID: ${userId}, tentative de création...`);
+      console.warn(`[DB DEBUG] Aucun utilisateur trouvé avec l'ID: ${userId} (guild: ${guildId || 'NULL'}), tentative de création...`);
       // Essayer de créer l'utilisateur s'il n'existe pas
-      ensureUser(userId);
+      ensureUser(userId, guildId);
       // Réessayer la mise à jour
       const retryResult = stmt.run(...values);
       console.log(`[DB DEBUG] Résultat de la tentative de réessai:`, retryResult);
@@ -207,8 +349,8 @@ function generateDailyMissions() {
   }));
 }
 
-function updateMissionProgress(userId, missionType, amount = 1) {
-  const user = ensureUser(userId);
+function updateMissionProgress(userId, missionType, amount = 1, guildId = null) {
+  const user = ensureUser(userId, guildId);
   let missions = JSON.parse(user.daily_missions || '[]');
   let updated = false;
   let rewardEarned = 0;
@@ -225,7 +367,7 @@ function updateMissionProgress(userId, missionType, amount = 1) {
   });
 
   if (updated) {
-    updateUser(userId, {
+    updateUser(userId, guildId, {
       daily_missions: JSON.stringify(missions),
       balance: user.balance + rewardEarned
     });
@@ -356,29 +498,29 @@ function removeGiveaway(channelId) {
 }
 
 // Fonctions pour gérer le solde spécial High Low
-function getSpecialBalance(userId) {
-  ensureUser(userId);
-  const user = db.prepare('SELECT special_balance FROM users WHERE user_id = ?').get(userId);
+function getSpecialBalance(userId, guildId = null) {
+  ensureUser(userId, guildId);
+  const user = db.prepare('SELECT special_balance FROM users WHERE user_id = ? AND guild_id IS ?').get(userId, guildId);
   return user ? user.special_balance : 0;
 }
 
-function updateSpecialBalance(userId, amount) {
-  ensureUser(userId);
-  db.prepare('UPDATE users SET special_balance = special_balance + ? WHERE user_id = ?').run(amount, userId);
-  return getSpecialBalance(userId);
+function updateSpecialBalance(userId, amount, guildId = null) {
+  ensureUser(userId, guildId);
+  db.prepare('UPDATE users SET special_balance = special_balance + ? WHERE user_id = ? AND guild_id IS ?').run(amount, userId, guildId);
+  return getSpecialBalance(userId, guildId);
 }
 
-function addSpecialWinnings(userId, amount) {
-  ensureUser(userId);
-  db.prepare('UPDATE users SET special_balance = special_balance + ?, special_total_won = special_total_won + ? WHERE user_id = ?')
-    .run(amount, amount > 0 ? amount : 0, userId);
-  return getSpecialBalance(userId);
+function addSpecialWinnings(userId, amount, guildId = null) {
+  ensureUser(userId, guildId);
+  db.prepare('UPDATE users SET special_balance = special_balance + ?, special_total_won = special_total_won + ? WHERE user_id = ? AND guild_id IS ?')
+    .run(amount, amount > 0 ? amount : 0, userId, guildId);
+  return getSpecialBalance(userId, guildId);
 }
 
-function addSpecialWagered(userId, amount) {
-  ensureUser(userId);
-  db.prepare('UPDATE users SET special_total_wagered = special_total_wagered + ? WHERE user_id = ?')
-    .run(amount, userId);
+function addSpecialWagered(userId, amount, guildId = null) {
+  ensureUser(userId, guildId);
+  db.prepare('UPDATE users SET special_total_wagered = special_total_wagered + ? WHERE user_id = ? AND guild_id IS ?')
+    .run(amount, userId, guildId);
 }
 
 // Lottery Pot Functions

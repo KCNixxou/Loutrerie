@@ -22,7 +22,8 @@ async function handleBlackjackStart(interaction) {
   const bet = interaction.options.getInteger('mise');
   const sideBet = interaction.options.getInteger('sidebet') || 0;
   const userId = interaction.user.id;
-  const user = ensureUser(userId);
+  const guildId = interaction.guild?.id || null;
+  const user = ensureUser(userId, guildId);
 
   const totalCost = bet + sideBet;
 
@@ -56,6 +57,7 @@ async function handleBlackjackStart(interaction) {
 
   const gameState = {
     userId,
+    guildId,
     baseBet: bet,
     playerHands: [initialHand],
     bets: [bet],
@@ -73,7 +75,7 @@ async function handleBlackjackStart(interaction) {
   };
 
   // Mettre à jour le solde de l'utilisateur (mise principale + side bet)
-  updateUser(userId, { balance: user.balance - totalCost });
+  updateUser(userId, guildId, { balance: user.balance - totalCost });
 
   // Résoudre immédiatement le side bet Perfect Pairs
   if (sideBet > 0) {
@@ -103,8 +105,8 @@ async function handleBlackjackStart(interaction) {
 
     if (multiplier > 0) {
       const sideWinnings = sideBet * multiplier;
-      const current = ensureUser(userId);
-      updateUser(userId, { balance: current.balance + sideWinnings });
+      const current = ensureUser(userId, guildId);
+      updateUser(userId, guildId, { balance: current.balance + sideWinnings });
       gameState.sideBetPayout = sideWinnings;
       gameState.sideBetResult = resultLabel;
     } else {
@@ -191,7 +193,7 @@ async function handleBlackjackAction(interaction) {
   }
   else if (action === 'double') {
     // Le joueur double la mise sur la main en cours et tire une seule carte
-    const user = ensureUser(gameState.userId);
+    const user = ensureUser(gameState.userId, gameState.guildId);
     const currentBet = gameState.bets[currentIndex];
     if (user.balance < currentBet) {
       return interaction.reply({ 
@@ -201,7 +203,7 @@ async function handleBlackjackAction(interaction) {
     }
     
     // Doubler la mise de cette main
-    updateUser(gameState.userId, { balance: user.balance - currentBet });
+    updateUser(gameState.userId, gameState.guildId, { balance: user.balance - currentBet });
     gameState.bets[currentIndex] = currentBet * 2;
     
     // Tirer une seule carte
@@ -251,7 +253,7 @@ async function handleBlackjackAction(interaction) {
     }
 
     // Débiter la deuxième mise
-    updateUser(gameState.userId, { balance: user.balance - gameState.baseBet });
+    updateUser(gameState.userId, gameState.guildId, { balance: user.balance - gameState.baseBet });
 
     // Créer deux mains séparées
     const hand1 = [card1, drawCard()];
@@ -320,8 +322,8 @@ async function playDealerTurn(gameState, interaction) {
   });
 
   if (totalWinnings > 0) {
-    const user = ensureUser(gameState.userId);
-    updateUser(gameState.userId, { balance: user.balance + totalWinnings });
+    const user = ensureUser(gameState.userId, gameState.guildId);
+    updateUser(gameState.userId, gameState.guildId, { balance: user.balance + totalWinnings });
   }
 
   const result = resultLines.join('\n');
@@ -343,8 +345,8 @@ async function handleBlackjack(gameState, interaction) {
   gameState.isGameOver = true;
   const bet = gameState.baseBet;
   const winnings = bet + Math.floor(bet * 1.5); // 3:2 = mise + 1.5x mise
-  const user = ensureUser(gameState.userId);
-  updateUser(gameState.userId, { balance: user.balance + winnings });
+  const user = ensureUser(gameState.userId, gameState.guildId);
+  updateUser(gameState.userId, gameState.guildId, { balance: user.balance + winnings });
   
   const embed = createBlackjackEmbed(gameState, interaction.user, 'Blackjack ! Vous gagnez 3:2 !');
   
@@ -416,7 +418,7 @@ function createBlackjackEmbed(gameState, user, result = null) {
   }
   
   // Ajouter le solde actuel du joueur
-  const userData = ensureUser(gameState.userId);
+  const userData = ensureUser(gameState.userId, gameState.guildId);
   description += `\n**Solde actuel :** ${userData.balance} ${config.currency.emoji}`;
 
   embed.setDescription(description);
@@ -512,7 +514,7 @@ function cleanupOldBlackjackGames() {
     if (now - game.lastAction > timeout) {
       // Rembourser le joueur si la partie n'est pas terminée
       if (!game.isGameOver) {
-        updateUser(game.userId, { balance: ensureUser(game.userId).balance + game.bet });
+        updateUser(game.userId, game.guildId, { balance: ensureUser(game.userId, game.guildId).balance + game.bet });
       }
       activeBlackjackGames.delete(gameId);
     }

@@ -40,7 +40,8 @@ async function handleRouletteStart(interaction) {
   const bet = interaction.options.getInteger('mise');
   const choice = interaction.options.getString('choix');
   const userId = interaction.user.id;
-  const user = ensureUser(userId);
+  const guildId = interaction.guild?.id || null;
+  const user = ensureUser(userId, guildId);
 
   if (bet > user.balance) {
     return interaction.reply({ 
@@ -68,6 +69,7 @@ async function handleRouletteStart(interaction) {
   
   const gameState = {
     userId,
+    guildId,
     bet,
     choice,
     result: null,
@@ -76,7 +78,7 @@ async function handleRouletteStart(interaction) {
   };
 
   // Mettre à jour le solde de l'utilisateur
-  updateUser(userId, { balance: user.balance - bet });
+  updateUser(userId, guildId, { balance: user.balance - bet });
   
   // Stocker la partie
   activeRouletteGames.set(gameId, gameState);
@@ -91,7 +93,7 @@ async function handleRouletteStart(interaction) {
   
   // Mettre à jour le solde si le joueur a gagné
   if (winAmount > 0) {
-    updateUser(userId, { balance: user.balance - bet + winAmount });
+    updateUser(userId, guildId, { balance: user.balance - bet + winAmount });
   }
   
   // Créer l'embed
@@ -296,7 +298,7 @@ function cleanupOldRouletteGames() {
     if (now - game.lastAction > timeout) {
       // Rembourser le joueur si la partie est toujours en cours
       if (!game.result) {
-        updateUser(game.userId, { balance: ensureUser(game.userId).balance + game.bet });
+        updateUser(game.userId, game.guildId, { balance: ensureUser(game.userId, game.guildId).balance + game.bet });
       }
       activeRouletteGames.delete(gameId);
     }

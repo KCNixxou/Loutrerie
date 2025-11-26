@@ -142,7 +142,7 @@ function createGameEmbed(gameState, interaction) {
     
   if (gameState.gameOver) {
     // Récupérer le solde actuel de l'utilisateur
-    const user = ensureUser(interaction.user.id);
+    const user = ensureUser(interaction.user.id, guildId);
     
     if (gameState.won) {
       // Pour un cashout, les gains sont déjà crédités
@@ -223,6 +223,7 @@ function calculateCurrentWin(gameState) {
 async function handleMinesCommand(interaction) {
   const bet = interaction.options.getInteger('mise');
   const minesCount = 3; // Nombre fixe de mines
+  const guildId = interaction.guild?.id || null;
 
   if (bet < 10) {
     return interaction.reply({ content: `La mise minimale est de 10 ${config.currency.emoji}.`, ephemeral: true });
@@ -240,7 +241,7 @@ async function handleMinesCommand(interaction) {
     const userBet = bet - potContribution;
     
     // Mettre à jour le solde de l'utilisateur (soustraire la mise complète)
-    updateUser(interaction.user.id, { balance: user.balance - bet });
+    updateUser(interaction.user.id, guildId, { balance: user.balance - bet });
     
     // Ajouter la contribution au pot commun
     const { addToPot } = require('../database');
@@ -252,6 +253,7 @@ async function handleMinesCommand(interaction) {
     // Créer un nouvel état de jeu avec la mise réelle (après prélèvement)
     const gameState = {
       userId: interaction.user.id,
+      guildId,
       bet: userBet,  // Utiliser la mise après prélèvement du pot commun
       originalBet: bet,  // Conserver la mise originale pour l'affichage
       minesCount,
@@ -284,7 +286,7 @@ async function handleMinesCommand(interaction) {
   } catch (error) {
     console.error('Erreur lors du démarrage du jeu des mines:', error);
     // Rembourser l'utilisateur en cas d'erreur
-    updateUser(interaction.user.id, { balance: user.balance });
+    updateUser(interaction.user.id, guildId, { balance: user.balance });
     interaction.reply({ content: 'Une erreur est survenue lors du démarrage du jeu. Veuillez réessayer.', ephemeral: true });
   }
 }
@@ -350,11 +352,11 @@ async function handleMinesButtonInteraction(interaction) {
       gameState.winAmount = winAmount;
       
       // Récupérer le solde actuel de l'utilisateur
-      const user = ensureUser(interaction.user.id);
+      const user = ensureUser(interaction.user.id, gameState.guildId || interaction.guild?.id || null);
       // Les gains sont déjà calculés dans winAmount (qui inclut la mise initiale)
       console.log(`Cashout: Gains de ${winAmount} (déjà inclus la mise initiale)`);
       // Mettre à jour le solde (ne pas ajouter la mise deux fois)
-      updateUser(interaction.user.id, { balance: user.balance + winAmount });
+      updateUser(interaction.user.id, gameState.guildId || interaction.guild?.id || null, { balance: user.balance + winAmount });
       
       console.log('Mise à jour de l\'interface avec le cashout');
       
