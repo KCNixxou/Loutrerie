@@ -310,9 +310,12 @@ function calculateCurrentWin(gameState) {
     multiplier = MULTIPLIERS[baseIndex] + (additionalGems * 0.5);
   }
   
-  // Appliquer les effets temporaires
-  const effectMultiplier = calculateEffectMultiplier(gameState.userId, gameState.guildId);
+  // Appliquer les effets temporaires avec fallback sécurisé
+  const guildId = gameState.guildId || null;
+  const effectMultiplier = calculateEffectMultiplier(gameState.userId, guildId);
   const finalMultiplier = multiplier * effectMultiplier;
+  
+  console.log(`[MINES] calculateCurrentWin - base: ${multiplier}, effect: ${effectMultiplier}, final: ${finalMultiplier}`);
   
   return Math.floor(gameState.bet * finalMultiplier);
 }
@@ -445,16 +448,23 @@ async function handleMinesButtonInteraction(interaction) {
     if (action === 'cashout') {
       console.log('Cashout demandé');
       const winAmount = calculateCurrentWin(gameState);
+      console.log(`[MINES] Cashout - winAmount calculé: ${winAmount}`);
       gameState.gameOver = true;
       gameState.won = true;
       gameState.winAmount = winAmount;
       
       // Récupérer le solde actuel de l'utilisateur
-      const user = ensureUser(interaction.user.id, gameState.guildId || interaction.guildId || null);
+      const guildId = gameState.guildId || interaction.guildId || null;
+      const user = ensureUser(interaction.user.id, guildId);
+      console.log(`[MINES] Cashout - solde avant: ${user.balance}, guildId: ${guildId}`);
+      
       // Les gains sont déjà calculés dans winAmount (qui inclut la mise initiale)
       console.log(`Cashout: Gains de ${winAmount} (déjà inclus la mise initiale)`);
       // Mettre à jour le solde (ne pas ajouter la mise deux fois)
-      updateUser(interaction.user.id, gameState.guildId || interaction.guildId || null, { balance: user.balance + winAmount });
+      updateUser(interaction.user.id, guildId, { balance: user.balance + winAmount });
+      
+      const newUserBalance = user.balance + winAmount;
+      console.log(`[MINES] Cashout - solde après: ${newUserBalance} (+${winAmount})`);
       
       console.log('Mise à jour de l\'interface avec le cashout');
       
