@@ -216,6 +216,16 @@ const commands = [
         .setDescription('Item à acheter')
         .setRequired(true)
         .addChoices(
+          // Nouveaux items thématiques
+          { name: '🧪 Sérum de Chance (70,000 🐚)', value: 'serumChance' },
+          { name: '🫀 Cœur de Remplacement (15,000 🐚)', value: 'coeurRemplacement' },
+          { name: '🔪 Jeton "Double Ou Crève" (12,500 🐚)', value: 'jetonDouble' },
+          { name: '🩸 Pack Saignée (100,000 🐚)', value: 'packSaignee' },
+          { name: '📦 Boîte à Organes (35,000 🐚)', value: 'boiteOrganes' },
+          { name: '🕯️ Entrée à la Messe Noire Mensuelle (30,000 🐚)', value: 'messeNoire' },
+          { name: '💉 Patient·e VIP 7 jours (50,000 🐚)', value: 'patientVip' },
+          // Article classique
+          { name: '🎨 Changement de couleurs (10,000 🐚)', value: 'colorChange' },
           // Rôles BDG
           { name: '👶 Bébé BDG (10,000 🐚)', value: 'bdgBaby' },
           { name: '🚶 Petit BDG (50,000 🐚)', value: 'bdgPetit' },
@@ -225,17 +235,7 @@ const commands = [
           { name: '👶 Bébé BDH (10,000 🐚)', value: 'bdhBaby' },
           { name: '🚶 Petit BDH (50,000 🐚)', value: 'bdhPetit' },
           { name: '💪 Gros BDH (200,000 🐚)', value: 'bdhGros' },
-          { name: '👑 BDH Ultime (1,000,000 🐚)', value: 'bdhUltime' },
-          // Article classique
-          { name: '🎨 Changement de couleurs (10,000 🐚)', value: 'colorChange' },
-          // Nouveaux items thématiques
-          { name: '🧪 Sérum de Chance (70,000 🐚)', value: 'serumChance' },
-          { name: '🫀 Cœur de Remplacement (15,000 🐚)', value: 'coeurRemplacement' },
-          { name: '🔪 Jeton "Double Ou Crève" (12,500 🐚)', value: 'jetonDouble' },
-          { name: '🩸 Pack Saignée (100,000 🐚)', value: 'packSaignee' },
-          { name: '📦 Boîte à Organes (35,000 🐚)', value: 'boiteOrganes' },
-          { name: '🕯️ Entrée à la Messe Noire Mensuelle (30,000 🐚)', value: 'messeNoire' },
-          { name: '💉 Patient·e VIP 7 jours (50,000 🐚)', value: 'patientVip' }
+          { name: '👑 BDH Ultime (1,000,000 🐚)', value: 'bdhUltime' }
         )
     ),
 
