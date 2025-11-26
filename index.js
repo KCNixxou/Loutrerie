@@ -863,7 +863,7 @@ async function handleSlashCommand(interaction) {
       try {
         const type = interaction.options.getString('type');
         const orderBy = type === 'xp' ? 'xp DESC' : 'balance DESC';
-        const guildId = interaction.guild.id;
+        const guildId = interaction.guildId || (interaction.guild && interaction.guild.id) || null;
 
         const topUsers = db.prepare(
           `SELECT * FROM users WHERE guild_id = ? ORDER BY ${orderBy} LIMIT 10`
