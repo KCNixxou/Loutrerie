@@ -220,7 +220,7 @@ async function handlePurchase(interaction) {
         // Gérer les différents types d'items
         if (item.type === 'consumable') {
             // Consommable - appliquer l'effet directement
-            const updateResult = interaction.client.database.updateUser(userId, {
+            const updateResult = updateUser(userId, interaction.guildId, {
                 balance: user.balance - item.price
             });
             
@@ -236,7 +236,7 @@ async function handlePurchase(interaction) {
             
         } else if (item.type === 'mystery_box') {
             // Boîte mystère - ouvrir immédiatement
-            const updateResult = interaction.client.database.updateUser(userId, {
+            const updateResult = updateUser(userId, interaction.guildId, {
                 balance: user.balance - item.price
             });
             
@@ -311,7 +311,7 @@ async function handlePurchase(interaction) {
         try {
             // 1. Mise à jour du solde utilisateur
             console.log(`[Achat] Mise à jour du solde: ${user.balance} -> ${user.balance - item.price}`);
-            const updateResult = interaction.client.database.updateUser(userId, {
+            const updateResult = updateUser(userId, interaction.guildId, {
                 balance: user.balance - item.price
             });
             
@@ -334,7 +334,7 @@ async function handlePurchase(interaction) {
             if (updateResult) {
                 console.log('[Achat] Tentative de remboursement...');
                 try {
-                    interaction.client.database.updateUser(userId, {
+                    updateUser(userId, interaction.guildId, {
                         balance: user.balance // Remboursement complet
                     });
                     console.log('[Achat] Remboursement effectué');
