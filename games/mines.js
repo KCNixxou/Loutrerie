@@ -126,8 +126,14 @@ function createGridComponents(gameState, showAll = false) {
 function createGameEmbed(gameState, interaction) {
   const winAmount = calculateCurrentWin(gameState);
   const guildId = gameState.guildId || interaction.guildId || null;
+  
+  console.log(`[MINES] createGameEmbed - userId: ${gameState.userId}, guildId: ${guildId}`);
+  
   const effects = getUserEffects(gameState.userId, guildId);
+  console.log(`[MINES] Effets trouvés:`, effects);
+  
   const effectMultiplier = calculateEffectMultiplier(gameState.userId, guildId);
+  console.log(`[MINES] Multiplicateur calculé: ${effectMultiplier}`);
   
   const embed = new EmbedBuilder()
     .setTitle('💎 Jeu des Mines')
@@ -250,21 +256,31 @@ function revealCell(gameState, x, y) {
 function calculateEffectMultiplier(userId, guildId) {
   if (!guildId) return 1.0; // Pas de guildId, pas d'effets
   
-  const effects = getUserEffects(userId, guildId);
-  let multiplier = 1.0;
-  
-  effects.forEach(effect => {
-    switch (effect.effect) {
-      case 'casino_bonus':
-        multiplier *= (1 + effect.value); // +15% par défaut
-        break;
-      case 'double_winnings':
-        multiplier *= effect.value; // x2 par défaut
-        break;
+  try {
+    const effects = getUserEffects(userId, guildId);
+    if (!Array.isArray(effects)) {
+      console.log(`[MINES] getUserEffects n'a pas retourné un tableau pour ${userId}, guildId=${guildId}:`, effects);
+      return 1.0;
     }
-  });
-  
-  return multiplier;
+    
+    let multiplier = 1.0;
+    
+    effects.forEach(effect => {
+      switch (effect.effect) {
+        case 'casino_bonus':
+          multiplier *= (1 + effect.value); // +15% par défaut
+          break;
+        case 'double_winnings':
+          multiplier *= effect.value; // x2 par défaut
+          break;
+      }
+    });
+    
+    return multiplier;
+  } catch (error) {
+    console.error('[MINES] Erreur dans calculateEffectMultiplier:', error);
+    return 1.0;
+  }
 }
 
 // Fonction pour vérifier et utiliser la protection contre les pertes
