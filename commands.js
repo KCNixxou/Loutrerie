@@ -229,14 +229,13 @@ const commands = [
           // Article classique
           { name: '🎨 Changement de couleurs (10,000 🐚)', value: 'colorChange' },
           // Nouveaux items thématiques
-          { name: '🧠 BOOSTS & AVANTAGES (50,000 🐚)', value: 'boosts' },
           { name: '🧪 Sérum de Chance (70,000 🐚)', value: 'serumChance' },
           { name: '🫀 Cœur de Remplacement (15,000 🐚)', value: 'coeurRemplacement' },
           { name: '🔪 Jeton "Double Ou Crève" (12,500 🐚)', value: 'jetonDouble' },
           { name: '🩸 Pack Saignée (100,000 🐚)', value: 'packSaignee' },
           { name: '📦 Boîte à Organes (35,000 🐚)', value: 'boiteOrganes' },
-          { name: '🕯️ Entrée à la Messe Noire Mensuelle (150,000 🐚)', value: 'messeNoire' },
-          { name: '💉 Patient·e VIP 7 jours (200,000 🐚)', value: 'patientVip' }
+          { name: '🕯️ Entrée à la Messe Noire Mensuelle (30,000 🐚)', value: 'messeNoire' },
+          { name: '💉 Patient·e VIP 7 jours (50,000 🐚)', value: 'patientVip' }
         )
     ),
 

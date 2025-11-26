@@ -46,14 +46,6 @@ const defaultConfig = {
     colorChange: { price: 10000, name: '🎨 Changement de couleurs', role: null, description: 'Personnalise tes couleurs sur le serveur' },
     
     // Nouveaux items thématiques
-    boosts: {
-      price: 50000,
-      name: '🧠 BOOSTS & AVANTAGES',
-      emoji: '🧠',
-      description: 'Améliore tes capacités de jeu',
-      type: 'boost'
-    },
-    
     serumChance: {
       price: 70000,
       name: '🧪 Sérum de Chance',
@@ -119,7 +111,7 @@ const defaultConfig = {
     },
     
     messeNoire: {
-      price: 150000,
+      price: 30000,
       name: '🕯️ Entrée à la Messe Noire Mensuelle',
       emoji: '🕯️',
       description: 'Tirage spécial avec gros lots',
@@ -128,7 +120,7 @@ const defaultConfig = {
     },
     
     patientVip: {
-      price: 200000,
+      price: 50000,
       name: '💉 Patient·e VIP (7 jours)',
       emoji: '💉',
       description: 'Couleur exclusive + accès chambre isolée',

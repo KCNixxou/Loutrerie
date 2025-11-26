@@ -16,15 +16,6 @@ async function handleShop(interaction) {
             .setColor(0x8B0000) // Rouge sang
             .setThumbnail('https://emoji.discord.stickers/🏥.png');
         
-        // Catégorie BOOSTS & AVANTAGES
-        const boostItems = Object.entries(shopItems)
-            .filter(([key, item]) => item.type === 'boost' || key === 'boosts')
-            .map(([key, item]) => {
-                const emoji = item.emoji || '🧠';
-                return `${emoji} **${item.name}** - ${item.price.toLocaleString()} ${config.currency.emoji}\n   *${item.description}*`;
-            })
-            .join('\n\n');
-        
         // Catégorie CONSOMMABLES
         const consumableItems = Object.entries(shopItems)
             .filter(([key, item]) => item.type === 'consumable')
@@ -44,14 +35,6 @@ async function handleShop(interaction) {
             .join('\n\n');
         
         // Ajouter les champs à l'embed
-        if (boostItems) {
-            embed.addFields({
-                name: '🧠 BOOSTS & AVANTAGES',
-                value: boostItems,
-                inline: false
-            });
-        }
-        
         if (consumableItems) {
             embed.addFields({
                 name: '💊 CONSOMMABLES',
