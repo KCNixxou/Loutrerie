@@ -670,11 +670,6 @@ async function handleSlashCommand(interaction) {
       }
       break;
       
-    case 'acheter':
-      const { handlePurchase } = require('./games/shop');
-      await handlePurchase(interaction);
-      break;
-      
     case 'highlow':
       await gameFunctions.handleHighLow(interaction);
       break;

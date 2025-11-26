@@ -80,8 +80,8 @@ async function handleShop(interaction) {
         }
         
         // Ajouter le solde de l'utilisateur
-        const user = interaction.client.database.ensureUser(interaction.user.id, interaction.guild.id);
-        const userEffects = getUserEffects(interaction.user.id);
+        const user = interaction.client.database.ensureUser(interaction.user.id, interaction.guildId);
+        const userEffects = getUserEffects(interaction.user.id, interaction.guildId);
         const activeEffects = userEffects.filter(effect => effect.expires_at > Date.now());
         
         let footerText = `Solde: ${user.balance || 0} ${config.currency.emoji}`;
@@ -209,7 +209,7 @@ async function handlePurchase(interaction) {
         console.log(`[Achat] Tentative d'achat de ${item.name} (${itemId}) par ${interaction.user.tag}`);
         
         // Vérification du solde utilisateur
-        user = interaction.client.database.ensureUser(userId, interaction.guild.id);
+        user = interaction.client.database.ensureUser(userId, interaction.guildId);
         if (user.balance < item.price) {
             const manquant = item.price - user.balance;
             reply.content = `❌ Tu n'as pas assez de coquillages pour acheter ${item.name}. Il te manque ${manquant} ${config.currency.emoji}.`;
@@ -273,6 +273,11 @@ async function handlePurchase(interaction) {
         }
         
         // Vérification/création du rôle
+        if (!interaction.guild) {
+            reply.content = '❌ Erreur: Impossible d\'accéder aux informations du serveur.';
+            return interaction.reply(reply);
+        }
+        
         role = interaction.guild.roles.cache.find(r => r.name === item.role);
         
         if (!role) {
