@@ -111,7 +111,18 @@ client.once('ready', async () => {
   try {
     console.log('⏳ Enregistrement des commandes...');
     
-    // Enregistrer les commandes
+    // D'abord supprimer toutes les commandes existantes pour éviter les doublons
+    console.log('🗑️ Suppression des commandes existantes...');
+    await rest.put(
+      Routes.applicationCommands(client.user.id),
+      { body: [] }
+    );
+    
+    // Attendre un peu
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Enregistrer les nouvelles commandes
+    console.log('📤 Enregistrement des nouvelles commandes...');
     await rest.put(
       Routes.applicationCommands(client.user.id),
       { body: commands }

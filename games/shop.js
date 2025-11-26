@@ -12,7 +12,7 @@ async function handleShop(interaction) {
         // Créer un embed pour la boutique avec style thématique
         const embed = new EmbedBuilder()
             .setTitle('🏥 **BOUTIQUE DE LA LOUTRERIE** 🏥')
-            .setDescription('Bienvenue dans notre boutique médicale... Utilisez `/acheter` avec le nom de l\'article pour effectuer un achat.')
+            .setDescription('Bienvenue dans notre boutique médicale... Utilisez `/achat` avec le nom de l\'article pour effectuer un achat.')
             .setColor(0x8B0000) // Rouge sang
             .setThumbnail('https://emoji.discord.stickers/🏥.png');
         
