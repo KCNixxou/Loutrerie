@@ -95,18 +95,18 @@ const defaultConfig = {
       description: 'Contient une récompense aléatoire (bonus, gains, items rares)',
       type: 'mystery_box',
       rewards: [
-        10000, // 10% - 1 entrée
-        25000, // 35% - 3.5 entrées
-        25000, // 35% - 3.5 entrées  
-        25000, // 35% - 3.5 entrées
-        25000, // 35% - 3.5 entrées
-        50000, // 35% - 3.5 entrées
-        50000, // 35% - 3.5 entrées
-        50000, // 35% - 3.5 entrées
-        50000, // 35% - 3.5 entrées
+        10000, // 20% - 2 entrées
+        10000, // 20% - 2 entrées
+        20000, // 25% - 2.5 entrées
+        20000, // 25% - 2.5 entrées
+        20000, // 25% - 2.5 entrées
+        35000, // 25% - 2.5 entrées
+        35000, // 25% - 2.5 entrées
+        50000, // 15% - 1.5 entrées
+        50000, // 15% - 1.5 entrées
         100000, // 10% - 1 entrée
-        'serumChance', // 5% - 0.5 entrée
-        'packSaignee'  // 5% - 0.5 entrée
+        'serumChance', // 2.5% - 0.25 entrée
+        'packSaignee'  // 2.5% - 0.25 entrée
       ]
     },
     
