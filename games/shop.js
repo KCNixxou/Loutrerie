@@ -111,21 +111,25 @@ async function handleShop(interaction) {
 // Fonction pour appliquer les effets des consommables
 function applyConsumableEffect(userId, item, interaction) {
     const now = Date.now();
+    const guildId = interaction.guildId || (interaction.guild && interaction.guild.id) || null;
+    
+    console.log(`[SHOP] applyConsumableEffect - userId: ${userId}, guildId: ${guildId}, item: ${item.name}`);
     
     switch (item.effect) {
         case 'casino_bonus':
             // +15% de gains au casino pendant 24h
-            addUserEffect(userId, {
+            addUserEffect(userId, guildId, {
                 effect: 'casino_bonus',
                 value: item.value,
                 expires_at: now + item.duration,
                 description: `+${(item.value * 100)}% de gains au casino`
             });
+            console.log(`[SHOP] Sérum de Chance ajouté pour ${userId} sur guild ${guildId}`);
             return `✅ **${item.name}** activé ! Vos gains au casino sont augmentés de 15% pendant 24h.`;
             
         case 'loss_protection':
             // Protection contre une perte importante
-            addUserEffect(userId, {
+            addUserEffect(userId, guildId, {
                 effect: 'loss_protection',
                 uses: item.uses,
                 description: 'Protection contre une perte importante'
@@ -134,7 +138,7 @@ function applyConsumableEffect(userId, item, interaction) {
             
         case 'double_or_nothing':
             // Jeton double ou crève
-            addUserEffect(userId, {
+            addUserEffect(userId, guildId, {
                 effect: 'double_or_nothing',
                 uses: item.uses,
                 description: 'Double ou crève activé'
@@ -143,7 +147,7 @@ function applyConsumableEffect(userId, item, interaction) {
             
         case 'double_winnings':
             // Gains x2 pendant 1h
-            addUserEffect(userId, {
+            addUserEffect(userId, guildId, {
                 effect: 'double_winnings',
                 value: item.value,
                 expires_at: now + item.duration,

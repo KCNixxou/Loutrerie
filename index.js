@@ -634,9 +634,10 @@ async function handleSlashCommand(interaction) {
       const { getUserEffects } = require('./database');
       const effectsTargetUser = interaction.options.getUser('utilisateur') || interaction.user;
       const isSelf = effectsTargetUser.id === interaction.user.id;
+      const effectsGuildId = interaction.guildId || (interaction.guild && interaction.guild.id) || null;
       
       try {
-        const userEffects = getUserEffects(effectsTargetUser.id, interaction.guild.id);
+        const userEffects = getUserEffects(effectsTargetUser.id, effectsGuildId);
         const activeEffects = userEffects.filter(effect => effect.expires_at > Date.now());
         
         if (activeEffects.length === 0) {
@@ -836,17 +837,17 @@ async function handleSlashCommand(interaction) {
       
     case 'daily':
       const dailyUserId = interaction.user.id;
-      const guildId = interaction.guildId || (interaction.guild && interaction.guild.id) || null;
+      const dailyGuildId = interaction.guildId || (interaction.guild && interaction.guild.id) || null;
       
       // Vérifier si la commande est utilisée dans un serveur
-      if (!guildId) {
+      if (!dailyGuildId) {
         return interaction.reply({
           content: '❌ Cette commande ne peut être utilisée que dans un serveur.',
           flags: 'Ephemeral'
         });
       }
       
-      const dailyUser = ensureUser(dailyUserId, guildId);
+      const dailyUser = ensureUser(dailyUserId, dailyGuildId);
       const now = new Date();
       let lastClaim = dailyUser.last_daily_claim || 0;
       const today = new Date(now);
@@ -929,11 +930,11 @@ async function handleSlashCommand(interaction) {
       try {
         const type = interaction.options.getString('type');
         const orderBy = type === 'xp' ? 'xp DESC' : 'balance DESC';
-        const guildId = interaction.guildId || (interaction.guild && interaction.guild.id) || null;
+        const classementGuildId = interaction.guildId || (interaction.guild && interaction.guild.id) || null;
 
         const topUsers = db.prepare(
           `SELECT * FROM users WHERE guild_id = ? ORDER BY ${orderBy} LIMIT 10`
-        ).all(guildId);
+        ).all(classementGuildId);
         
         let leaderboardText = '';
         topUsers.forEach((user, index) => {
