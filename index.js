@@ -824,9 +824,10 @@ async function handleSlashCommand(interaction) {
       break;
       
     case 'daily':
-  const dailyUserId = interaction.user.id;
-  const dailyUser = ensureUser(dailyUserId, guildId);
-  const now = new Date();
+      const dailyUserId = interaction.user.id;
+      const guildId = interaction.guild.id;
+      const dailyUser = ensureUser(dailyUserId, guildId);
+      const now = new Date();
       let lastClaim = dailyUser.last_daily_claim || 0;
       const today = new Date(now);
       today.setHours(0, 0, 0, 0);
