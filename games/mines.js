@@ -125,8 +125,9 @@ function createGridComponents(gameState, showAll = false) {
 // Créer l'embed du jeu
 function createGameEmbed(gameState, interaction) {
   const winAmount = calculateCurrentWin(gameState);
-  const effects = getUserEffects(gameState.userId, gameState.guildId);
-  const effectMultiplier = calculateEffectMultiplier(gameState.userId, gameState.guildId);
+  const guildId = gameState.guildId || interaction.guildId || null;
+  const effects = getUserEffects(gameState.userId, guildId);
+  const effectMultiplier = calculateEffectMultiplier(gameState.userId, guildId);
   
   const embed = new EmbedBuilder()
     .setTitle('💎 Jeu des Mines')
@@ -247,6 +248,8 @@ function revealCell(gameState, x, y) {
 
 // Fonction pour calculer les multiplicateurs d'effets temporaires
 function calculateEffectMultiplier(userId, guildId) {
+  if (!guildId) return 1.0; // Pas de guildId, pas d'effets
+  
   const effects = getUserEffects(userId, guildId);
   let multiplier = 1.0;
   
@@ -266,6 +269,8 @@ function calculateEffectMultiplier(userId, guildId) {
 
 // Fonction pour vérifier et utiliser la protection contre les pertes
 function checkLossProtection(userId, guildId, lossAmount) {
+  if (!guildId) return false; // Pas de guildId, pas de protection
+  
   if (hasActiveEffect(userId, 'loss_protection', guildId)) {
     // Utiliser l'effet de protection
     useEffect(userId, 'loss_protection', guildId);
@@ -343,9 +348,7 @@ async function handleMinesCommand(interaction) {
       won: false,
       messageId: null,
       // Ajout d'un timestamp pour le nettoyage automatique
-      createdAt: Date.now(),
-      // Stocker l'ID de l'utilisateur pour référence future
-      userId: interaction.user.id
+      createdAt: Date.now()
     };
 
     // Envoyer le message de jeu d'abord
