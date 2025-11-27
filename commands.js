@@ -33,7 +33,7 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('profil')
-    .setDescription('Voir ton profil (niveau, XP, coquillages)')
+    .setDescription('Voir ton profil (coquillages)')
     .addUserOption(option =>
       option.setName('utilisateur')
         .setDescription('Voir le profil d\'un autre utilisateur')
@@ -139,16 +139,7 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('classement')
-    .setDescription('Voir le classement')
-    .addStringOption(option =>
-      option.setName('type')
-        .setDescription('Type de classement')
-        .setRequired(true)
-        .addChoices(
-          { name: 'XP', value: 'xp' },
-          { name: 'Coquillages', value: 'balance' }
-        )
-    ),
+    .setDescription('Voir le classement des coquillages'),
 
   new SlashCommandBuilder()
     .setName('blackjack')

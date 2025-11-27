@@ -233,74 +233,7 @@ client.once('ready', async () => {
   });
 });
 
-// Gain d'XP sur les messages
-client.on('messageCreate', async (message) => {
-  if (!message.guild || message.author.bot) return;
-  
-  // Vérifier si le salon est dans la liste des exclus
-  if (config.xp.excludedChannels.includes(message.channelId)) {
-    console.log(`[XP] Message ignoré - Salon exclu: ${message.channel.name} (${message.channelId})`);
-    return;
-  }
-  
-  const user = ensureUser(message.author.id);
-  const currentTime = now();
-  const timeSinceLastXp = currentTime - (user.last_xp_gain || 0);
-  
-  console.log(`[XP DEBUG] Message de ${message.author.tag} (${message.author.id}) dans #${message.channel.name}`);
-  console.log(`[XP DEBUG] Dernier gain d'XP: ${new Date(user.last_xp_gain).toISOString()} (${timeSinceLastXp}ms ago)`);
-  console.log(`[XP DEBUG] XP actuel: ${user.xp}, Niveau: ${user.level}`);
-  
-  // V�rifier le cooldown XP
-  if (timeSinceLastXp < config.xp.cooldown) {
-    console.log(`[XP DEBUG] Cooldown non atteint: ${timeSinceLastXp}ms < ${config.xp.cooldown}ms`);
-    return;
-  }
-  
-  // Calculer gain XP avec multiplicateur VIP
-  let xpGain = random(config.xp.minPerMessage, config.xp.maxPerMessage);
-  const multiplier = getXpMultiplier(message.member);
-  xpGain = Math.floor(xpGain * multiplier);
-  
-  const newXp = (user.xp || 0) + xpGain;
-  const newLevel = calculateLevel(newXp);
-  const levelUp = newLevel > (user.level || 1);
-  const levelInfo = getLevelInfo(newXp);
-  
-  console.log(`[XP DEBUG] Gain d'XP: +${xpGain} (x${multiplier} multiplicateur)`);
-  console.log(`[XP DEBUG] Nouvel XP: ${newXp}, Nouveau niveau: ${newLevel} (${levelUp ? 'NIVEAU SUPÉRIEUR!' : 'Pas de changement de niveau'})`);
-  
-  // Mettre à jour les messages quotidiens et missions
-  const newDailyMessages = (user.daily_messages || 0) + 1;
-  const missionReward = updateMissionProgress(message.author.id, 'messages_30', 1) ||
-                       updateMissionProgress(message.author.id, 'messages_50', 1);
-  
-  const updateData = {
-    xp: newXp,
-    level: newLevel,  // Déjà une valeur numérique
-    last_xp_gain: currentTime,
-    daily_messages: newDailyMessages,
-    balance: (user.balance || 0) + (levelUp ? 100 : 0) + (missionReward || 0)  // Augmenté de 50 à 100
-  };
-  
-  console.log('[XP DEBUG] Mise à jour de la base de données:', JSON.stringify(updateData, null, 2));
-  
-  updateUser(message.author.id, updateData);
-  
-  if (levelUp) {
-    console.log(`[XP DEBUG] Félicitations! ${message.author.tag} est maintenant niveau ${newLevel}!`);
-  }
-  
-  if (levelUp) {
-    const levelInfo = getLevelInfo(newXp);
-    const embed = new EmbedBuilder()
-      .setTitle('🎉 Niveau supérieur !')
-      .setDescription(`🎉 Félicitations <@${message.author.id}> ! Tu es maintenant niveau **${newLevel}** !\n+100 ${config.currency.emoji} de bonus !\nProgression: ${levelInfo.currentXp}/${levelInfo.xpForNextLevel} XP (${levelInfo.progress.toFixed(1)}%)`)
-      .setColor(0x00ff00);
-    
-    message.channel.send({ embeds: [embed] });
-  }
-});
+// (Système d'XP désactivé)
 
 // Gestion des interactions
 client.on('interactionCreate', async (interaction) => {
@@ -403,36 +336,16 @@ async function handleSlashCommand(interaction) {
       
       case 'profil':
         try {
-          console.log('[DEBUG] Commande /profil déclenchée');
-          console.log('[DEBUG] Options:', interaction.options.data);
-          console.log('[DEBUG] Utilisateur:', interaction.user.tag, `(${interaction.user.id})`);
-          
-          console.log('[DEBUG] Récupération de l\'utilisateur cible...');
           const targetUser = interaction.options.getUser('utilisateur') || interaction.user;
           const isSelf = targetUser.id === interaction.user.id;
-        
-          console.log(`[DEBUG] Cible: ${targetUser.tag} (${targetUser.id}) - ${isSelf ? 'soi-même' : 'autre utilisateur'}`);
-        
-          console.log('[DEBUG] Vérification et récupération des données utilisateur...');
+
           const user = ensureUser(targetUser.id);
-          console.log('[DEBUG] Données utilisateur récupérées:', JSON.stringify(user, null, 2));
-        
-          const xp = user.xp || 0;
-          console.log(`[DEBUG] XP de l'utilisateur: ${xp}`);
-        
-          console.log('[DEBUG] Calcul du niveau...');
-          const levelInfo = getLevelInfo(xp);
-          console.log('[DEBUG] Niveau calculé:', levelInfo);
-          
-          console.log('[DEBUG] Création de l\'embed...');
+
           const embed = new EmbedBuilder()
             .setTitle(`👤 Profil de ${targetUser.username}`)
             .setThumbnail(targetUser.displayAvatarURL({ dynamic: true, size: 256 }))
             .setColor(0x00bfff)
             .addFields(
-              { name: 'Niveau', value: `Niveau **${levelInfo.level}**`, inline: true },
-              { name: 'XP', value: `${levelInfo.currentXp}/${levelInfo.xpForNextLevel} XP`, inline: true },
-              { name: 'Progression', value: `${levelInfo.progress.toFixed(1)}%`, inline: true },
               { name: 'Solde', value: `**${user.balance || 0}** ${config.currency.emoji}`, inline: true },
               { name: 'Inscrit le', value: `<t:${Math.floor((user.joined_at || Date.now()) / 1000)}:D>`, inline: true }
             )
@@ -441,49 +354,21 @@ async function handleSlashCommand(interaction) {
               iconURL: interaction.user.displayAvatarURL()
             })
             .setTimestamp();
-          
-          // Ajouter un champ suppl�mentaire si c'est le profil de l'utilisateur
-          if (isSelf) {
-            const xpNeeded = levelInfo.xpForNextLevel - levelInfo.currentXp;
-            console.log(`[DEBUG] XP nécessaire pour le prochain niveau: ${xpNeeded}`);
-            
-            embed.addFields({
-              name: 'Prochain niveau',
-              value: `Encore **${xpNeeded} XP** pour le niveau ${levelInfo.level + 1}`,
-              inline: false
-            });
-          }
-          
-          console.log('[DEBUG] Envoi de la réponse...');
-          const replyOptions = { 
+
+          await interaction.reply({
             embeds: [embed],
-            ephemeral: isSelf // Le message est éphémère uniquement si c'est le profil de l'utilisateur
-          };
-          console.log('[DEBUG] Options de réponse:', JSON.stringify(replyOptions, null, 2));
-          
-          await interaction.reply(replyOptions);
-          console.log('[DEBUG] Réponse envoyée avec succès');
-          
+            ephemeral: isSelf
+          });
         } catch (error) {
           console.error('[ERREUR] Erreur dans la commande /profil:', error);
-          console.error(error.stack);
-          
-          try {
-            const errorMessage = ' Une erreur est survenue lors de la récupération du profil. Veuillez réessayer plus tard.';
-            console.log(`[DEBUG] Tentative d'envoi d'un message d'erreur: "${errorMessage}"`);
-          
+          if (!interaction.replied) {
             await interaction.reply({
-              content: errorMessage,
+              content: ' Une erreur est survenue lors de la récupération du profil. Veuillez réessayer plus tard.',
               ephemeral: true
             });
-            
-            console.log('[DEBUG] Message d\'erreur envoyé avec succès');
-          } catch (replyError) {
-            console.error('[ERREUR CRITIQUE] Échec de l\'envoi du message d\'erreur:', replyError);
-            console.error(replyError.stack);
           }
-      }
-      break;
+        }
+        break;
       
     // Commandes de jeux
     case 'morpion':
@@ -928,22 +813,21 @@ async function handleSlashCommand(interaction) {
 
     case 'classement':
       try {
-        const type = interaction.options.getString('type');
-        const orderBy = type === 'xp' ? 'xp DESC' : 'balance DESC';
+        const type = 'balance';
         const classementGuildId = interaction.guildId || (interaction.guild && interaction.guild.id) || null;
 
         const topUsers = db.prepare(
-          `SELECT * FROM users WHERE guild_id = ? ORDER BY ${orderBy} LIMIT 10`
+          'SELECT * FROM users WHERE guild_id = ? ORDER BY balance DESC LIMIT 10'
         ).all(classementGuildId);
         
         let leaderboardText = '';
         topUsers.forEach((user, index) => {
-          const value = type === 'xp' ? `${user.xp} XP` : `${user.balance} ${config.currency.emoji}`;
+          const value = `${user.balance} ${config.currency.emoji}`;
           leaderboardText += `**${index + 1}.** <@${user.user_id}> - ${value}\n`;
         });
         
         const leaderboardEmbed = new EmbedBuilder()
-          .setTitle(`🏆 Classement ${type.toUpperCase()}`)
+          .setTitle('🏆 Classement COQUILLAGES')
           .setDescription(leaderboardText || 'Aucun utilisateur trouvé')
           .setColor(0xffd700);
         
