@@ -134,6 +134,9 @@ client.once('ready', async () => {
     console.log('📤 Enregistrement des nouvelles commandes...');
     console.log('Commandes à enregistrer:', commands.map(c => c.name).join(', '));
     try {
+      // S'assurer que toutes les guildes sont bien présentes dans le cache avant l'enregistrement
+      await client.guilds.fetch();
+
       // Enregistrer sur chaque serveur (commandes de guilde)
       for (const guild of client.guilds.cache.values()) {
         console.log(`📌 Enregistrement sur le serveur: ${guild.name} (${guild.id})`);
