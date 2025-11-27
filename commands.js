@@ -210,7 +210,7 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('achat')
-    .setDescription('Acheter un item de la boutique 🛒')
+    .setDescription('Acheter un item de la boutique')
     .addStringOption(option =>
       option.setName('item')
         .setDescription('Item à acheter')
@@ -312,7 +312,7 @@ const commands = [
   // Commande de maintenance
   new SlashCommandBuilder()
     .setName('mines')
-    .setDescription('Jouer au jeu des mines 💎 avec 3 mines')
+    .setDescription('Jouer au jeu des mines avec 3 mines')
     .addIntegerOption(option =>
       option.setName('mise')
         .setDescription('Montant à miser en coquillages')
@@ -354,7 +354,7 @@ const commands = [
     .addUserOption(option =>
       option.setName('utilisateur')
         .setDescription('L\'utilisateur à réinitialiser')
-        .setRequired(false)
+        .setRequired(true)
     ),
 
   new SlashCommandBuilder()
@@ -371,33 +371,27 @@ const commands = [
   new SlashCommandBuilder()
     .setName('maintenance')
     .setDescription('[ADMIN] Activer/désactiver le mode maintenance')
-    .addStringOption(option =>
-      option.setName('action')
-        .setDescription('Activer ou désactiver la maintenance')
-        .setRequired(true)
-        .addChoices(
-          { name: 'Activer', value: 'on' },
-          { name: 'Désactiver', value: 'off' }
-        )
-    )
-    .setDefaultMemberPermissions('0') // Admin only
-    .setDMPermission(false),
-
-  new SlashCommandBuilder()
-    .setName('tas')
-    .setDescription('[ADMIN] Gérer le pot commun de la loterie')
-    .setDefaultMemberPermissions('0') // Admin only
+    .setDefaultMemberPermissions('0')
     .setDMPermission(false)
-    .addSubcommand(subcommand =>
-      subcommand
-        .setName('tirer')
-        .setDescription('Tirer au sort le gagnant du pot commun')
-    )
-    .addSubcommand(subcommand =>
-      subcommand
-        .setName('statut')
-        .setDescription('Voir le montant actuel du pot commun')
-    )
 ];
+
+// Admin command for lottery pot
+const adminCommand = new SlashCommandBuilder()
+  .setName('tas')
+  .setDescription('[ADMIN] Gérer le pot commun de la loterie')
+  .setDefaultMemberPermissions('0') // Admin only
+  .setDMPermission(false)
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('tirer')
+      .setDescription('Tirer au sort le gagnant du pot commun')
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('statut')
+      .setDescription('Voir le montant actuel du pot commun')
+  );
+
+commands.push(adminCommand);
 
 module.exports = commands.map(command => command.toJSON());
