@@ -114,22 +114,11 @@ client.once('ready', async () => {
     // D'abord supprimer toutes les commandes existantes pour éviter les doublons
     console.log('🗑️ Suppression des commandes existantes...');
     try {
-      // Utiliser les commandes de guilde pour mise à jour immédiate
-      const guild = client.guilds.cache.first();
-      if (guild) {
-        console.log(`📌 Utilisation du serveur: ${guild.name} (${guild.id})`);
-        await rest.put(
-          Routes.applicationGuildCommands(client.user.id, guild.id),
-          { body: [] }
-        );
-        console.log('✅ Anciennes commandes de guilde supprimées');
-      } else {
-        await rest.put(
-          Routes.applicationCommands(client.user.id),
-          { body: [] }
-        );
-        console.log('✅ Anciennes commandes globales supprimées');
-      }
+      await rest.put(
+        Routes.applicationCommands(client.user.id),
+        { body: [] }
+      );
+      console.log('✅ Anciennes commandes globales supprimées');
     } catch (clearError) {
       console.error('❌ Erreur lors de la suppression des commandes:', clearError);
     }
@@ -141,20 +130,11 @@ client.once('ready', async () => {
     console.log('📤 Enregistrement des nouvelles commandes...');
     console.log('Commandes à enregistrer:', commands.map(c => c.name).join(', '));
     try {
-      const guild = client.guilds.cache.first();
-      if (guild) {
-        await rest.put(
-          Routes.applicationGuildCommands(client.user.id, guild.id),
-          { body: commands }
-        );
-        console.log('✅ Commandes de guilde enregistrées avec succès!');
-      } else {
-        await rest.put(
-          Routes.applicationCommands(client.user.id),
-          { body: commands }
-        );
-        console.log('✅ Commandes globales enregistrées avec succès!');
-      }
+      await rest.put(
+        Routes.applicationCommands(client.user.id),
+        { body: commands }
+      );
+      console.log('✅ Commandes globales enregistrées avec succès!');
     } catch (putError) {
       console.error('❌ Erreur lors de la mise à jour des commandes:', putError);
     }
