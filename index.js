@@ -128,7 +128,7 @@ client.once('ready', async () => {
     // Valider chaque commande avant de l'envoyer
     for (let i = 0; i < commands.length; i++) {
       try {
-        const commandJSON = commands[i].toJSON();
+        const commandJSON = commands[i];
         console.log(`[DEBUG] Commande ${i + 1}/${commands.length}: ${commandJSON.name} - OK`);
       } catch (error) {
         console.error(`[ERROR] Commande ${i + 1} invalide:`, error);
