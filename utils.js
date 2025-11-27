@@ -1,4 +1,5 @@
-// La configuration sera passée par le client
+// La configuration est lue directement depuis le module config
+const config = require('./config');
 
 // Fonctions utilitaires générales
 const random = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -28,14 +29,21 @@ function getXpMultiplier(member) {
   const roles = member.roles.cache;
   let multiplier = 1;
   
-  const config = client.getConfig(roles.guild?.id);
-  
+  const guildId = member.guild?.id;
+  const guildConfig = typeof config.getConfig === 'function'
+    ? config.getConfig(guildId)
+    : config;
+
+  const xpConfig = guildConfig && guildConfig.xp ? guildConfig.xp : {};
+  const vipMultiplier = xpConfig.vipMultiplier || 1;
+  const superVipMultiplier = xpConfig.superVipMultiplier || 1;
+
   if (roles.some(role => role.name === 'VIP')) {
-    multiplier *= config.xp.vipMultiplier;
+    multiplier *= vipMultiplier;
   }
   
   if (roles.some(role => role.name === 'Super VIP')) {
-    multiplier *= config.xp.superVipMultiplier;
+    multiplier *= superVipMultiplier;
   }
   
   return multiplier;
