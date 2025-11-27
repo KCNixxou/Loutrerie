@@ -312,7 +312,7 @@ const commands = [
   // Commande de maintenance
   new SlashCommandBuilder()
     .setName('mines')
-    .setDescription('Jouer au jeu des mines avec 3 mines')
+    .setDescription('Jouer au jeu des mines 💎 avec 3 mines')
     .addIntegerOption(option =>
       option.setName('mise')
         .setDescription('Montant à miser en coquillages')
