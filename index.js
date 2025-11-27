@@ -113,10 +113,15 @@ client.once('ready', async () => {
     
     // D'abord supprimer toutes les commandes existantes pour éviter les doublons
     console.log('🗑️ Suppression des commandes existantes...');
-    await rest.put(
-      Routes.applicationCommands(client.user.id),
-      { body: [] }
-    );
+    try {
+      await rest.put(
+        Routes.applicationCommands(client.user.id),
+        { body: [] }
+      );
+      console.log('✅ Anciennes commandes supprimées');
+    } catch (clearError) {
+      console.error('❌ Erreur lors de la suppression des commandes:', clearError);
+    }
     
     // Attendre un peu
     await new Promise(resolve => setTimeout(resolve, 1000));
