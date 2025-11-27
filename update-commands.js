@@ -21,8 +21,8 @@ async function updateCommands() {
   try {
     console.log('Début de la mise à jour des commandes...');
     
-    // Convertir les commandes en format JSON
-    const commandsJson = commands.map(command => command.toJSON());
+    // Les commandes sont déjà au format JSON dans ./commands
+    const commandsJson = commands;
     
     console.log('Commandes à enregistrer:', commandsJson.map(cmd => cmd.name).join(', '));
     
