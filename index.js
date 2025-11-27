@@ -892,10 +892,10 @@ async function handleSlashCommand(interaction) {
       
       const newBalance = (dailyUser.balance || 0) + config.currency.dailyReward;
       
-      updateUser(dailyUserId, guildId, {
-  balance: newBalance,
-  last_daily_claim: Math.floor(now.getTime() / 1000)
-});
+      updateUser(dailyUserId, dailyGuildId, {
+        balance: newBalance,
+        last_daily_claim: Math.floor(now.getTime() / 1000)
+      });
       
       await interaction.reply({
         content: ` Tu as reçu ta récompense journalière de **${config.currency.dailyReward}** ${config.currency.emoji} !\nNouveau solde: **${newBalance}** ${config.currency.emoji}`
