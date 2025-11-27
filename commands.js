@@ -138,7 +138,7 @@ const commands = [
     .setDescription('Voir tes missions journalières'),
 
   new SlashCommandBuilder()
-    .setName('classement')
+    .setName('classement2')
     .setDescription('Voir le classement des coquillages'),
 
   new SlashCommandBuilder()
