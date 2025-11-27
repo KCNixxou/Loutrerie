@@ -169,11 +169,6 @@ async function handleRouletteStart(interaction) {
   // Mettre à jour le solde en fonction du résultat final
   const newBalance = user.balance - bet + finalWin;
   updateUser(userId, guildId, { balance: newBalance });
-
-  // Consommer une utilisation de Saignée (double_winnings) pour cette partie si actif
-  if (hasActiveEffect(userId, 'double_winnings', guildId)) {
-    useEffect(userId, 'double_winnings', guildId);
-  }
   
   // Créer l'embed
   const embed = createRouletteEmbed(gameState, interaction.user);

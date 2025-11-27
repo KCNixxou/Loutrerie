@@ -11,7 +11,7 @@ async function handleShop(interaction) {
         
         // Créer un embed pour la boutique avec style thématique
         const embed = new EmbedBuilder()
-            .setTitle('🏥 **BOUTIQUE DE LA L\'ASILE** 🏥')
+            .setTitle('🏥 **BOUTIQUE DE LA LOUTRERIE** 🏥')
             .setDescription('Bienvenue dans notre boutique médicale... Utilisez `/achat` avec le nom de l\'article pour effectuer un achat.')
             .setColor(0x8B0000) // Rouge sang
             .setThumbnail('https://emoji.discord.stickers/🏥.png');
@@ -148,10 +148,10 @@ function applyConsumableEffect(userId, item, interaction) {
                 guildId,
                 effect: 'double_winnings',
                 value: item.value,
-                uses: item.uses,
-                description: `Gains x${item.value} sur ${item.uses} parties de casino`
+                expires_at: now + item.duration,
+                description: `Gains x${item.value} pendant 1 heure`
             });
-            return `✅ **${item.name}** activé ! Vos gains sont multipliés par 2 sur vos ${item.uses} prochaines parties de casino.`;
+            return `✅ **${item.name}** activé ! Vos gains sont multipliés par 2 pendant 1 heure.`;
             
         default:
             return `✅ **${item.name}** acheté !`;

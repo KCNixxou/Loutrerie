@@ -380,11 +380,6 @@ async function handleHighLowAction(interaction) {
     
     // Supprimer la partie
     activeHighLowGames.delete(gameId);
-
-    // Consommer une utilisation de Saignée (double_winnings) pour cette partie si actif
-    if (hasActiveEffect(game.userId, 'double_winnings', game.guildId)) {
-      useEffect(game.userId, 'double_winnings', game.guildId);
-    }
     
     // Mettre à jour le message final
     await interaction.update({
@@ -466,11 +461,6 @@ async function handleHighLowDecision(interaction) {
       
       // Mettre à jour le solde du joueur
       updateUser(gameState.userId, gameState.guildId, { balance: newBalance });
-
-      // Consommer une utilisation de Saignée (double_winnings) pour cette partie si actif
-      if (hasActiveEffect(gameState.userId, 'double_winnings', gameState.guildId)) {
-        useEffect(gameState.userId, 'double_winnings', gameState.guildId);
-      }
       
       // Créer l'embed de fin de partie
       const embed = new EmbedBuilder()
