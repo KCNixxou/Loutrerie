@@ -114,11 +114,15 @@ client.once('ready', async () => {
     // D'abord supprimer toutes les commandes existantes pour éviter les doublons
     console.log('🗑️ Suppression des commandes existantes...');
     try {
-      await rest.put(
-        Routes.applicationCommands(client.user.id),
-        { body: [] }
-      );
-      console.log('✅ Anciennes commandes globales supprimées');
+      // Supprimer sur chaque serveur (commandes de guilde)
+      for (const guild of client.guilds.cache.values()) {
+        console.log(`📌 Suppression sur le serveur: ${guild.name} (${guild.id})`);
+        await rest.put(
+          Routes.applicationGuildCommands(client.user.id, guild.id),
+          { body: [] }
+        );
+      }
+      console.log('✅ Anciennes commandes de guilde supprimées sur tous les serveurs');
     } catch (clearError) {
       console.error('❌ Erreur lors de la suppression des commandes:', clearError);
     }
@@ -130,11 +134,15 @@ client.once('ready', async () => {
     console.log('📤 Enregistrement des nouvelles commandes...');
     console.log('Commandes à enregistrer:', commands.map(c => c.name).join(', '));
     try {
-      await rest.put(
-        Routes.applicationCommands(client.user.id),
-        { body: commands }
-      );
-      console.log('✅ Commandes globales enregistrées avec succès!');
+      // Enregistrer sur chaque serveur (commandes de guilde)
+      for (const guild of client.guilds.cache.values()) {
+        console.log(`📌 Enregistrement sur le serveur: ${guild.name} (${guild.id})`);
+        await rest.put(
+          Routes.applicationGuildCommands(client.user.id, guild.id),
+          { body: commands }
+        );
+      }
+      console.log('✅ Commandes de guilde enregistrées sur tous les serveurs!');
     } catch (putError) {
       console.error('❌ Erreur lors de la mise à jour des commandes:', putError);
     }
