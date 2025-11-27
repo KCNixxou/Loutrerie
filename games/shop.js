@@ -95,15 +95,13 @@ async function handleShop(interaction) {
         });
         
         await interaction.reply({
-            embeds: [embed],
-            ephemeral: true
+            embeds: [embed]
         });
         
     } catch (error) {
         console.error('Erreur lors de l\'affichage de la boutique:', error);
         await interaction.reply({
-            content: '❌ Une erreur est survenue lors de l\'affichage de la boutique. Veuillez réessayer plus tard.',
-            ephemeral: true
+            content: '❌ Une erreur est survenue lors de l\'affichage de la boutique. Veuillez réessayer plus tard.'
         });
     }
 }
@@ -117,8 +115,8 @@ function applyConsumableEffect(userId, item, interaction) {
     
     switch (item.effect) {
         case 'casino_bonus':
-            // +15% de gains au casino pendant 24h
-            addUserEffect(userId, guildId, {
+            addUserEffect(userId, {
+                guildId,
                 effect: 'casino_bonus',
                 value: item.value,
                 expires_at: now + item.duration,
@@ -128,8 +126,8 @@ function applyConsumableEffect(userId, item, interaction) {
             return `✅ **${item.name}** activé ! Vos gains au casino sont augmentés de 15% pendant 24h.`;
             
         case 'loss_protection':
-            // Protection contre une perte importante
-            addUserEffect(userId, guildId, {
+            addUserEffect(userId, {
+                guildId,
                 effect: 'loss_protection',
                 uses: item.uses,
                 description: 'Protection contre une perte importante'
@@ -137,8 +135,8 @@ function applyConsumableEffect(userId, item, interaction) {
             return `✅ **${item.name}** équipé ! Votre prochaine perte importante sera annulée.`;
             
         case 'double_or_nothing':
-            // Jeton double ou crève
-            addUserEffect(userId, guildId, {
+            addUserEffect(userId, {
+                guildId,
                 effect: 'double_or_nothing',
                 uses: item.uses,
                 description: 'Double ou crève activé'
@@ -146,8 +144,8 @@ function applyConsumableEffect(userId, item, interaction) {
             return `✅ **${item.name}** équipé ! Utilisez-le lors de votre prochain jeu pour doubler vos gains... ou tout perdre.`;
             
         case 'double_winnings':
-            // Gains x2 pendant 1h
-            addUserEffect(userId, guildId, {
+            addUserEffect(userId, {
+                guildId,
                 effect: 'double_winnings',
                 value: item.value,
                 expires_at: now + item.duration,
@@ -255,8 +253,26 @@ async function handlePurchase(interaction) {
             return interaction.reply(reply);
             
         } else if (item.type === 'event_access' || item.type === 'vip_temporary') {
-            // Accès événement ou VIP temporaire - à implémenter plus tard
-            reply.content = `⚠️ **${item.name}** sera bientôt disponible ! Cet article est en cours de développement.`;
+            const updateResult = updateUser(userId, interaction.guildId, {
+                balance: user.balance - item.price
+            });
+            if (!updateResult) {
+                reply.content = '❌ Erreur lors de la transaction.';
+                return interaction.reply(reply);
+            }
+
+            const effectData = {
+                guildId: interaction.guildId,
+                effect: item.effect,
+                description: item.description || item.name
+            };
+
+            if (item.duration) {
+                effectData.expires_at = Date.now() + item.duration;
+            }
+
+            addUserEffect(userId, effectData);
+            reply.content = `✅ **${item.name}** activé !`;
             return interaction.reply(reply);
             
         } else if (item.type === 'boost') {

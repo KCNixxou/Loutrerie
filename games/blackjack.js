@@ -44,6 +44,31 @@ function checkLossProtection(userId, guildId, lossAmount) {
   return false;
 }
 
+function applyDoubleOrNothing(userId, guildId, baseWinnings) {
+  if (!guildId || baseWinnings <= 0) {
+    return { winnings: baseWinnings, message: null };
+  }
+
+  if (!hasActiveEffect(userId, 'double_or_nothing', guildId)) {
+    return { winnings: baseWinnings, message: null };
+  }
+
+  useEffect(userId, 'double_or_nothing', guildId);
+
+  const success = Math.random() < 0.5;
+  if (success) {
+    return {
+      winnings: baseWinnings * 2,
+      message: '🔪 **Double ou Crève** a réussi : vos gains ont été **doublés** sur cette main.'
+    };
+  }
+
+  return {
+    winnings: 0,
+    message: '🔪 **Double ou Crève** a échoué : vous perdez **tous vos gains** sur cette main.'
+  };
+}
+
 // Fonction pour démarrer une nouvelle partie de blackjack
 async function handleBlackjackStart(interaction) {
   const bet = interaction.options.getInteger('mise');
@@ -348,6 +373,7 @@ async function playDealerTurn(gameState, interaction) {
   let totalWinnings = 0;
   let resultLines = [];
   const effectMultiplier = calculateEffectMultiplier(gameState.userId, gameState.guildId);
+  let doubleOrNothingMessages = [];
 
   gameState.playerHands.forEach((hand, index) => {
     const status = gameState.handStatuses[index];
@@ -370,6 +396,13 @@ async function playDealerTurn(gameState, interaction) {
       // Croupier bust: joueur gagne 1:1
       let winnings = bet * 2; // mise retournée + gain égal à la mise
       winnings = Math.floor(winnings * effectMultiplier);
+
+      const doubleResult = applyDoubleOrNothing(gameState.userId, gameState.guildId, winnings);
+      winnings = doubleResult.winnings;
+      if (doubleResult.message) {
+        doubleOrNothingMessages.push(`Main ${index + 1}: ${doubleResult.message}`);
+      }
+
       totalWinnings += winnings;
       const bonusText = effectMultiplier > 1 ? ` (x${effectMultiplier.toFixed(2)})` : '';
       resultLines.push(`Main ${index + 1}: Croupier BUST → gagné (+${winnings} ${config.currency.emoji}${bonusText})`);
@@ -377,6 +410,13 @@ async function playDealerTurn(gameState, interaction) {
       // Joueur gagne 1:1
       let winnings = bet * 2;
       winnings = Math.floor(winnings * effectMultiplier);
+
+      const doubleResult = applyDoubleOrNothing(gameState.userId, gameState.guildId, winnings);
+      winnings = doubleResult.winnings;
+      if (doubleResult.message) {
+        doubleOrNothingMessages.push(`Main ${index + 1}: ${doubleResult.message}`);
+      }
+
       totalWinnings += winnings;
       const bonusText = effectMultiplier > 1 ? ` (x${effectMultiplier.toFixed(2)})` : '';
       resultLines.push(`Main ${index + 1}: ${score} contre ${gameState.dealerScore} → gagné (+${winnings} ${config.currency.emoji}${bonusText})`);
@@ -401,7 +441,11 @@ async function playDealerTurn(gameState, interaction) {
     updateUser(gameState.userId, gameState.guildId, { balance: user.balance + totalWinnings });
   }
 
-  const result = resultLines.join('\n');
+  let result = resultLines.join('\n');
+
+  if (doubleOrNothingMessages.length > 0) {
+    result += `\n\n${doubleOrNothingMessages.join('\n')}`;
+  }
   
   // Mettre à jour l'affichage avec le résultat final
   const embed = createBlackjackEmbed(gameState, interaction.user, result);
@@ -419,11 +463,21 @@ async function playDealerTurn(gameState, interaction) {
 async function handleBlackjack(gameState, interaction) {
   gameState.isGameOver = true;
   const bet = gameState.baseBet;
-  const winnings = bet + Math.floor(bet * 1.5); // 3:2 = mise + 1.5x mise
+  let winnings = bet + Math.floor(bet * 1.5); // 3:2 = mise + 1.5x mise
+  const effectMultiplier = calculateEffectMultiplier(gameState.userId, gameState.guildId);
+  winnings = Math.floor(winnings * effectMultiplier);
+
+  const doubleResult = applyDoubleOrNothing(gameState.userId, gameState.guildId, winnings);
+  winnings = doubleResult.winnings;
   const user = ensureUser(gameState.userId, gameState.guildId);
   updateUser(gameState.userId, gameState.guildId, { balance: user.balance + winnings });
   
-  const embed = createBlackjackEmbed(gameState, interaction.user, 'Blackjack ! Vous gagnez 3:2 !');
+  let resultText = 'Blackjack ! Vous gagnez 3:2 !';
+  if (doubleResult.message) {
+    resultText += `\n${doubleResult.message}`;
+  }
+
+  const embed = createBlackjackEmbed(gameState, interaction.user, resultText);
   
   await interaction.reply({
     embeds: [embed],

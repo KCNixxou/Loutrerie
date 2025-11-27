@@ -42,6 +42,31 @@ function checkLossProtection(userId, guildId, lossAmount) {
   return false;
 }
 
+function applyDoubleOrNothing(userId, guildId, baseWinnings) {
+  if (!guildId || baseWinnings <= 0) {
+    return { winnings: baseWinnings, message: null };
+  }
+
+  if (!hasActiveEffect(userId, 'double_or_nothing', guildId)) {
+    return { winnings: baseWinnings, message: null };
+  }
+
+  useEffect(userId, 'double_or_nothing', guildId);
+
+  const success = Math.random() < 0.5;
+  if (success) {
+    return {
+      winnings: baseWinnings * 2,
+      message: '🔪 **Double ou Crève** a réussi : vos gains de High Low ont été **doublés**.'
+    };
+  }
+
+  return {
+    winnings: 0,
+    message: '🔪 **Double ou Crève** a échoué : vous perdez **tous vos gains** sur cette partie.'
+  };
+}
+
 // Fonction utilitaire pour clôturer une partie High Low
 function endHighLowGame(gameId, interaction, isAdmin = false) {
   const game = activeHighLowGames.get(gameId);
@@ -423,6 +448,9 @@ async function handleHighLowDecision(interaction) {
       const effectMultiplier = calculateEffectMultiplier(gameState.userId, gameState.guildId);
       let winnings = Math.floor(gameState.currentBet * gameState.currentMultiplier);
       winnings = Math.floor(winnings * effectMultiplier);
+
+      const doubleResult = applyDoubleOrNothing(gameState.userId, gameState.guildId, winnings);
+      winnings = doubleResult.winnings;
       const user = ensureUser(gameState.userId, gameState.guildId);
       
       // Calculer le nouveau solde
@@ -445,6 +473,14 @@ async function handleHighLowDecision(interaction) {
           text: `Joueur: ${interaction.user.username} | Mise initiale: ${gameState.initialBet} ${getGameConfig(interaction).currency.emoji}`,
           iconURL: interaction.user.displayAvatarURL()
         });
+
+      if (doubleResult.message) {
+        embed.addFields({
+          name: '🔪 Double ou Crève',
+          value: doubleResult.message,
+          inline: false
+        });
+      }
       
       try {
         // Mettre à jour le message avec les gains

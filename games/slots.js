@@ -1,5 +1,5 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
-const { ensureUser, updateUser } = require('../database');
+const { ensureUser, updateUser, getUserEffects, hasActiveEffect, useEffect } = require('../database');
 const { getGameConfig } = require('../game-utils');
 
 // Variables pour stocker les parties en cours
@@ -21,6 +21,58 @@ const PAYOUTS = {
   '🪸🪸': 2.3,
   '🏝️🏝️': 2.3
 };
+
+function calculateEffectMultiplier(userId, guildId) {
+  const effects = getUserEffects(userId, guildId);
+  let multiplier = 1.0;
+
+  effects.forEach(effect => {
+    switch (effect.effect) {
+      case 'casino_bonus':
+        multiplier *= (1 + effect.value);
+        break;
+      case 'double_winnings':
+        multiplier *= effect.value;
+        break;
+    }
+  });
+
+  return multiplier;
+}
+
+function checkLossProtection(userId, guildId, lossAmount) {
+  if (!guildId) return false;
+  if (hasActiveEffect(userId, 'loss_protection', guildId)) {
+    useEffect(userId, 'loss_protection', guildId);
+    return true;
+  }
+  return false;
+}
+
+function applyDoubleOrNothing(userId, guildId, baseWinnings) {
+  if (!guildId || baseWinnings <= 0) {
+    return { winnings: baseWinnings, message: null };
+  }
+
+  if (!hasActiveEffect(userId, 'double_or_nothing', guildId)) {
+    return { winnings: baseWinnings, message: null };
+  }
+
+  useEffect(userId, 'double_or_nothing', guildId);
+
+  const success = Math.random() < 0.5;
+  if (success) {
+    return {
+      winnings: baseWinnings * 2,
+      message: '🔪 **Double ou Crève** a réussi : vos gains ont été **doublés** !'
+    };
+  }
+
+  return {
+    winnings: 0,
+    message: '🔪 **Double ou Crève** a échoué : vous perdez **tous vos gains** sur ce tour.'
+  };
+}
 
 // Fonction pour démarrer une nouvelle partie de machine à sous
 async function handleSlots(interaction) {
@@ -62,7 +114,9 @@ async function handleSlots(interaction) {
     bet,
     result: null,
     winnings: 0,
-    lastAction: Date.now()
+    lastAction: Date.now(),
+    doubleOrNothingMessage: null,
+    lossProtectionUsed: false
   };
 
   // Mettre à jour le solde de l'utilisateur
@@ -72,18 +126,39 @@ async function handleSlots(interaction) {
   const result = spinSlots();
   gameState.result = result;
   
-  // Calculer les gains
-  const winnings = calculateWinnings(result, bet, config);
-  const newBalance = user.balance - bet + winnings;
-  
-  // Mettre à jour le solde de l'utilisateur avec les gains
-  updateUser(userId, guildId, { balance: user.balance - bet + winnings });
+  // Calculer les gains bruts
+  const baseWinnings = calculateWinnings(result, bet, config);
+
+  // Appliquer les effets de multiplicateur
+  const effectMultiplier = calculateEffectMultiplier(userId, guildId);
+  let finalWinnings = Math.floor(baseWinnings * effectMultiplier);
+
+  // Appliquer Double ou Crève
+  const doubleResult = applyDoubleOrNothing(userId, guildId, finalWinnings);
+  finalWinnings = doubleResult.winnings;
+  gameState.doubleOrNothingMessage = doubleResult.message;
+
+  // Protection contre les pertes si zéro gain
+  if (finalWinnings === 0 && baseWinnings === 0) {
+    const usedProtection = checkLossProtection(userId, guildId, bet);
+    if (usedProtection) {
+      finalWinnings = bet;
+      gameState.lossProtectionUsed = true;
+    }
+  }
+
+  gameState.winnings = finalWinnings;
+
+  const newBalance = user.balance - bet + finalWinnings;
+
+  // Mettre à jour le solde de l'utilisateur avec le résultat final
+  updateUser(userId, guildId, { balance: newBalance });
   
   // Créer l'embed
   const embed = createSlotsEmbed(interaction, {
     result,
     bet,
-    winnings,
+    winnings: finalWinnings,
     newBalance,
     userId: interaction.user.id,
     username: interaction.user.username
@@ -123,7 +198,7 @@ function calculateWinnings(result, bet, config) {
 // Fonction pour créer l'embed de la machine à sous
 function createSlotsEmbed(interaction, gameState) {
   const config = getGameConfig(interaction);
-  const { result, bet, winnings, newBalance, userId, username } = gameState;
+  const { result, bet, winnings, newBalance, userId, username, doubleOrNothingMessage, lossProtectionUsed } = gameState;
   const isWin = winnings > 0;
   
   const embed = new EmbedBuilder()
@@ -136,6 +211,22 @@ function createSlotsEmbed(interaction, gameState) {
       { name: 'Résultat', value: result.join(' '), inline: true },
       { name: 'Multiplicateur', value: isWin ? `x${(winnings / bet).toFixed(1)}` : 'x0', inline: true }
     );
+  
+  if (!isWin && lossProtectionUsed) {
+    embed.addFields({
+      name: '🫀 Protection',
+      value: 'Votre **Cœur de Remplacement** a remboursé votre mise.',
+      inline: false
+    });
+  }
+
+  if (doubleOrNothingMessage) {
+    embed.addFields({
+      name: '🔪 Double ou Crève',
+      value: doubleOrNothingMessage,
+      inline: false
+    });
+  }
   
   // Mettre à jour la couleur en fonction du résultat
   if (isWin) {

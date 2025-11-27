@@ -332,6 +332,31 @@ function calculateCurrentWin(gameState) {
   return Math.floor(gameState.bet * finalMultiplier);
 }
 
+function applyDoubleOrNothing(userId, guildId, baseWinnings) {
+  if (!guildId || baseWinnings <= 0) {
+    return { winnings: baseWinnings, message: null };
+  }
+
+  if (!hasActiveEffect(userId, 'double_or_nothing', guildId)) {
+    return { winnings: baseWinnings, message: null };
+  }
+
+  useEffect(userId, 'double_or_nothing', guildId);
+
+  const success = Math.random() < 0.5;
+  if (success) {
+    return {
+      winnings: baseWinnings * 2,
+      message: '🔪 **Double ou Crève** a réussi : vos gains des Mines ont été **doublés**.'
+    };
+  }
+
+  return {
+    winnings: 0,
+    message: '🔪 **Double ou Crève** a échoué : vous perdez **tous vos gains** sur cette partie.'
+  };
+}
+
 // Commande pour démarrer une nouvelle partie
 async function handleMinesCommand(interaction) {
   const bet = interaction.options.getInteger('mise');
@@ -459,14 +484,17 @@ async function handleMinesButtonInteraction(interaction) {
     
     if (action === 'cashout') {
       console.log('Cashout demandé');
-      const winAmount = calculateCurrentWin(gameState);
+      let winAmount = calculateCurrentWin(gameState);
       console.log(`[MINES] Cashout - winAmount calculé: ${winAmount}`);
+
+      const guildId = gameState.guildId || interaction.guildId || null;
+      const doubleResult = applyDoubleOrNothing(gameState.userId, guildId, winAmount);
+      winAmount = doubleResult.winnings;
       gameState.gameOver = true;
       gameState.won = true;
       gameState.winAmount = winAmount;
       
       // Récupérer le solde actuel de l'utilisateur
-      const guildId = gameState.guildId || interaction.guildId || null;
       const user = ensureUser(interaction.user.id, guildId);
       console.log(`[MINES] Cashout - solde avant: ${user.balance}, guildId: ${guildId}`);
       

@@ -1,6 +1,6 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, StringSelectMenuBuilder } = require('discord.js');
 const config = require('../config');
-const { ensureUser, updateUser } = require('../database');
+const { ensureUser, updateUser, getUserEffects, hasActiveEffect, useEffect } = require('../database');
 
 // Variables pour stocker les parties en cours
 const activeRouletteGames = new Map();
@@ -34,6 +34,60 @@ const PAYOUTS = {
   COLUMN: 2,
   EVEN_MONEY: 1
 };
+
+// Effets temporaires
+function calculateEffectMultiplier(userId, guildId) {
+  const effects = getUserEffects(userId, guildId);
+  let multiplier = 1.0;
+
+  effects.forEach(effect => {
+    switch (effect.effect) {
+      case 'casino_bonus':
+        multiplier *= (1 + effect.value);
+        break;
+      case 'double_winnings':
+        multiplier *= effect.value;
+        break;
+    }
+  });
+
+  return multiplier;
+}
+
+function checkLossProtection(userId, guildId, lossAmount) {
+  if (!guildId) return false;
+  if (hasActiveEffect(userId, 'loss_protection', guildId)) {
+    useEffect(userId, 'loss_protection', guildId);
+    return true;
+  }
+  return false;
+}
+
+function applyDoubleOrNothing(userId, guildId, baseWinnings) {
+  if (!guildId || baseWinnings <= 0) {
+    return { winnings: baseWinnings, message: null };
+  }
+
+  if (!hasActiveEffect(userId, 'double_or_nothing', guildId)) {
+    return { winnings: baseWinnings, message: null };
+  }
+
+  // Consommer l'effet
+  useEffect(userId, 'double_or_nothing', guildId);
+
+  const success = Math.random() < 0.5;
+  if (success) {
+    return {
+      winnings: baseWinnings * 2,
+      message: '🔪 **Double ou Crève** a réussi : vos gains ont été **doublés** !'
+    };
+  }
+
+  return {
+    winnings: 0,
+    message: '🔪 **Double ou Crève** a échoué : vous perdez **tous vos gains** sur ce tour.'
+  };
+}
 
 // Fonction pour démarrer une nouvelle partie de roulette
 async function handleRouletteStart(interaction) {
@@ -74,7 +128,9 @@ async function handleRouletteStart(interaction) {
     choice,
     result: null,
     winnings: 0,
-    lastAction: Date.now()
+    lastAction: Date.now(),
+    doubleOrNothingMessage: null,
+    lossProtectionUsed: false
   };
 
   // Mettre à jour le solde de l'utilisateur
@@ -88,13 +144,31 @@ async function handleRouletteStart(interaction) {
   gameState.result = result;
   
   // Calculer les gains
-  const winAmount = calculateWinnings(gameState);
-  gameState.winnings = winAmount;
-  
-  // Mettre à jour le solde si le joueur a gagné
-  if (winAmount > 0) {
-    updateUser(userId, guildId, { balance: user.balance - bet + winAmount });
+  const baseWin = calculateWinnings(gameState);
+
+  // Appliquer les multiplicateurs d'effets
+  const effectMultiplier = calculateEffectMultiplier(userId, guildId);
+  let finalWin = Math.floor(baseWin * effectMultiplier);
+
+  // Appliquer Double ou Crève si applicable
+  const doubleResult = applyDoubleOrNothing(userId, guildId, finalWin);
+  finalWin = doubleResult.winnings;
+  gameState.doubleOrNothingMessage = doubleResult.message;
+
+  // Gestion de la protection contre les pertes si le joueur a tout perdu
+  if (finalWin === 0 && baseWin === 0) {
+    const usedProtection = checkLossProtection(userId, guildId, bet);
+    if (usedProtection) {
+      finalWin = bet; // Remboursement de la mise
+      gameState.lossProtectionUsed = true;
+    }
   }
+
+  gameState.winnings = finalWin;
+
+  // Mettre à jour le solde en fonction du résultat final
+  const newBalance = user.balance - bet + finalWin;
+  updateUser(userId, guildId, { balance: newBalance });
   
   // Créer l'embed
   const embed = createRouletteEmbed(gameState, interaction.user);
@@ -207,7 +281,7 @@ function calculateWinnings(gameState) {
 
 // Fonction pour créer l'embed de la roulette
 function createRouletteEmbed(gameState, user) {
-  const { bet, choice, result, winnings } = gameState;
+  const { bet, choice, result, winnings, doubleOrNothingMessage, lossProtectionUsed } = gameState;
   
   const embed = new EmbedBuilder()
     .setTitle('🎡 ROULETTE')
@@ -225,14 +299,25 @@ function createRouletteEmbed(gameState, user) {
     const isWin = winnings > 0;
     const color = getNumberColor(result);
     
-    embed.setDescription(
+    let description =
       `**Résultat :** ${color} **${result}** ${color}\n` +
       `**Mise :** ${bet} ${config.currency.emoji}\n` +
-      `**Choix :** ${formatChoice(choice)}\n\n` +
-      (isWin 
-        ? `🎉 **Vous avez gagné ${winnings} ${config.currency.emoji} !**`
-        : `😢 **Vous avez perdu ${bet} ${config.currency.emoji}...**`)
-    );
+      `**Choix :** ${formatChoice(choice)}\n\n`;
+
+    if (isWin) {
+      description += `🎉 **Vous avez gagné ${winnings} ${config.currency.emoji} !**\n`;
+    } else {
+      description += `😢 **Vous avez perdu ${bet} ${config.currency.emoji}...**\n`;
+      if (lossProtectionUsed) {
+        description += `🫀 Votre **Cœur de Remplacement** a remboursé votre mise !\n`;
+      }
+    }
+
+    if (doubleOrNothingMessage) {
+      description += `\n${doubleOrNothingMessage}`;
+    }
+
+    embed.setDescription(description);
     
     embed.setColor(isWin ? 0x00FF00 : 0xFF0000);
   }
