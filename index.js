@@ -123,12 +123,16 @@ client.once('ready', async () => {
     
     // Enregistrer les nouvelles commandes
     console.log('📤 Enregistrement des nouvelles commandes...');
-    await rest.put(
-      Routes.applicationCommands(client.user.id),
-      { body: commands }
-    );
-    
-    console.log('✅ Commandes enregistrées avec succès!');
+    console.log('Commandes à enregistrer:', commands.map(c => c.name).join(', '));
+    try {
+      await rest.put(
+        Routes.applicationCommands(client.user.id),
+        { body: commands }
+      );
+      console.log('✅ Commandes enregistrées avec succès!');
+    } catch (putError) {
+      console.error('❌ Erreur lors de la mise à jour des commandes:', putError);
+    }
     
   } catch (error) {
     console.error('❌ Erreur lors de l\'enregistrement des commandes:', error);
