@@ -453,8 +453,11 @@ async function handleHighLowDecision(interaction) {
       winnings = doubleResult.winnings;
       const user = ensureUser(gameState.userId, gameState.guildId);
       
-      // Calculer le nouveau solde
-      const newBalance = user.balance + (gameState.totalWon || winnings);
+      // Mettre à jour le total gagné avec le montant final (incluant tous les effets)
+      gameState.totalWon = winnings;
+
+      // Calculer le nouveau solde en utilisant le montant final
+      const newBalance = user.balance + winnings;
       
       // Mettre à jour le solde du joueur
       updateUser(gameState.userId, gameState.guildId, { balance: newBalance });
