@@ -153,6 +153,11 @@ async function handleSlots(interaction) {
 
   // Mettre à jour le solde de l'utilisateur avec le résultat final
   updateUser(userId, guildId, { balance: newBalance });
+
+  // Consommer une utilisation de Saignée (double_winnings) pour cette partie si actif
+  if (hasActiveEffect(userId, 'double_winnings', guildId)) {
+    useEffect(userId, 'double_winnings', guildId);
+  }
   
   // Créer l'embed
   const embed = createSlotsEmbed(interaction, {

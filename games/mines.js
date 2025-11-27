@@ -505,6 +505,11 @@ async function handleMinesButtonInteraction(interaction) {
       
       const newUserBalance = user.balance + winAmount;
       console.log(`[MINES] Cashout - solde après: ${newUserBalance} (+${winAmount})`);
+
+      // Consommer une utilisation de Saignée (double_winnings) pour cette partie si actif
+      if (hasActiveEffect(gameState.userId, 'double_winnings', guildId)) {
+        useEffect(gameState.userId, 'double_winnings', guildId);
+      }
       
       console.log('Mise à jour de l\'interface avec le cashout');
       

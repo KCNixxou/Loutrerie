@@ -441,6 +441,11 @@ async function playDealerTurn(gameState, interaction) {
     updateUser(gameState.userId, gameState.guildId, { balance: user.balance + totalWinnings });
   }
 
+  // Consommer une utilisation de Saignée (double_winnings) pour cette partie si actif
+  if (hasActiveEffect(gameState.userId, 'double_winnings', gameState.guildId)) {
+    useEffect(gameState.userId, 'double_winnings', gameState.guildId);
+  }
+
   let result = resultLines.join('\n');
 
   if (doubleOrNothingMessages.length > 0) {
@@ -471,6 +476,11 @@ async function handleBlackjack(gameState, interaction) {
   winnings = doubleResult.winnings;
   const user = ensureUser(gameState.userId, gameState.guildId);
   updateUser(gameState.userId, gameState.guildId, { balance: user.balance + winnings });
+
+  // Consommer une utilisation de Saignée (double_winnings) pour cette partie si actif
+  if (hasActiveEffect(gameState.userId, 'double_winnings', gameState.guildId)) {
+    useEffect(gameState.userId, 'double_winnings', gameState.guildId);
+  }
   
   let resultText = 'Blackjack ! Vous gagnez 3:2 !';
   if (doubleResult.message) {
