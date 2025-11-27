@@ -110,6 +110,7 @@ client.once('ready', async () => {
   
   try {
     console.log('⏳ Enregistrement des commandes...');
+    console.log(`[DEBUG] Nombre de commandes à enregistrer: ${commands.length}`);
     
     // D'abord supprimer toutes les commandes existantes pour éviter les doublons
     console.log('🗑️ Suppression des commandes existantes...');
@@ -123,6 +124,18 @@ client.once('ready', async () => {
     
     // Enregistrer les nouvelles commandes
     console.log('📤 Enregistrement des nouvelles commandes...');
+    
+    // Valider chaque commande avant de l'envoyer
+    for (let i = 0; i < commands.length; i++) {
+      try {
+        const commandJSON = commands[i].toJSON();
+        console.log(`[DEBUG] Commande ${i + 1}/${commands.length}: ${commandJSON.name} - OK`);
+      } catch (error) {
+        console.error(`[ERROR] Commande ${i + 1} invalide:`, error);
+        throw error;
+      }
+    }
+    
     await rest.put(
       Routes.applicationCommands(client.user.id),
       { body: commands }
