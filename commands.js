@@ -151,8 +151,14 @@ const commands = [
         .setMinValue(1)
     )
     .addIntegerOption(option =>
-      option.setName('sidebet')
+      option.setName('perfect_pairs')
         .setDescription('Mise pour le side bet Perfect Pairs')
+        .setRequired(false)
+        .setMinValue(0)
+    )
+    .addIntegerOption(option =>
+      option.setName('side_21_3')
+        .setDescription('Mise pour le side bet 21+3 (joueur + carte visible du croupier)')
         .setRequired(false)
         .setMinValue(0)
     ),

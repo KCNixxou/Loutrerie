@@ -47,12 +47,13 @@ function checkLossProtection(userId, guildId, lossAmount) {
 // Fonction pour démarrer une nouvelle partie de blackjack
 async function handleBlackjackStart(interaction) {
   const bet = interaction.options.getInteger('mise');
-  const sideBet = interaction.options.getInteger('sidebet') || 0;
+  const perfectPairsBet = interaction.options.getInteger('perfect_pairs') || 0;
+  const side21Bet = interaction.options.getInteger('side_21_3') || 0;
   const userId = interaction.user.id;
   const guildId = interaction.guildId || (interaction.guild && interaction.guild.id) || null;
   const user = ensureUser(userId, guildId);
 
-  const totalCost = bet + sideBet;
+  const totalCost = bet + perfectPairsBet + side21Bet;
 
   if (totalCost > user.balance) {
     return interaction.reply({ 
@@ -96,16 +97,22 @@ async function handleBlackjackStart(interaction) {
     isGameOver: false,
     hasSplit: false,
     lastAction: Date.now(),
-    sideBet,
-    sideBetResult: null,
-    sideBetPayout: 0
+    perfectPairsBet,
+    perfectPairsResult: null,
+    perfectPairsPayout: 0,
+    side21Bet,
+    side21Result: null,
+    side21Payout: 0,
+    insuranceBet: 0,
+    insuranceResult: null,
+    insurancePayout: 0
   };
 
   // Mettre à jour le solde de l'utilisateur (mise principale + side bet)
   updateUser(userId, guildId, { balance: user.balance - totalCost });
 
   // Résoudre immédiatement le side bet Perfect Pairs
-  if (sideBet > 0) {
+  if (perfectPairsBet > 0) {
     const [card1, card2] = initialHand;
     let multiplier = 0;
     let resultLabel = 'Aucune paire';
@@ -116,28 +123,43 @@ async function handleBlackjackStart(interaction) {
       const isRed2 = redSuits.includes(card2.suit);
 
       if (card1.suit === card2.suit) {
-        // Paire parfaite (même valeur, même couleur)
+        // Paire parfaite (même valeur, même couleur) - payout classique 25:1
         multiplier = 25;
         resultLabel = 'Paire parfaite (25:1)';
       } else if ((isRed1 && isRed2) || (!isRed1 && !isRed2)) {
-        // Paire de couleur (même valeur, même couleur rouge/noir)
+        // Paire de couleur (même valeur, même couleur rouge/noir) - payout classique 12:1
         multiplier = 12;
         resultLabel = 'Paire de couleur (12:1)';
       } else {
-        // Paire mixte (même valeur, couleurs différentes)
+        // Paire mixte (même valeur, couleurs différentes) - payout classique 6:1
         multiplier = 6;
         resultLabel = 'Paire mixte (6:1)';
       }
     }
 
     if (multiplier > 0) {
-      const sideWinnings = sideBet * multiplier;
+      const sideWinnings = perfectPairsBet * multiplier;
       const current = ensureUser(userId, guildId);
       updateUser(userId, guildId, { balance: current.balance + sideWinnings });
-      gameState.sideBetPayout = sideWinnings;
-      gameState.sideBetResult = resultLabel;
+      gameState.perfectPairsPayout = sideWinnings;
+      gameState.perfectPairsResult = resultLabel;
     } else {
-      gameState.sideBetResult = 'Perdu';
+      gameState.perfectPairsResult = 'Perdu';
+    }
+  }
+
+  // Résoudre immédiatement le side bet 21+3 (joueur + carte visible du croupier)
+  if (side21Bet > 0) {
+    const comboCards = [...initialHand, dealerHand[0]];
+    const { multiplier: comboMult, label: comboLabel } = evaluate21Plus3(comboCards);
+    if (comboMult > 0) {
+      const sideWinnings = side21Bet * comboMult;
+      const current = ensureUser(userId, guildId);
+      updateUser(userId, guildId, { balance: current.balance + sideWinnings });
+      gameState.side21Payout = sideWinnings;
+      gameState.side21Result = comboLabel;
+    } else {
+      gameState.side21Result = 'Perdu';
     }
   }
   
@@ -152,7 +174,7 @@ async function handleBlackjackStart(interaction) {
   
   // Créer l'embed et les composants
   const embed = createBlackjackEmbed(gameState, interaction.user);
-  const components = createBlackjackComponents(gameId);
+  const components = createBlackjackComponents(gameId, gameState);
   
   // Envoyer le message
   await interaction.reply({
@@ -292,10 +314,28 @@ async function handleBlackjackAction(interaction) {
     gameState.activeHandIndex = 0;
     gameState.hasSplit = true;
   }
+  else if (action === 'insurance') {
+    // Achat de l'assurance : 50% de la mise de base
+    if (gameState.insuranceBet > 0 || !gameState.isPlayerTurn) {
+      return interaction.deferUpdate();
+    }
+
+    const user = ensureUser(gameState.userId, gameState.guildId);
+    const maxInsurance = Math.floor(gameState.baseBet / 2);
+    if (maxInsurance <= 0 || user.balance < maxInsurance) {
+      return interaction.reply({
+        content: `❌ Vous n'avez pas assez de ${config.currency.emoji} pour l'assurance.`,
+        ephemeral: true
+      });
+    }
+
+    updateUser(gameState.userId, gameState.guildId, { balance: user.balance - maxInsurance });
+    gameState.insuranceBet = maxInsurance;
+  }
   
   // Mettre à jour l'affichage
   const embed = createBlackjackEmbed(gameState, interaction.user);
-  const components = createBlackjackComponents(gameId);
+  const components = createBlackjackComponents(gameId, gameState);
   
   await interaction.update({
     embeds: [embed],
@@ -410,7 +450,24 @@ function gameIdFromInteraction(interaction) {
 
 // Fonction pour créer l'embed du blackjack
 function createBlackjackEmbed(gameState, user, result = null) {
-  const { playerHands, dealerHand, dealerScore, bets, isPlayerTurn, activeHandIndex, handStatuses, sideBet, sideBetResult, sideBetPayout } = gameState;
+  const {
+    playerHands,
+    dealerHand,
+    dealerScore,
+    bets,
+    isPlayerTurn,
+    activeHandIndex,
+    handStatuses,
+    perfectPairsBet,
+    perfectPairsResult,
+    perfectPairsPayout,
+    side21Bet,
+    side21Result,
+    side21Payout,
+    insuranceBet,
+    insuranceResult,
+    insurancePayout
+  } = gameState;
   
   const embed = new EmbedBuilder()
     .setTitle('🃏 BLACKJACK')
@@ -444,12 +501,34 @@ function createBlackjackEmbed(gameState, user, result = null) {
     description += line;
   });
   
-  if (sideBet && sideBet > 0) {
-    description += `**Side bet Perfect Pairs :** ${sideBet} ${config.currency.emoji}`;
-    if (sideBetResult) {
-      description += `\nRésultat side bet : ${sideBetResult}`;
-      if (sideBetPayout && sideBetPayout > 0) {
-        description += ` (+${sideBetPayout} ${config.currency.emoji})`;
+  if (perfectPairsBet && perfectPairsBet > 0) {
+    description += `**Side bet Perfect Pairs :** ${perfectPairsBet} ${config.currency.emoji}`;
+    if (perfectPairsResult) {
+      description += `\nRésultat Perfect Pairs : ${perfectPairsResult}`;
+      if (perfectPairsPayout && perfectPairsPayout > 0) {
+        description += ` (+${perfectPairsPayout} ${config.currency.emoji})`;
+      }
+    }
+    description += '\n\n';
+  }
+
+  if (insuranceBet && insuranceBet > 0) {
+    description += `**Assurance :** ${insuranceBet} ${config.currency.emoji}`;
+    if (insuranceResult) {
+      description += `\nRésultat assurance : ${insuranceResult}`;
+      if (insurancePayout && insurancePayout > 0) {
+        description += ` (+${insurancePayout} ${config.currency.emoji})`;
+      }
+    }
+    description += '\n\n';
+  }
+
+  if (side21Bet && side21Bet > 0) {
+    description += `**Side bet 21+3 :** ${side21Bet} ${config.currency.emoji}`;
+    if (side21Result) {
+      description += `\nRésultat 21+3 : ${side21Result}`;
+      if (side21Payout && side21Payout > 0) {
+        description += ` (+${side21Payout} ${config.currency.emoji})`;
       }
     }
     description += '\n\n';
@@ -483,8 +562,57 @@ function createBlackjackEmbed(gameState, user, result = null) {
   return embed;
 }
 
+// Évaluation du side bet 21+3 (3-card poker à partir des 2 cartes joueur + 1 carte croupier)
+function evaluate21Plus3(cards) {
+  // cards: [{ value, suit }, ...] longueur 3
+  if (!cards || cards.length !== 3) {
+    return { multiplier: 0, label: 'Aucune combinaison' };
+  }
+
+  const values = cards.map(c => c.value);
+  const suits = cards.map(c => c.suit);
+
+  // Convertir en rangs pour détecter les suites
+  const order = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+  const ranks = values.map(v => order.indexOf(v)).sort((a, b) => a - b);
+
+  const allSameSuit = suits.every(s => s === suits[0]);
+  const isThreeOfKind = values[0] === values[1] && values[1] === values[2];
+
+  // Gérer A, 2, 3 comme suite
+  let isStraight = false;
+  if (ranks[0] + 1 === ranks[1] && ranks[1] + 1 === ranks[2]) {
+    isStraight = true;
+  } else {
+    // Cas spécial A, Q, K etc non considérés comme suite ici
+    isStraight = false;
+  }
+
+  // Straight Flush
+  if (allSameSuit && isStraight) {
+    return { multiplier: 40, label: 'Straight Flush (40:1)' };
+  }
+
+  // Three of a kind
+  if (isThreeOfKind) {
+    return { multiplier: 30, label: 'Brelan (30:1)' };
+  }
+
+  // Straight
+  if (isStraight) {
+    return { multiplier: 10, label: 'Suite (10:1)' };
+  }
+
+  // Flush
+  if (allSameSuit) {
+    return { multiplier: 5, label: 'Couleur (5:1)' };
+  }
+
+  return { multiplier: 0, label: 'Aucune combinaison' };
+}
+
 // Fonction pour créer les composants du blackjack
-function createBlackjackComponents(gameId) {
+function createBlackjackComponents(gameId, gameState) {
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`blackjack_hit_${gameId}`)
@@ -500,13 +628,32 @@ function createBlackjackComponents(gameId) {
       .setStyle(ButtonStyle.Danger)
   );
 
-  // Bouton de split (sera simplement ignoré côté handler si non valide)
-  row.addComponents(
-    new ButtonBuilder()
-      .setCustomId(`blackjack_split_${gameId}`)
-      .setLabel('Split')
-      .setStyle(ButtonStyle.Secondary)
-  );
+  // Bouton de split uniquement si la main en cours est splittable
+  const { playerHands, activeHandIndex, hasSplit } = gameState;
+  const currentHand = playerHands[activeHandIndex || 0];
+  if (!hasSplit && playerHands.length === 1 && currentHand.length === 2) {
+    const [c1, c2] = currentHand;
+    const v1 = CARD_VALUES[c1.value];
+    const v2 = CARD_VALUES[c2.value];
+    if (v1 === v2) {
+      row.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`blackjack_split_${gameId}`)
+          .setLabel('Split')
+          .setStyle(ButtonStyle.Secondary)
+      );
+    }
+  }
+
+  // Bouton d'assurance si le croupier montre un As et que l'assurance n'est pas encore prise
+  if (gameState.isPlayerTurn && gameState.insuranceBet === 0 && gameState.dealerHand && gameState.dealerHand[0]?.value === 'A') {
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`blackjack_insurance_${gameId}`)
+        .setLabel('Assurance')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  }
 
   return row;
 }
