@@ -293,23 +293,12 @@ async function handleBlackjackAction(interaction) {
       });
     }
 
-    const user = ensureUser(gameState.userId);
-    if (user.balance < gameState.baseBet) {
-      return interaction.reply({
-        content: `❌ Vous n'avez pas assez de ${config.currency.emoji} pour splitter !`,
-        ephemeral: true
-      });
-    }
-
-    // Débiter la deuxième mise
-    updateUser(gameState.userId, gameState.guildId, { balance: user.balance - gameState.baseBet });
-
-    // Créer deux mains séparées
+    // Créer deux mains séparées (deuxième main gratuite, pas de mise supplémentaire débitée)
     const hand1 = [card1, drawCard()];
     const hand2 = [card2, drawCard()];
 
     gameState.playerHands = [hand1, hand2];
-    gameState.bets = [gameState.baseBet, gameState.baseBet];
+    gameState.bets = [gameState.baseBet, 0]; // Deuxième main gratuite
     gameState.handStatuses = ['playing', 'playing'];
     gameState.activeHandIndex = 0;
     gameState.hasSplit = true;

@@ -130,16 +130,18 @@ function createGameEmbed(gameState, interaction) {
   console.log(`[MINES] createGameEmbed - userId: ${gameState.userId}, guildId: ${guildId}`);
   
   // Test direct pour voir tous les effets de l'utilisateur
+  let effects = [];
   try {
-    const allEffects = getUserEffects(gameState.userId, guildId);
-    console.log(`[MINES] Effets trouvés (${allEffects.length}):`, allEffects);
-    console.log(`[MINES] Type de effects:`, typeof allEffects, Array.isArray(allEffects));
+    effects = getUserEffects(gameState.userId, guildId) || [];
+    console.log(`[MINES] Effets trouvés (${effects.length}):`, effects);
+    console.log(`[MINES] Type de effects:`, typeof effects, Array.isArray(effects));
     
     // Vérifier spécifiquement le casino_bonus
-    const casinoBonus = allEffects.filter(e => e.effect === 'casino_bonus');
+    const casinoBonus = effects.filter(e => e.effect === 'casino_bonus');
     console.log(`[MINES] Effets casino_bonus:`, casinoBonus);
   } catch (error) {
     console.error('[MINES] Erreur getUserEffects:', error);
+    effects = [];
   }
   
   const effectMultiplier = calculateEffectMultiplier(gameState.userId, guildId);
