@@ -105,44 +105,53 @@ if (!client.database) {
 client.once('ready', async () => {
   console.log(`✅ ${client.user.tag} est connecté !`);
   
-  // Enregistrer les commandes
+  // Vérifier et mettre à jour les commandes si nécessaire
   const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
   
   try {
-    console.log('⏳ Enregistrement des commandes...');
+    console.log('🔍 Vérification des commandes...');
     
-    // D'abord supprimer toutes les commandes existantes pour éviter les doublons
-    console.log('🗑️ Suppression des commandes existantes...');
-    try {
-      // Supprimer sur chaque serveur (commandes de guilde)
-      for (const guild of client.guilds.cache.values()) {
-        console.log(`📌 Suppression sur le serveur: ${guild.name} (${guild.id})`);
-        await rest.put(
-          Routes.applicationGuildCommands(client.user.id, guild.id),
-          { body: [] }
+    // Vérifier si les commandes existent déjà
+    let needUpdate = false;
+    const existingCommands = [];
+    
+    for (const guild of client.guilds.cache.values()) {
+      try {
+        const existing = await rest.get(
+          Routes.applicationGuildCommands(client.user.id, guild.id)
         );
+        existingCommands[guild.id] = existing;
+        
+        // Vérifier si le nombre de commandes a changé
+        if (existing.length !== commands.length) {
+          console.log(`ℹ️  Nombre de commandes différent sur ${guild.name}, mise à jour nécessaire`);
+          needUpdate = true;
+        }
+      } catch (error) {
+        console.log(`⚠️  Impossible de récupérer les commandes pour ${guild.name}:`, error.message);
+        needUpdate = true;
       }
-      console.log('✅ Anciennes commandes de guilde supprimées sur tous les serveurs');
-    } catch (clearError) {
-      console.error('❌ Erreur lors de la suppression des commandes:', clearError);
     }
     
-    // Attendre un peu
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Si aucune mise à jour n'est nécessaire, on sort
+    if (!needUpdate) {
+      console.log('✅ Les commandes sont à jour sur tous les serveurs');
+      return;
+    }
     
-    // Enregistrer les nouvelles commandes
-    console.log('📤 Enregistrement des nouvelles commandes...');
-    console.log('Commandes à enregistrer:', commands.map(c => c.name).join(', '));
+    console.log('🔄 Mise à jour des commandes...');
+    
+    // Si on arrive ici, c'est qu'une mise à jour est nécessaire
     try {
-      // Enregistrer sur chaque serveur (commandes de guilde)
+      // Mettre à jour sur chaque serveur
       for (const guild of client.guilds.cache.values()) {
-        console.log(`📌 Enregistrement sur le serveur: ${guild.name} (${guild.id})`);
+        console.log(`🔄 Mise à jour sur le serveur: ${guild.name} (${guild.id})`);
         await rest.put(
           Routes.applicationGuildCommands(client.user.id, guild.id),
           { body: commands }
         );
       }
-      console.log('✅ Commandes de guilde enregistrées sur tous les serveurs!');
+      console.log('✅ Commandes mises à jour avec succès sur tous les serveurs!');
     } catch (putError) {
       console.error('❌ Erreur lors de la mise à jour des commandes:', putError);
     }
