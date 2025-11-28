@@ -1,6 +1,7 @@
 const { SlashCommandBuilder } = require('discord.js');
 
 const commands = [
+  // Jeu du morpion
   new SlashCommandBuilder()
     .setName('morpion')
     .setDescription('Jouer au morpion (tic-tac-toe) contre un autre joueur ou l\'IA')
@@ -121,8 +122,10 @@ const commands = [
           option.setName('montant')
             .setDescription('Nouveau montant')
             .setRequired(true)
-            .setMinValue(0))),
-
+            .setMinValue(0)))
+,
+  
+  // Réinitialisation de la récompense quotidienne
   new SlashCommandBuilder()
     .setName('reset-daily')
     .setDescription('[ADMIN] Réinitialiser la date de dernière récupération')
@@ -389,6 +392,5 @@ const adminCommand = new SlashCommandBuilder()
       .setDescription('Voir le montant actuel du pot commun')
   );
 
-commands.push(adminCommand);
-
+// Exporter les commandes formatées pour Discord
 module.exports = commands.map(command => command.toJSON());
