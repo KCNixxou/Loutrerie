@@ -105,8 +105,34 @@ if (!client.database) {
 client.once('ready', async () => {
   console.log(`✅ ${client.user.tag} est connecté !`);
   
-  // Vérifier et mettre à jour les commandes si nécessaire
-  const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+  // Configuration du client REST avec timeout
+  const rest = new REST({ 
+    version: '10',
+    timeout: 10000, // 10 secondes de timeout
+    retries: 1,     // Une seule tentative
+    rejectRateLimitedCalls: true // Rejeter immédiatement si rate limité
+  }).setToken(process.env.DISCORD_TOKEN);
+  
+  // Fonction pour mettre à jour les commandes avec timeout
+  async function updateGuildCommands(guildId) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000); // 15 secondes max
+    
+    try {
+      const result = await rest.put(
+        Routes.applicationGuildCommands(client.user.id, guildId),
+        { 
+          body: commands,
+          signal: controller.signal
+        }
+      );
+      clearTimeout(timeout);
+      return result;
+    } catch (error) {
+      clearTimeout(timeout);
+      throw error;
+    }
+  }
   
   try {
     console.log('🔍 Vérification des commandes...');
@@ -160,12 +186,9 @@ client.once('ready', async () => {
           // Afficher les commandes qui vont être mises à jour
           console.log(`   📋 ${commands.length} commandes à synchroniser...`);
           
-          // Mettre à jour les commandes pour cette guilde
-          console.log('   ⏳ Envoi de la requête à Discord...');
-          await rest.put(
-            Routes.applicationGuildCommands(client.user.id, guild.id),
-            { body: commands }
-          );
+          // Mettre à jour les commandes pour cette guilde avec timeout
+          console.log('   ⏳ Envoi de la requête à Discord (timeout: 15s)...');
+          await updateGuildCommands(guild.id);
           
           const guildTime = ((Date.now() - guildStartTime) / 1000).toFixed(2);
           console.log(`   ✅ Synchronisation réussie en ${guildTime}s`);
