@@ -404,16 +404,8 @@ async function handleSlashCommand(interaction) {
       await startCrashGame(interaction);
       break;
       
-    case 'dailybdg':
-      await handleDailyBdg(interaction);
-      break;
-      
-    case 'dailybdh':
-      await handleDailyBdh(interaction);
-      break;
-      
-    case 'reset-dailybdg':
-      await handleResetDailyBdg(interaction);
+    case 'daily':
+      await handleDaily(interaction);
       break;
       
     case 'tas':
@@ -721,20 +713,7 @@ async function handleSlashCommand(interaction) {
       break;
       
     case 'reset-daily':
-      if (interaction.user.id !== '314458846754111499') {
-        return interaction.reply({
-          content: ' Cette commande est réservée à l\'administrateur.',
-          flags: 'Ephemeral'
-        });
-      }
-      
-      const targetUserId = interaction.options.getUser('utilisateur').id;
-      updateUser(targetUserId, { last_daily_claim: 0 });
-      
-      await interaction.reply({
-        content: ` La date de dernière réclamation a été réinitialisée pour <@${targetUserId}>`,
-        flags: 'Ephemeral'
-      });
+      await handleResetDaily(interaction);
       break;
       
     case 'daily':
@@ -949,28 +928,29 @@ async function handleSlashCommand(interaction) {
       break;
     }
   } catch (error) {
-  console.error(`Erreur lors de l'exécution de la commande ${interaction.commandName}:`, error);
-  if (!interaction.replied && !interaction.deferred) {
-    await interaction.reply({ 
-      content: 'Une erreur est survenue lors de l\'exécution de cette commande.', 
-      ephemeral: true 
-    });
-  } else if (interaction.deferred) {
-    await interaction.editReply({
-      content: 'Une erreur est survenue lors de l\'exécution de cette commande.',
-      ephemeral: true
-    });
+    console.error(`Erreur lors de l'exécution de la commande ${interaction.commandName}:`, error);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({ 
+        content: 'Une erreur est survenue lors de l\'exécution de cette commande.', 
+        ephemeral: true 
+      });
+    } else if (interaction.deferred) {
+      await interaction.editReply({
+        content: 'Une erreur est survenue lors de l\'exécution de cette commande.',
+        ephemeral: true
+      });
+    }
   }
 }
-}
 
-// Fonction pour réinitialiser la récompense BDG d'un utilisateur
-async function handleResetDailyBdg(interaction) {
+// Fonction pour gérer la récompense quotidienne
+// Fonction pour réinitialiser les récompenses quotidiennes
+async function handleResetDaily(interaction) {
   try {
     // Vérifier les permissions d'administration
     if (!isAdmin(interaction.user.id)) {
       return interaction.reply({
-        content: ' Vous n\'avez pas la permission d\'utiliser cette commande.',
+        content: '❌ Vous n\'avez pas la permission d\'utiliser cette commande.',
         ephemeral: true
       });
     }
@@ -978,260 +958,241 @@ async function handleResetDailyBdg(interaction) {
     const targetUser = interaction.options.getUser('utilisateur');
     if (!targetUser) {
       return interaction.reply({
-        content: ' Utilisateur non trouvé.',
+        content: '❌ Utilisateur non trouvé.',
         ephemeral: true
       });
     }
     
-    // Réinitialiser la dernière réclamation BDG
-    updateUser(targetUser.id, {
-      last_bdg_claim: 0
-    });
+    const type = interaction.options?.getString('type') || 'all';
+    const updates = {};
+    
+    // Mettre à jour les champs en fonction du type de réinitialisation
+    if (type === 'all' || type === 'standard') {
+      updates.last_daily_claim = 0;
+    }
+    if (type === 'all' || type === 'bdg') {
+      updates.last_bdg_claim = 0;
+    }
+    if (type === 'all' || type === 'bdh') {
+      updates.last_bdh_claim = 0;
+    }
+    
+    // Mettre à jour l'utilisateur
+    updateUser(targetUser.id, interaction.guild.id, updates);
     
     await interaction.reply({
-      content: ` La récompense BDG quotidienne de <@${targetUser.id}> a été réinitialisée.`,
+      content: `✅ Les récompenses quotidiennes de <@${targetUser.id}> ont été réinitialisées (type: ${type}).`,
       ephemeral: true
     });
     
   } catch (error) {
-    console.error('Erreur dans handleResetDailyBdg:', error);
+    console.error('Erreur dans handleResetDaily:', error);
     if (!interaction.replied) {
       await interaction.reply({
-        content: '❌ Une erreur est survenue lors de la réinitialisation de la récompense BDG.',
+        content: '❌ Une erreur est survenue lors de la réinitialisation des récompenses.',
         ephemeral: true
       });
     }
   }
 }
 
-async function handleResetDailyBdh(interaction) {
-  try {
-    // Vérifier les permissions d'administration
-    if (!isAdmin(interaction.user.id)) {
-      return interaction.reply({
-        content: ' Vous n\'avez pas la permission d\'utiliser cette commande.',
-        ephemeral: true
-      });
-    }
-    
-    const targetUser = interaction.options.getUser('utilisateur');
-    if (!targetUser) {
-      return interaction.reply({
-        content: ' Utilisateur non trouvé.',
-        ephemeral: true
-      });
-    }
-    
-    // Réinitialiser la dernière réclamation BDH
-    updateUser(targetUser.id, {
-      last_bdh_claim: 0
-    });
-    
-    await interaction.reply({
-      content: ` La récompense BDH quotidienne de <@${targetUser.id}> a été réinitialisée.`,
-      ephemeral: true
-    });
-    
-  } catch (error) {
-    console.error('Erreur dans handleResetDailyBdh:', error);
-    if (!interaction.replied) {
-      await interaction.reply({
-        content: '❌ Une erreur est survenue lors de la réinitialisation de la récompense BDH.',
-        ephemeral: true
-      });
-    }
-  }
-}
-
-// Fonction pour gérer la récompense quotidienne BDG
-async function handleDailyBdg(interaction) {
-  try {
-    const userId = interaction.user.id;
-const guildId = interaction.guild.id;
-const member = interaction.member;
-    const currentTime = Math.floor(Date.now() / 1000);
-    const oneDayInSeconds = 24 * 60 * 60;
-    
-    // Vérifier si l'utilisateur a un rôle BDG
-    const bdgRoleNames = [
-      config.shop.bdgBaby.role,
-      config.shop.bdgPetit.role,
-      config.shop.bdgGros.role,
-      config.shop.bdgUltime.role
-    ];
-    
-    const hasBdgRole = member.roles.cache.some(role => bdgRoleNames.includes(role.name));
-    
-    if (!hasBdgRole) {
-      return interaction.reply({
-        content: `❌ Tu dois avoir un rôle BDG (${bdgRoleNames.join(', ')}) pour utiliser cette commande.`,
-        ephemeral: true
-      });
-    }
-    
-    // Vérifier si l'utilisateur a déjà réclamé sa récompense aujourd'hui
-    const user = ensureUser(userId, guildId);
-    
-    if (user.last_bdg_claim) {
-      const lastClaim = new Date(user.last_bdg_claim * 1000);
-      const now = new Date();
-      
-      // Vérifier si c'est le même jour
-      if (lastClaim.getDate() === now.getDate() && 
-          lastClaim.getMonth() === now.getMonth() && 
-          lastClaim.getFullYear() === now.getFullYear()) {
-        
-        // Calculer le temps jusqu'à minuit
-        const midnight = new Date(now);
-        midnight.setHours(24, 0, 0, 0);
-        const timeLeft = midnight - now;
-        const hours = Math.floor(timeLeft / (60 * 60 * 1000));
-        const minutes = Math.floor((timeLeft % (60 * 60 * 1000)) / (60 * 1000));
-        
-        return interaction.reply({
-          content: `❌ Tu as déjà réclamé ta récompense BDG aujourd'hui. Tu pourras à nouveau réclamer demain à 00h01.`,
-          ephemeral: true
-        });
-      }
-    }
-
-    // Définir le montant de la récompense en fonction du rôle BDG
-    let rewardAmount = 0;
-    if (member.roles.cache.some(role => role.name === config.shop.bdgBaby.role)) {
-      rewardAmount = config.shop.bdgBaby.dailyReward;
-    } else if (member.roles.cache.some(role => role.name === config.shop.bdgPetit.role)) {
-      rewardAmount = config.shop.bdgPetit.dailyReward;
-    } else if (member.roles.cache.some(role => role.name === config.shop.bdgGros.role)) {
-      rewardAmount = config.shop.bdgGros.dailyReward;
-    } else if (member.roles.cache.some(role => role.name === config.shop.bdgUltime.role)) {
-      rewardAmount = config.shop.bdgUltime.dailyReward;
-    }
-
-    // Mettre à jour le solde de l'utilisateur avec le timestamp actuel
-    const newBalance = (user.balance || 0) + rewardAmount;
-    const currentTimestamp = Math.floor(Date.now() / 1000);
-    updateUser(userId, guildId, {
-  balance: newBalance,
-  last_bdg_claim: currentTimestamp
-});
-
-    // Créer l'embed de confirmation
-    const embed = new EmbedBuilder()
-      .setTitle('🎉 Récompense BDG quotidienne')
-      .setDescription(`Tu as reçu ta récompense BDG quotidienne de **${rewardAmount}** ${config.currency.emoji} !`)
-      .addFields(
-        { name: 'Nouveau solde', value: `${newBalance} ${config.currency.emoji}`, inline: true },
-        { name: 'Prochaine récompense', value: 'Demain à 00h01', inline: true }
-      )
-      .setColor(0x00ff00)
-      .setFooter({ text: 'Reviens demain pour une nouvelle récompense !' });
-
-    await interaction.reply({ 
-      embeds: [embed],
-      ephemeral: false
-    });
-    
-  } catch (error) {
-    console.error('Erreur dans handleDailyBdg:', error);
-    if (!interaction.replied) {
-      await interaction.reply({
-        content: '❌ Une erreur est survenue lors du traitement de ta demande. Réessaye plus tard ou contacte un administrateur.',
-        ephemeral: true
-      });
-    }
-  }
-}
-
-// Fonction pour gérer la récompense quotidienne BDH
-async function handleDailyBdh(interaction) {
+async function handleDaily(interaction) {
   try {
     const userId = interaction.user.id;
     const guildId = interaction.guild.id;
     const member = interaction.member;
-    const currentTime = Math.floor(Date.now() / 1000);
-    const oneDayInSeconds = 24 * 60 * 60;
+    const user = ensureUser(userId, guildId);
+    const type = interaction.options?.getString('type') || 'standard';
     
-    // Vérifier si l'utilisateur a un rôle BDH
-    const bdhRoleNames = [
-      config.shop.bdhBaby.role,
-      config.shop.bdhPetit.role,
-      config.shop.bdhGros.role,
-      config.shop.bdhUltime.role
-    ];
-    
-    const hasBdhRole = member.roles.cache.some(role => bdhRoleNames.includes(role.name));
-    
-    if (!hasBdhRole) {
-      return interaction.reply({
-        content: `❌ Tu dois avoir un rôle BDH (${bdhRoleNames.join(', ')}) pour utiliser cette commande.`,
-        ephemeral: true
-      });
-    }
-    
-    // Vérifier si l'utilisateur a déjà réclamé sa récompense aujourd'hui
-    const user = ensureUser(userId);
-    
-    if (user.last_bdh_claim) {
-      const lastClaim = new Date(user.last_bdh_claim * 1000);
-      const now = new Date();
+    // Vérifier le type de récompense
+    if (type === 'bdg') {
+      // Vérifier si l'utilisateur a un rôle BDG
+      const bdgRoleNames = [
+        config.shop.bdgBaby.role,
+        config.shop.bdgPetit.role,
+        config.shop.bdgGros.role,
+        config.shop.bdgUltime.role
+      ];
       
-      // Vérifier si c'est le même jour
-      if (lastClaim.getDate() === now.getDate() && 
-          lastClaim.getMonth() === now.getMonth() && 
-          lastClaim.getFullYear() === now.getFullYear()) {
-        
-        // Calculer le temps jusqu'à minuit
-        const midnight = new Date(now);
-        midnight.setHours(24, 0, 0, 0);
-        const timeLeft = midnight - now;
-        const hours = Math.floor(timeLeft / (60 * 60 * 1000));
-        const minutes = Math.floor((timeLeft % (60 * 60 * 1000)) / (60 * 1000));
-        
+      const hasBdgRole = member.roles.cache.some(role => bdgRoleNames.includes(role.name));
+      
+      if (!hasBdgRole) {
         return interaction.reply({
-          content: `❌ Tu as déjà réclamé ta récompense BDH aujourd'hui. Tu pourras à nouveau réclamer demain à 00h01.`,
+          content: `❌ Tu dois avoir un rôle BDG (${bdgRoleNames.join(', ')}) pour utiliser cette option.`,
           ephemeral: true
         });
       }
+      
+      // Vérifier si l'utilisateur a déjà réclamé sa récompense BDG aujourd'hui
+      if (user.last_bdg_claim) {
+        const lastClaim = new Date(user.last_bdg_claim * 1000);
+        const now = new Date();
+        
+        if (lastClaim.getDate() === now.getDate() && 
+            lastClaim.getMonth() === now.getMonth() && 
+            lastClaim.getFullYear() === now.getFullYear()) {
+          
+          return interaction.reply({
+            content: `❌ Tu as déjà réclamé ta récompense BDG aujourd'hui. Tu pourras à nouveau réclamer demain à 00h01.`,
+            ephemeral: true
+          });
+        }
+      }
+      
+      // Définir le montant de la récompense en fonction du rôle BDG
+      let rewardAmount = 0;
+      if (member.roles.cache.some(role => role.name === config.shop.bdgBaby.role)) {
+        rewardAmount = config.shop.bdgBaby.dailyReward;
+      } else if (member.roles.cache.some(role => role.name === config.shop.bdgPetit.role)) {
+        rewardAmount = config.shop.bdgPetit.dailyReward;
+      } else if (member.roles.cache.some(role => role.name === config.shop.bdgGros.role)) {
+        rewardAmount = config.shop.bdgGros.dailyReward;
+      } else if (member.roles.cache.some(role => role.name === config.shop.bdgUltime.role)) {
+        rewardAmount = config.shop.bdgUltime.dailyReward;
+      }
+      
+      // Mettre à jour le solde de l'utilisateur avec le timestamp actuel
+      const newBalance = (user.balance || 0) + rewardAmount;
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      updateUser(userId, guildId, {
+        balance: newBalance,
+        last_bdg_claim: currentTimestamp
+      });
+      
+      // Créer l'embed de confirmation
+      const embed = new EmbedBuilder()
+        .setTitle('🎉 Récompense BDG quotidienne')
+        .setDescription(`Tu as reçu ta récompense BDG quotidienne de **${rewardAmount}** ${config.currency.emoji} !`)
+        .addFields(
+          { name: 'Nouveau solde', value: `${newBalance} ${config.currency.emoji}`, inline: true },
+          { name: 'Prochaine récompense', value: 'Demain à 00h01', inline: true }
+        )
+        .setColor(0x00ff00)
+        .setFooter({ text: 'Reviens demain pour une nouvelle récompense !' });
+      
+      return interaction.reply({ 
+        embeds: [embed],
+        ephemeral: false
+      });
+      
+    } else if (type === 'bdh') {
+      // Vérifier si l'utilisateur a un rôle BDH
+      const bdhRoleNames = [
+        config.shop.bdhBaby.role,
+        config.shop.bdhPetit.role,
+        config.shop.bdhGros.role,
+        config.shop.bdhUltime.role
+      ];
+      
+      const hasBdhRole = member.roles.cache.some(role => bdhRoleNames.includes(role.name));
+      
+      if (!hasBdhRole) {
+        return interaction.reply({
+          content: `❌ Tu dois avoir un rôle BDH (${bdhRoleNames.join(', ')}) pour utiliser cette option.`,
+          ephemeral: true
+        });
+      }
+      
+      // Vérifier si l'utilisateur a déjà réclamé sa récompense BDH aujourd'hui
+      if (user.last_bdh_claim) {
+        const lastClaim = new Date(user.last_bdh_claim * 1000);
+        const now = new Date();
+        
+        if (lastClaim.getDate() === now.getDate() && 
+            lastClaim.getMonth() === now.getMonth() && 
+            lastClaim.getFullYear() === now.getFullYear()) {
+          
+          return interaction.reply({
+            content: `❌ Tu as déjà réclamé ta récompense BDH aujourd'hui. Tu pourras à nouveau réclamer demain à 00h01.`,
+            ephemeral: true
+          });
+        }
+      }
+      
+      // Définir le montant de la récompense en fonction du rôle BDH
+      let rewardAmount = 0;
+      if (member.roles.cache.some(role => role.name === config.shop.bdhBaby.role)) {
+        rewardAmount = config.shop.bdhBaby.dailyReward;
+      } else if (member.roles.cache.some(role => role.name === config.shop.bdhPetit.role)) {
+        rewardAmount = config.shop.bdhPetit.dailyReward;
+      } else if (member.roles.cache.some(role => role.name === config.shop.bdhGros.role)) {
+        rewardAmount = config.shop.bdhGros.dailyReward;
+      } else if (member.roles.cache.some(role => role.name === config.shop.bdhUltime.role)) {
+        rewardAmount = config.shop.bdhUltime.dailyReward;
+      }
+      
+      // Mettre à jour le solde de l'utilisateur avec le timestamp actuel
+      const newBalance = (user.balance || 0) + rewardAmount;
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      updateUser(userId, guildId, {
+        balance: newBalance,
+        last_bdh_claim: currentTimestamp
+      });
+      
+      // Créer l'embed de confirmation
+      const embed = new EmbedBuilder()
+        .setTitle('🎉 Récompense BDH quotidienne')
+        .setDescription(`Tu as reçu ta récompense BDH quotidienne de **${rewardAmount}** ${config.currency.emoji} !`)
+        .addFields(
+          { name: 'Nouveau solde', value: `${newBalance} ${config.currency.emoji}`, inline: true },
+          { name: 'Prochaine récompense', value: 'Demain à 00h01', inline: true }
+        )
+        .setColor(0x00ff00)
+        .setFooter({ text: 'Reviens demain pour une nouvelle récompense !' });
+      
+      return interaction.reply({ 
+        embeds: [embed],
+        ephemeral: false
+      });
+      
+    } else {
+      // Récompense standard
+      // Vérifier si l'utilisateur a déjà réclamé sa récompense aujourd'hui
+      if (user.last_daily_claim) {
+        const lastClaim = new Date(user.last_daily_claim * 1000);
+        const now = new Date();
+        
+        if (lastClaim.getDate() === now.getDate() && 
+            lastClaim.getMonth() === now.getMonth() && 
+            lastClaim.getFullYear() === now.getFullYear()) {
+          
+          return interaction.reply({
+            content: `❌ Tu as déjà réclamé ta récompense quotidienne aujourd'hui. Tu pourras à nouveau réclamer demain à 00h01.`,
+            ephemeral: true
+          });
+        }
+      }
+      
+      // Montant de la récompense standard
+      const rewardAmount = 100; // 100 coquillages par défaut
+      
+      // Mettre à jour le solde de l'utilisateur avec le timestamp actuel
+      const newBalance = (user.balance || 0) + rewardAmount;
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      updateUser(userId, guildId, {
+        balance: newBalance,
+        last_daily_claim: currentTimestamp
+      });
+      
+      // Créer l'embed de confirmation
+      const embed = new EmbedBuilder()
+        .setTitle('🎉 Récompense quotidienne')
+        .setDescription(`Tu as reçu ta récompense quotidienne de **${rewardAmount}** ${config.currency.emoji} !`)
+        .addFields(
+          { name: 'Nouveau solde', value: `${newBalance} ${config.currency.emoji}`, inline: true },
+          { name: 'Prochaine récompense', value: 'Demain à 00h01', inline: true }
+        )
+        .setColor(0x00ff00)
+        .setFooter({ text: 'Reviens demain pour une nouvelle récompense !' });
+      
+      return interaction.reply({ 
+        embeds: [embed],
+        ephemeral: false
+      });
     }
-
-    // Définir le montant de la récompense en fonction du rôle BDH
-    let rewardAmount = 0;
-    if (member.roles.cache.some(role => role.name === config.shop.bdhBaby.role)) {
-      rewardAmount = config.shop.bdhBaby.dailyReward;
-    } else if (member.roles.cache.some(role => role.name === config.shop.bdhPetit.role)) {
-      rewardAmount = config.shop.bdhPetit.dailyReward;
-    } else if (member.roles.cache.some(role => role.name === config.shop.bdhGros.role)) {
-      rewardAmount = config.shop.bdhGros.dailyReward;
-    } else if (member.roles.cache.some(role => role.name === config.shop.bdhUltime.role)) {
-      rewardAmount = config.shop.bdhUltime.dailyReward;
-    }
-
-    // Mettre à jour le solde de l'utilisateur avec le timestamp actuel
-    const newBalance = (user.balance || 0) + rewardAmount;
-    const currentTimestamp = Math.floor(Date.now() / 1000);
-    updateUser(userId, { 
-      balance: newBalance,
-      last_bdh_claim: currentTimestamp
-    });
-
-    // Créer l'embed de confirmation
-    const embed = new EmbedBuilder()
-      .setTitle('🎉 Récompense BDH quotidienne')
-      .setDescription(`Tu as reçu ta récompense BDH quotidienne de **${rewardAmount}** ${config.currency.emoji} !`)
-      .addFields(
-        { name: 'Nouveau solde', value: `${newBalance} ${config.currency.emoji}`, inline: true },
-        { name: 'Prochaine récompense', value: 'Demain à 00h01', inline: true }
-      )
-      .setColor(0x00ff00)
-      .setFooter({ text: 'Reviens demain pour une nouvelle récompense !' });
-
-    await interaction.reply({ 
-      embeds: [embed],
-      ephemeral: false
-    });
     
   } catch (error) {
-    console.error('Erreur dans handleDailyBdh:', error);
+    console.error('Erreur dans handleDaily:', error);
     if (!interaction.replied) {
       await interaction.reply({
         content: '❌ Une erreur est survenue lors du traitement de ta demande. Réessaye plus tard ou contacte un administrateur.',
