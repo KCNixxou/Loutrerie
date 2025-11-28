@@ -375,9 +375,12 @@ async function playDealerTurn(gameState, interaction) {
   const effectMultiplier = calculateEffectMultiplier(gameState.userId, gameState.guildId);
   let doubleOrNothingMessages = [];
 
+  // Utiliser la mise de la première main pour le calcul des gains de toutes les mains
+  const baseBet = gameState.bets[0];
+  
   gameState.playerHands.forEach((hand, index) => {
     const status = gameState.handStatuses[index];
-    const bet = gameState.bets[index];
+    const bet = baseBet; // Toujours utiliser la mise de la première main
     const score = calculateHandValue(hand);
 
     if (status === 'bust') {
