@@ -145,31 +145,52 @@ client.once('ready', async () => {
     try {
       // Mettre à jour sur chaque serveur avec un délai
       const guilds = Array.from(client.guilds.cache.values());
+      const startTime = Date.now();
+      
+      console.log(`🔄 Début de la mise à jour des commandes sur ${guilds.length} serveurs...`);
       
       for (let i = 0; i < guilds.length; i++) {
         const guild = guilds[i];
-        console.log(`🔄 Mise à jour sur le serveur: ${guild.name} (${guild.id}) [${i+1}/${guilds.length}]`);
+        const guildStartTime = Date.now();
+        const progress = `[${i+1}/${guilds.length}]`;
+        
+        console.log(`\n📡 ${progress} Traitement de "${guild.name}" (${guild.id})...`);
         
         try {
+          // Afficher les commandes qui vont être mises à jour
+          console.log(`   📋 ${commands.length} commandes à synchroniser...`);
+          
           // Mettre à jour les commandes pour cette guilde
+          console.log('   ⏳ Envoi de la requête à Discord...');
           await rest.put(
             Routes.applicationGuildCommands(client.user.id, guild.id),
             { body: commands }
           );
           
+          const guildTime = ((Date.now() - guildStartTime) / 1000).toFixed(2);
+          console.log(`   ✅ Synchronisation réussie en ${guildTime}s`);
+          
           // Ajouter un délai entre chaque guilde pour éviter le rate limiting
           if (i < guilds.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1500)); // 1.5 secondes de délai
+            console.log('   ⏳ Attente de 1.5s avant le prochain serveur...');
+            await new Promise(resolve => setTimeout(resolve, 1500));
           }
           
         } catch (guildError) {
-          console.error(`❌ Erreur lors de la mise à jour sur ${guild.name}:`, guildError.message);
+          const errorTime = ((Date.now() - guildStartTime) / 1000).toFixed(2);
+          console.error(`   ❌ Échec après ${errorTime}s:`, guildError.message);
+          if (guildError.requestBody) {
+            console.error('   📦 Corps de la requête:', JSON.parse(guildError.requestBody));
+          }
           // Continuer avec la guilde suivante même en cas d'erreur
           continue;
         }
       }
       
-      console.log('✅ Toutes les commandes ont été traitées avec succès!');
+      const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
+      console.log(`\n✅ Synchronisation terminée en ${totalTime} secondes`);
+      console.log(`   • ${guilds.length} serveurs traités`);
+      console.log(`   • ${commands.length} commandes synchronisées`);
     } catch (putError) {
       console.error('❌ Erreur lors de la mise à jour des commandes:', putError);
     }
