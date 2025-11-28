@@ -143,15 +143,33 @@ client.once('ready', async () => {
     
     // Si on arrive ici, c'est qu'une mise à jour est nécessaire
     try {
-      // Mettre à jour sur chaque serveur
-      for (const guild of client.guilds.cache.values()) {
-        console.log(`🔄 Mise à jour sur le serveur: ${guild.name} (${guild.id})`);
-        await rest.put(
-          Routes.applicationGuildCommands(client.user.id, guild.id),
-          { body: commands }
-        );
+      // Mettre à jour sur chaque serveur avec un délai
+      const guilds = Array.from(client.guilds.cache.values());
+      
+      for (let i = 0; i < guilds.length; i++) {
+        const guild = guilds[i];
+        console.log(`🔄 Mise à jour sur le serveur: ${guild.name} (${guild.id}) [${i+1}/${guilds.length}]`);
+        
+        try {
+          // Mettre à jour les commandes pour cette guilde
+          await rest.put(
+            Routes.applicationGuildCommands(client.user.id, guild.id),
+            { body: commands }
+          );
+          
+          // Ajouter un délai entre chaque guilde pour éviter le rate limiting
+          if (i < guilds.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1500)); // 1.5 secondes de délai
+          }
+          
+        } catch (guildError) {
+          console.error(`❌ Erreur lors de la mise à jour sur ${guild.name}:`, guildError.message);
+          // Continuer avec la guilde suivante même en cas d'erreur
+          continue;
+        }
       }
-      console.log('✅ Commandes mises à jour avec succès sur tous les serveurs!');
+      
+      console.log('✅ Toutes les commandes ont été traitées avec succès!');
     } catch (putError) {
       console.error('❌ Erreur lors de la mise à jour des commandes:', putError);
     }
