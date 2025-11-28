@@ -127,16 +127,6 @@ const commands = [
             .setMinValue(0)))
 ,
   
-  // Réinitialisation de la récompense quotidienne
-  new SlashCommandBuilder()
-    .setName('reset-daily')
-    .setDescription('[ADMIN] Réinitialiser la date de dernière récupération')
-    .setDefaultMemberPermissions('0')
-    .setDMPermission(false)
-    .addUserOption(option =>
-      option.setName('utilisateur')
-        .setDescription('L\'utilisateur à réinitialiser')
-        .setRequired(true)),
 
   new SlashCommandBuilder()
     .setName('missions')
@@ -347,6 +337,12 @@ const commands = [
         .setMinValue(10)
         .setMaxValue(50000)
     ),
+
+  new SlashCommandBuilder()
+    .setName('maintenance')
+    .setDescription('[ADMIN] Activer/désactiver le mode maintenance')
+    .setDefaultMemberPermissions('0')
+    .setDMPermission(false),
 
   new SlashCommandBuilder()
     .setName('reset-daily')
