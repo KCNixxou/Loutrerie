@@ -43,15 +43,17 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('daily')
-    .setDescription('Récupérer ta récompense journalière de 100 🐚'),
-
-  new SlashCommandBuilder()
-    .setName('dailybdg')
-    .setDescription('Récupérer ta récompense BDG journalière (nécessite un rôle BDG)'),
-
-  new SlashCommandBuilder()
-    .setName('dailybdh')
-    .setDescription('Récupérer ta récompense BDH journalière (nécessite un rôle BDH)'),
+    .setDescription('Récupérer ta récompense journalière')
+    .addStringOption(option =>
+      option.setName('type')
+        .setDescription('Type de récompense journalière')
+        .addChoices(
+          { name: 'Récompense standard (100 🐚)', value: 'standard' },
+          { name: 'Récompense BDG (nécessite un rôle BDG)', value: 'bdg' },
+          { name: 'Récompense BDH (nécessite un rôle BDH)', value: 'bdh' }
+        )
+        .setRequired(false)
+    ),
 
   new SlashCommandBuilder()
     .setName('highlow')
@@ -330,8 +332,7 @@ const commands = [
       option.setName('mise')
         .setDescription('Montant à miser par joueur')
         .setRequired(true)
-        .setMinValue(1)
-        .setMaxValue(10000)), // Limite de 10 000 coquillages
+    ),
 
   // Jeu des mines spécial avec solde spécial (3 mines)
   new SlashCommandBuilder()
@@ -344,28 +345,29 @@ const commands = [
         .setDescription('Montant à miser en coquillages spéciaux')
         .setRequired(true)
         .setMinValue(10)
-        .setMaxValue(50000)), // Limite de 50 000 coquillages spéciaux
-
-  new SlashCommandBuilder()
-    .setName('reset-dailybdg')
-    .setDescription('[ADMIN] Réinitialiser la récompense BDG quotidienne d\'un utilisateur')
-    .setDefaultMemberPermissions('0')
-    .setDMPermission(false)
-    .addUserOption(option =>
-      option.setName('utilisateur')
-        .setDescription('L\'utilisateur à réinitialiser')
-        .setRequired(true)
+        .setMaxValue(50000)
     ),
 
   new SlashCommandBuilder()
-    .setName('reset-dailybdh')
-    .setDescription('[ADMIN] Réinitialiser la récompense BDH quotidienne d\'un utilisateur')
+    .setName('reset-daily')
+    .setDescription('[ADMIN] Réinitialiser la date de dernière récupération')
     .setDefaultMemberPermissions('0')
     .setDMPermission(false)
     .addUserOption(option =>
       option.setName('utilisateur')
         .setDescription('L\'utilisateur à réinitialiser')
         .setRequired(true)
+    )
+    .addStringOption(option =>
+      option.setName('type')
+        .setDescription('Type de récompense à réinitialiser')
+        .addChoices(
+          { name: 'Toutes les récompenses', value: 'all' },
+          { name: 'Récompense standard', value: 'standard' },
+          { name: 'Récompense BDG', value: 'bdg' },
+          { name: 'Récompense BDH', value: 'bdh' }
+        )
+        .setRequired(false)
     ),
 
   new SlashCommandBuilder()
@@ -391,6 +393,9 @@ const adminCommand = new SlashCommandBuilder()
       .setName('statut')
       .setDescription('Voir le montant actuel du pot commun')
   );
+
+// Ajouter la commande admin au tableau des commandes
+commands.push(adminCommand);
 
 // Exporter les commandes formatées pour Discord
 module.exports = commands.map(command => command.toJSON());
