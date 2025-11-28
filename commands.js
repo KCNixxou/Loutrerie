@@ -364,13 +364,7 @@ const commands = [
           { name: 'Récompense BDH', value: 'bdh' }
         )
         .setRequired(false)
-    ),
-
-  new SlashCommandBuilder()
-    .setName('maintenance')
-    .setDescription('[ADMIN] Activer/désactiver le mode maintenance')
-    .setDefaultMemberPermissions('0')
-    .setDMPermission(false)
+    )
 ];
 
 // Admin command for lottery pot
