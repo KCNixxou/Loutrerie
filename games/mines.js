@@ -1,6 +1,7 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const config = require('../config');
 const { ensureUser, updateUser, getUserEffects, useEffect, hasActiveEffect } = require('../database');
+const { updateUserGameStats, handleGameWin, handleGameLose } = require('../utils/missionUtils');
 
 // Objet pour stocker les parties en cours
 // Utilise l'ID du message comme clé pour permettre plusieurs parties en même temps
@@ -254,6 +255,9 @@ function revealCell(gameState, x, y) {
     gameState.gameOver = true;
     gameState.won = false;
     
+    // Mettre à jour les statistiques de défaite pour les missions
+    handleGameLose(gameState.userId, 'mines', gameState.guildId);
+    
     // La mise a déjà été déduite au début de la partie, donc pas besoin de la déduire à nouveau
     // On marque simplement la partie comme perdue
     return;
@@ -387,6 +391,9 @@ async function handleMinesCommand(interaction) {
     const { addToPot } = require('../database');
     addToPot(potContribution, interaction.user.id);
 
+    // Mettre à jour les statistiques de jeu pour les missions
+    updateUserGameStats(interaction.user.id, 'mines');
+    
     // Créer la grille de jeu
     const grid = createGameGrid(minesCount, interaction.user.id);
     
@@ -520,6 +527,9 @@ async function handleMinesButtonInteraction(interaction) {
       } else {
         await interaction.update(cashoutResponse);
       }
+      
+      // Mettre à jour les statistiques de victoire pour les missions
+      handleGameWin(interaction.user.id, 'mines', guildId, winAmount);
       
       // Supprimer la partie de la mémoire
       activeMinesGames.delete(interaction.message.id);

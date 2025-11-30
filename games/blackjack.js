@@ -90,6 +90,10 @@ async function handleBlackjackStart(interaction) {
     });
   }
 
+  // Mettre à jour les statistiques de jeu pour les missions
+  const { updateUserGameStats } = require('../utils/missionUtils');
+  updateUserGameStats(userId, 'blackjack');
+  
   // Créer une nouvelle partie
   const gameId = Date.now().toString();
   

@@ -118,6 +118,10 @@ async function handleRouletteStart(interaction) {
     });
   }
 
+  // Mettre à jour les statistiques de jeu pour les missions
+  const { updateUserGameStats } = require('../utils/missionUtils');
+  updateUserGameStats(userId, 'roulette');
+  
   // Créer une nouvelle partie
   const gameId = Date.now().toString();
   
@@ -169,6 +173,16 @@ async function handleRouletteStart(interaction) {
   // Mettre à jour le solde en fonction du résultat final
   const newBalance = user.balance - bet + finalWin;
   updateUser(userId, guildId, { balance: newBalance });
+  
+  // Mettre à jour les statistiques de victoire/défaite pour les missions
+  const { handleGameWin, handleGameLose } = require('../utils/missionUtils');
+  if (finalWin > bet) {
+    // Le joueur a gagné (gains supérieurs à la mise)
+    handleGameWin(userId, 'roulette', guildId, finalWin - bet); // On ne compte que le bénéfice net
+  } else if (finalWin === 0 && !gameState.lossProtectionUsed) {
+    // Le joueur a perdu (sans protection contre les pertes)
+    handleGameLose(userId, 'roulette', guildId);
+  } // En cas d'égalité (mise rendue), on ne fait rien
   
   // Créer l'embed
   const embed = createRouletteEmbed(gameState, interaction.user);

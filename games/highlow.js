@@ -1,5 +1,6 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const { ensureUser, updateUser, getUserEffects, useEffect, hasActiveEffect } = require('../database');
+const { updateUserGameStats, handleGameWin, handleGameLose } = require('../utils/missionUtils');
 const { getGameConfig } = require('../game-utils');
 
 // Stockage des parties en cours
@@ -356,6 +357,9 @@ async function handleHighLowAction(interaction) {
     let updatedBalance = user.balance;
     let lossMessage = `❌ **Vous avez perdu !**`;
     
+    // Mettre à jour les statistiques de défaite pour les missions
+    handleGameLose(game.userId, 'highlow', game.guildId);
+    
     // Vérifier la protection contre les pertes
     const hasProtection = checkLossProtection(game.userId, game.guildId, game.currentBet);
     if (hasProtection) {
@@ -458,6 +462,9 @@ async function handleHighLowDecision(interaction) {
       
       // Mettre à jour le solde du joueur
       updateUser(gameState.userId, gameState.guildId, { balance: newBalance });
+      
+      // Mettre à jour les statistiques de victoire pour les missions
+      handleGameWin(gameState.userId, 'highlow', gameState.guildId, winnings);
       
       // Créer l'embed de fin de partie
       const embed = new EmbedBuilder()
@@ -611,6 +618,9 @@ async function handleHighLow(interaction, isSpecial = false) {
   }
   
   // Vérifier le solde du joueur
+  
+  // Mettre à jour les statistiques de jeu pour les missions
+  updateUserGameStats(userId, 'highlow');
   
   if (isSpecial) {
     const { getSpecialBalance, updateSpecialBalance } = require('../database');

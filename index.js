@@ -1530,20 +1530,24 @@ async function handleGive(interaction) {
     
     // Mise � jour du donneur avec le nouveau montant quotidien
     updateUser(giverId, guildId, { 
-  balance: giverBalance - amount,
-  daily_given: newDailyGiven,
-  last_give_reset: currentTime
-});
+      balance: giverBalance - amount,
+      daily_given: newDailyGiven,
+      last_give_reset: currentTime
+    });
     
-    // Mise � jour du receveur
+    // Mise à jour du receveur
     updateUser(targetUser.id, guildId, { 
-  balance: receiverBalance + amount 
-});
+      balance: receiverBalance + amount 
+    });
 
-    // Cr�er et envoyer l'embed de confirmation
+    // Mettre à jour les missions liées aux dons
+    const { handleCoinGift } = require('./utils/missionUtils');
+    handleCoinGift(giverId, amount, guildId);
+
+    // Créer et envoyer l'embed de confirmation
     const embed = new EmbedBuilder()
       .setTitle('?? Don de coquillages')
-      .setDescription(`<@${giverId}> a donn� **${amount}** ${config.currency.emoji} � <@${targetUser.id}> !`)
+      .setDescription(`<@${giverId}> a donné **${amount}** ${config.currency.emoji} à <@${targetUser.id}> !`)
       .addFields(
         { 
           name: 'Donneur', 

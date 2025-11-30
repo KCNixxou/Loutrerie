@@ -105,6 +105,10 @@ async function handleSlots(interaction) {
     });
   }
 
+  // Mettre à jour les statistiques de jeu pour les missions
+  const { updateUserGameStats } = require('../utils/missionUtils');
+  updateUserGameStats(userId, 'slots');
+  
   // Créer une nouvelle partie
   const gameId = Date.now().toString();
   
@@ -153,6 +157,16 @@ async function handleSlots(interaction) {
 
   // Mettre à jour le solde de l'utilisateur avec le résultat final
   updateUser(userId, guildId, { balance: newBalance });
+  
+  // Mettre à jour les statistiques de victoire/défaite pour les missions
+  const { handleGameWin, handleGameLose } = require('../utils/missionUtils');
+  if (finalWinnings > bet) {
+    // Le joueur a gagné (gains supérieurs à la mise)
+    handleGameWin(userId, 'slots', guildId, finalWinnings - bet); // On ne compte que le bénéfice net
+  } else if (finalWinnings === 0 && !gameState.lossProtectionUsed) {
+    // Le joueur a perdu (sans protection contre les pertes)
+    handleGameLose(userId, 'slots', guildId);
+  } // En cas de gain inférieur ou égal à la mise, on ne compte pas comme une victoire
   
   // Créer l'embed
   const embed = createSlotsEmbed(interaction, {
