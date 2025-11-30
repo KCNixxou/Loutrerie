@@ -148,10 +148,10 @@ function applyConsumableEffect(userId, item, interaction) {
                 guildId,
                 effect: 'double_winnings',
                 value: item.value,
-                expires_at: now + item.duration,
-                description: `Gains x${item.value} pendant 1 heure`
+                uses: item.uses,
+                description: `Gains x${item.value} pour les ${item.uses} prochaines parties`
             });
-            return `✅ **${item.name}** activé ! Vos gains sont multipliés par 2 pendant 1 heure.`;
+            return `✅ **${item.name}** activé ! Vos gains sont multipliés par 2 pour les ${item.uses} prochaines parties.`;
             
         default:
             return `✅ **${item.name}** acheté !`;
