@@ -860,11 +860,16 @@ async function handleSlashCommand(interaction) {
 
     case 'missions':
       try {
+        console.log('[MISSIONS] Récupération des données utilisateur...');
         const user = ensureUser(interaction.user.id, interaction.guildId);
         const config = require('./config');
         
+        // Log de débogage pour voir la structure de l'utilisateur
+        console.log('[MISSIONS] Données utilisateur brutes:', JSON.stringify(user, null, 2));
+        
         // Vérifier si l'utilisateur a des missions, sinon les initialiser
         if (!user.missions) {
+          console.log('[MISSIONS] Aucune mission trouvée, initialisation...');
           user.missions = { 
             daily: {}, 
             weekly: {},
@@ -873,6 +878,23 @@ async function handleSlashCommand(interaction) {
             lastWeeklyReset: 0
           };
           updateUser(interaction.user.id, interaction.guildId, { missions: user.missions });
+          console.log('[MISSIONS] Missions initialisées:', JSON.stringify(user.missions, null, 2));
+        } else if (typeof user.missions === 'string') {
+          console.log('[MISSIONS] Missions au format chaîne, conversion en objet...');
+          try {
+            user.missions = JSON.parse(user.missions);
+            console.log('[MISSIONS] Missions converties:', JSON.stringify(user.missions, null, 2));
+          } catch (e) {
+            console.error('[MISSIONS] Erreur lors de la conversion des missions:', e);
+            user.missions = { 
+              daily: {}, 
+              weekly: {},
+              lifetime: {},
+              lastDailyReset: 0,
+              lastWeeklyReset: 0
+            };
+            updateUser(interaction.user.id, interaction.guildId, { missions: user.missions });
+          }
         }
         
         // Fonction pour formater une mission
@@ -890,21 +912,54 @@ async function handleSlashCommand(interaction) {
           Progression: ${status} • Récompense: ${missionDef.reward} ${config.currency.emoji}${completed && !claimed ? '\n          *Cliquez sur le bouton pour réclamer*' : ''}\n`;
         };
         
-        // Créer les champs pour chaque catégorie de missions
-        const dailyMissions = config.missions.daily.map(mission => {
+        // S'assurer que les catégories de missions sont bien des objets
+        if (!user.missions.daily || typeof user.missions.daily !== 'object') {
+          console.log('[MISSIONS] Initialisation de la catégorie daily');
+          user.missions.daily = {};
+        }
+        if (!user.missions.weekly || typeof user.missions.weekly !== 'object') {
+          console.log('[MISSIONS] Initialisation de la catégorie weekly');
+          user.missions.weekly = {};
+        }
+        if (!user.missions.lifetime || typeof user.missions.lifetime !== 'object') {
+          console.log('[MISSIONS] Initialisation de la catégorie lifetime');
+          user.missions.lifetime = {};
+        }
+        
+        // Log des données de mission avant traitement
+        console.log('[MISSIONS] Données de mission avant traitement:', JSON.stringify({
+          daily: user.missions.daily,
+          weekly: user.missions.weekly,
+          lifetime: user.missions.lifetime
+        }, null, 2));
+        
+        // Créer les champs pour chaque catégorie de missions avec vérification
+        const dailyMissions = (config.missions.daily || []).map(mission => {
+          if (!mission || !mission.id) {
+            console.error('[MISSIONS] Mission invalide dans daily:', mission);
+            return '';
+          }
           const missionData = user.missions.daily[mission.id] || { progress: 0 };
           return formatMission(missionData, mission);
-        }).join('\n\n');
+        }).filter(Boolean).join('\n\n');
         
-        const weeklyMissions = config.missions.weekly.map(mission => {
+        const weeklyMissions = (config.missions.weekly || []).map(mission => {
+          if (!mission || !mission.id) {
+            console.error('[MISSIONS] Mission invalide dans weekly:', mission);
+            return '';
+          }
           const missionData = user.missions.weekly[mission.id] || { progress: 0 };
           return formatMission(missionData, mission);
-        }).join('\n\n');
+        }).filter(Boolean).join('\n\n');
         
-        const lifetimeMissions = config.missions.lifetime.map(mission => {
+        const lifetimeMissions = (config.missions.lifetime || []).map(mission => {
+          if (!mission || !mission.id) {
+            console.error('[MISSIONS] Mission invalide dans lifetime:', mission);
+            return '';
+          }
           const missionData = user.missions.lifetime[mission.id] || { progress: 0 };
           return formatMission(missionData, mission);
-        }).join('\n\n');
+        }).filter(Boolean).join('\n\n');
         
         // Créer l'embed avec les onglets
         const missionEmbed = new EmbedBuilder()
