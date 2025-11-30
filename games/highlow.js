@@ -257,6 +257,9 @@ async function handleHighLowAction(interaction) {
   const config = getGameConfig(interaction);
   const { result: userWon, sameCard } = compareCards(game.currentCard, newCard, action, game.currentBet, config);
   
+  // Mettre à jour les statistiques de jeu pour les missions
+  updateUserGameStats(game.userId, 'highlow');
+  
   // Déterminer le résultat pour l'affichage
   const currentValue = getCardValue(game.currentCard);
   const newValue = getCardValue(newCard);

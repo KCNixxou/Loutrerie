@@ -255,6 +255,9 @@ function revealCell(gameState, x, y) {
     gameState.gameOver = true;
     gameState.won = false;
     
+    // Mettre à jour les statistiques de jeu pour les missions
+    updateUserGameStats(gameState.userId, 'mines');
+    
     // Mettre à jour les statistiques de défaite pour les missions
     handleGameLose(gameState.userId, 'mines', gameState.guildId);
     

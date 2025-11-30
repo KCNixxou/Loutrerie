@@ -2144,108 +2144,234 @@ scheduleDailyReset(scheduleDailyResets);
 console.log('⏰ Réinitialisations quotidiennes programmées à 00h01 chaque jour');
 
 // Gestion des interactions de boutons pour les missions
-client.on('interactionCreate', async interaction => {
-  if (!interaction.isButton() || !interaction.customId.startsWith('missions_')) return;
+const handleMissionButton = async (interaction) => {
+  if (!interaction.isButton()) return;
   
-  try {
-    await interaction.deferUpdate();
-    
-    const userId = interaction.user.id;
-    const guildId = interaction.guildId;
-    const category = interaction.customId.split('_')[1]; // daily, weekly ou lifetime
-    
-    if (!['daily', 'weekly', 'lifetime'].includes(category)) {
-      return interaction.followUp({
-        content: '❌ Catégorie de mission non valide.',
-        ephemeral: true
-      });
-    }
-    
-    const user = ensureUser(userId, guildId);
-    const config = require('./config');
-    
-    // Vérifier si l'utilisateur a des missions, sinon les initialiser
-    if (!user.missions) {
-      user.missions = { 
-        daily: {}, 
-        weekly: {},
-        lifetime: {},
-        lastDailyReset: 0,
-        lastWeeklyReset: 0
-      };
-      updateUser(userId, guildId, { missions: user.missions });
-    }
-    
-    // Fonction pour formater une mission
-    const formatMission = (mission, missionDef) => {
-      const progress = mission?.progress || 0;
-      const goal = missionDef?.goal || 1;
-      const completed = mission?.completed || false;
-      const claimed = mission?.claimed || false;
-      const emoji = completed ? (claimed ? '✅' : '🎁') : '🔄';
-      const status = completed 
-        ? (claimed ? 'Terminée' : 'Récompense à réclamer')
-        : `${progress}/${goal}`;
+  // Gestion des boutons de mission
+  if (interaction.customId.startsWith('missions_')) {
+    try {
+      await interaction.deferUpdate();
       
-      return `${emoji} **${missionDef.description}**
-      Progression: ${status} • Récompense: ${missionDef.reward} ${config.currency.emoji}${completed && !claimed ? '\n      *Cliquez sur le bouton pour réclamer*' : ''}\n`;
-    };
-    
-    // Filtrer les missions par catégorie sélectionnée
-    const missions = config.missions[category].map(mission => {
-      const missionData = user.missions[category][mission.id] || { progress: 0 };
-      return formatMission(missionData, mission);
-    }).join('\n\n');
-    
-    // Mettre à jour l'embed avec la catégorie sélectionnée
-    const missionEmbed = new EmbedBuilder()
-      .setTitle(`🎯 Missions ${getCategoryName(category)}`)
-      .setDescription(missions || 'Aucune mission disponible pour cette catégorie')
-      .setColor(0x00ff00)
-      .setFooter({ 
-        text: category === 'daily' 
-          ? 'Réinitialisation quotidienne à minuit' 
-          : category === 'weekly' 
-            ? 'Réinitialisation hebdomadaire le lundi' 
-            : 'Missions permanentes' 
+      const userId = interaction.user.id;
+      const guildId = interaction.guildId;
+      const category = interaction.customId.split('_')[1]; // daily, weekly ou lifetime
+      
+      if (!['daily', 'weekly', 'lifetime'].includes(category)) {
+        return interaction.followUp({
+          content: '❌ Catégorie de mission non valide.',
+          ephemeral: true
+        });
+      }
+      
+      const user = ensureUser(userId, guildId);
+      const config = require('./config');
+      
+      // Vérifier si l'utilisateur a des missions, sinon les initialiser
+      if (!user.missions) {
+        user.missions = { 
+          daily: {}, 
+          weekly: {},
+          lifetime: {},
+          lastDailyReset: 0,
+          lastWeeklyReset: 0
+        };
+        updateUser(userId, guildId, { missions: user.missions });
+      }
+      
+      // Fonction pour formater une mission
+      const formatMission = (mission, missionDef) => {
+        const progress = mission?.progress || 0;
+        const goal = missionDef?.goal || 1;
+        const completed = mission?.completed || false;
+        const claimed = mission?.claimed || false;
+        const emoji = completed ? (claimed ? '✅' : '🎁') : '🔄';
+        const status = completed 
+          ? (claimed ? 'Terminée' : 'Récompense à réclamer')
+          : `${progress}/${goal}`;
+        
+        return `${emoji} **${missionDef.description}**
+        Progression: ${status} • Récompense: ${missionDef.reward} ${config.currency.emoji}${completed && !claimed ? '\n        *Cliquez sur le bouton pour réclamer*' : ''}\n`;
+      };
+      
+      // Filtrer les missions par catégorie sélectionnée
+      const missions = config.missions[category].map(mission => {
+        const missionData = user.missions[category][mission.id] || { progress: 0 };
+        return formatMission(missionData, mission);
+      }).join('\n\n');
+      
+      // Mettre à jour l'embed avec la catégorie sélectionnée
+      const missionEmbed = new EmbedBuilder()
+        .setTitle(`🎯 Missions ${getCategoryName(category)}`)
+        .setDescription(missions || 'Aucune mission disponible pour cette catégorie')
+        .setColor(0x00ff00)
+        .setFooter({ 
+          text: category === 'daily' 
+            ? 'Réinitialisation quotidienne à minuit' 
+            : category === 'weekly' 
+              ? 'Réinitialisation hebdomadaire le lundi' 
+              : 'Missions permanentes' 
+        });
+      
+      // Vérifier s'il y a des récompenses à réclamer
+      const hasUnclaimedRewards = config.missions[category].some(mission => {
+        const missionData = user.missions[category]?.[mission.id] || {};
+        return missionData.completed && !missionData.claimed;
       });
-    
-    // Mettre à jour les boutons avec la catégorie active en surbrillance
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('missions_daily')
-        .setLabel('Journalières')
-        .setStyle(category === 'daily' ? ButtonStyle.Success : ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId('missions_weekly')
-        .setLabel('Hebdomadaires')
-        .setStyle(category === 'weekly' ? ButtonStyle.Success : ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId('missions_lifetime')
-        .setLabel('Permanentes')
-        .setStyle(category === 'lifetime' ? ButtonStyle.Success : ButtonStyle.Primary)
-    );
-    
-    await interaction.editReply({
-      embeds: [missionEmbed],
-      components: [row]
-    });
-    
-  } catch (error) {
-    console.error('Erreur lors de la gestion du bouton de mission:', error);
-    if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({
-        content: '❌ Une erreur est survenue lors du traitement de votre demande.',
-        ephemeral: true
+
+      // Créer la rangée des boutons de navigation
+      const navigationRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('missions_daily')
+          .setLabel('Journalières')
+          .setStyle(category === 'daily' ? ButtonStyle.Success : ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId('missions_weekly')
+          .setLabel('Hebdomadaires')
+          .setStyle(category === 'weekly' ? ButtonStyle.Success : ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId('missions_lifetime')
+          .setLabel('Permanentes')
+          .setStyle(category === 'lifetime' ? ButtonStyle.Success : ButtonStyle.Primary)
+      );
+
+      // Créer la rangée du bouton de réclamation
+      const claimRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`claim_rewards_${category}`)
+          .setLabel('Réclamer les récompenses')
+          .setStyle(ButtonStyle.Success)
+          .setEmoji('🎁')
+          .setDisabled(!hasUnclaimedRewards)
+      );
+      
+      await interaction.editReply({
+        embeds: [missionEmbed],
+        components: [navigationRow, claimRow]
       });
-    } else {
-      await interaction.followUp({
-        content: '❌ Une erreur est survenue lors du traitement de votre demande.',
-        ephemeral: true
-      });
+      
+    } catch (error) {
+      console.error('Erreur lors de la gestion du bouton de mission:', error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+          content: '❌ Une erreur est survenue lors du traitement de votre demande.',
+          ephemeral: true
+        });
+      } else {
+        await interaction.followUp({
+          content: '❌ Une erreur est survenue lors du traitement de votre demande.',
+          ephemeral: true
+        });
+      }
     }
   }
-});
+  
+  // Gestion du bouton pour réclamer les récompenses
+  else if (interaction.customId.startsWith('claim_rewards_')) {
+    try {
+      await interaction.deferUpdate();
+      
+      const userId = interaction.user.id;
+      const guildId = interaction.guildId;
+      const category = interaction.customId.replace('claim_rewards_', '');
+      
+      if (!['daily', 'weekly', 'lifetime'].includes(category)) {
+        return interaction.followUp({
+          content: '❌ Catégorie de mission non valide.',
+          ephemeral: true
+        });
+      }
+      
+      const user = ensureUser(userId, guildId);
+      const config = require('./config');
+      
+      // Vérifier si l'utilisateur a des missions
+      if (!user.missions || !user.missions[category]) {
+        return interaction.followUp({
+          content: '❌ Aucune mission trouvée pour cette catégorie.',
+          ephemeral: true
+        });
+      }
+      
+      let totalReward = 0;
+      let claimedMissions = 0;
+      
+      // Parcourir toutes les missions de la catégorie
+      for (const mission of config.missions[category]) {
+        const missionId = mission.id;
+        const missionData = user.missions[category][missionId] || {};
+        
+        // Si la mission est terminée mais pas encore réclamée
+        if (missionData.completed && !missionData.claimed) {
+          // Ajouter la récompense au total
+          totalReward += mission.reward || 0;
+          claimedMissions++;
+          
+          // Marquer la mission comme réclamée
+          if (!user.missions[category][missionId]) {
+            user.missions[category][missionId] = {};
+          }
+          user.missions[category][missionId].claimed = true;
+          user.missions[category][missionId].claimedAt = Date.now();
+        }
+      }
+      
+      if (claimedMissions === 0) {
+        return interaction.followUp({
+          content: '❌ Aucune récompense à réclamer pour le moment.',
+          ephemeral: true
+        });
+      }
+      
+      // Mettre à jour le solde de l'utilisateur
+      const newBalance = (user.balance || 0) + totalReward;
+      updateUser(userId, guildId, { 
+        balance: newBalance,
+        missions: user.missions
+      });
+      
+      // Mettre à jour l'affichage des missions
+      const missionEmbed = new EmbedBuilder()
+        .setTitle('🎉 Récompenses réclamées !')
+        .setDescription(`Vous avez reçu **${totalReward}** ${config.currency.emoji} pour avoir complété ${claimedMissions} mission(s) !`)
+        .setColor(0x00ff00);
+      
+      // Recharger la vue des missions
+      const missionInteraction = {
+        ...interaction,
+        customId: `missions_${category}`
+      };
+      
+      // Appeler manuellement le gestionnaire de l'onglet des missions
+      const missionHandler = client.handlers?.get('MISSIONS');
+      if (missionHandler) {
+        await missionHandler(missionInteraction);
+      } else {
+        // Si le gestionnaire n'est pas disponible, afficher un message de succès
+        await interaction.followUp({
+          embeds: [missionEmbed],
+          ephemeral: true
+        });
+      }
+      
+    } catch (error) {
+      console.error('Erreur lors de la réclamation des récompenses:', error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+          content: '❌ Une erreur est survenue lors de la réclamation des récompenses.',
+          ephemeral: true
+        });
+      } else {
+        await interaction.followUp({
+          content: '❌ Une erreur est survenue lors de la réclamation des récompenses.',
+          ephemeral: true
+        });
+      }
+    }
+  }
+};
+
+// Enregistrer le gestionnaire d'événements pour les boutons de mission
+client.on('interactionCreate', handleMissionButton);
 
 // Fonction utilitaire pour obtenir le nom d'affichage de la catégorie
 function getCategoryName(category) {
