@@ -49,6 +49,9 @@ function updateDatabaseSchema() {
   // Ajout des colonnes pour le suivi des récompenses BDG et BDH quotidiennes (anciens schémas)
   addColumnIfNotExists('users', 'last_bdg_claim', 'INTEGER DEFAULT 0');
   addColumnIfNotExists('users', 'last_bdh_claim', 'INTEGER DEFAULT 0');
+  
+  // Ajout de la colonne pour stocker les missions
+  addColumnIfNotExists('users', 'missions', 'TEXT DEFAULT "{}"');
 
   // Création de la table pour les effets temporaires des consommables
   db.exec(`
