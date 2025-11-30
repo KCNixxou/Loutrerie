@@ -1,4 +1,4 @@
-const { updateMissionProgress } = require('../database');
+const { updateMissionProgress, ensureUser, updateUser } = require('../database');
 
 // Types de missions
 const MISSION_TYPES = {

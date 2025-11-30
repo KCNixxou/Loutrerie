@@ -799,8 +799,18 @@ function addToPot(amount, userId = 'system') {
     
     // Enregistrer la contribution si c'est un utilisateur spécifique
     if (userId !== 'system') {
-      db.prepare('INSERT INTO lottery_participants (user_id, amount_contributed) VALUES (?, ?)')
-        .run(userId, amount);
+      // Vérifier si l'utilisateur a déjà une entrée
+      const existing = db.prepare('SELECT * FROM lottery_participants WHERE user_id = ?').get(userId);
+      
+      if (existing) {
+        // Mettre à jour la contribution existante
+        db.prepare('UPDATE lottery_participants SET amount_contributed = amount_contributed + ? WHERE user_id = ?')
+          .run(amount, userId);
+      } else {
+        // Créer une nouvelle entrée
+        db.prepare('INSERT INTO lottery_participants (user_id, amount_contributed) VALUES (?, ?)')
+          .run(userId, amount);
+      }
     }
     
     const newAmount = db.prepare('SELECT current_amount FROM lottery_pot WHERE id = 1').get().current_amount;
