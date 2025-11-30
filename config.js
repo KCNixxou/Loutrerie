@@ -133,14 +133,16 @@ const defaultConfig = {
       price: 500000,
       name: '🎁 Cadeau surprise 1',
       emoji: '🎁',
-      description: 'Un code vous sera envoyé en message privé après achat.'
+      description: 'Un code vous sera envoyé en message privé après achat.',
+      type: 'gift'
     },
     
     cadeauSurprise2: {
       price: 500000,
       name: '🎁 Cadeau surprise 2',
       emoji: '🎁',
-      description: 'Un code vous sera envoyé en message privé après achat.'
+      description: 'Un code vous sera envoyé en message privé après achat.',
+      type: 'gift'
     }
   },
   missions: {

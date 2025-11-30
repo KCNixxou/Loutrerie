@@ -252,6 +252,40 @@ async function handlePurchase(interaction) {
             
             return interaction.reply(reply);
             
+        } else if (item.type === 'gift') {
+            // Article cadeau - déduire le montant et informer l'utilisateur
+            const updateResult = updateUser(userId, interaction.guildId, {
+                balance: user.balance - item.price
+            });
+            
+            if (updateResult) {
+                // Envoyer un message à l'utilisateur
+                try {
+                    await interaction.user.send(`🎁 Merci pour votre achat de **${item.name}** ! Un administrateur vous contactera bientôt avec votre code.`);
+                    reply.content = `✅ **${item.name}** acheté avec succès ! Vérifiez vos messages privés pour plus d'informations.`;
+                    
+                    // Envoyer une notification aux administrateurs
+                    const adminMention = interaction.guild.roles.cache.get('ADMIN_ROLE_ID')?.toString() || '@administrateur';
+                    const adminChannel = interaction.guild.channels.cache.find(c => c.name === 'admin' || c.name === 'logs');
+                    if (adminChannel) {
+                        await adminChannel.send(`🔔 **Nouvel achat de code**
+> **Utilisateur:** ${interaction.user.tag} (${interaction.user.id})
+> **Article:** ${item.name}
+> **Prix:** ${item.price} ${config.currency.emoji}
+${adminMention}`);
+                    }
+                    
+                    console.log(`[Achat] Article cadeau ${item.name} acheté par ${interaction.user.tag}`);
+                } catch (error) {
+                    console.error(`[Achat] Erreur lors de l'envoi du message à l'utilisateur:`, error);
+                    reply.content = `✅ **${item.name}** acheté avec succès ! Un administrateur vous contactera bientôt avec votre code.`;
+                }
+            } else {
+                reply.content = '❌ Erreur lors de la transaction.';
+            }
+            
+            return interaction.reply(reply);
+            
         } else if (item.type === 'event_access' || item.type === 'vip_temporary') {
             const updateResult = updateUser(userId, interaction.guildId, {
                 balance: user.balance - item.price
