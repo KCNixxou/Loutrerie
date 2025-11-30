@@ -81,10 +81,10 @@ const defaultConfig = {
       price: 100000,
       name: '🩸 Pack Saignée',
       emoji: '🩸',
-      description: 'Gains x2 pendant 1 heure',
+      description: 'Gains x2 pour les 15 prochaines parties',
       type: 'consumable',
-      duration: 3600000, // 1h en ms
       effect: 'double_winnings',
+      uses: 15,
       value: 2.0
     },
     
