@@ -321,6 +321,30 @@ function ensureUser(userId, guildId = null) {
     user = db.prepare('SELECT * FROM users WHERE user_id = ? AND guild_id IS ?').get(userId, guildId);
   }
 
+  // S'assurer que le champ missions est correctement analysé depuis la chaîne JSON
+  if (user && user.missions && typeof user.missions === 'string') {
+    try {
+      user.missions = JSON.parse(user.missions);
+    } catch (e) {
+      console.error('Erreur lors de l\'analyse du champ missions:', e);
+      user.missions = {
+        daily: {},
+        weekly: {},
+        lifetime: {},
+        lastDailyReset: 0,
+        lastWeeklyReset: 0
+      };
+    }
+  } else if (!user.missions) {
+    user.missions = {
+      daily: {},
+      weekly: {},
+      lifetime: {},
+      lastDailyReset: 0,
+      lastWeeklyReset: 0
+    };
+  }
+
   return user;
 }
 
@@ -330,12 +354,20 @@ function updateUser(userId, guildId = null, data) {
     return;
   }
   
-  console.log(`[DB DEBUG] Mise à jour de l'utilisateur ${userId} (guild: ${guildId || 'NULL'}) avec les données:`, JSON.stringify(data, null, 2));
+  // Faire une copie des données pour éviter de modifier l'objet d'origine
+  const updateData = { ...data };
+  
+  // Si l'objet missions est présent, le convertir en chaîne JSON
+  if (updateData.missions && typeof updateData.missions === 'object') {
+    updateData.missions = JSON.stringify(updateData.missions);
+  }
+  
+  console.log(`[DB DEBUG] Mise à jour de l'utilisateur ${userId} (guild: ${guildId || 'NULL'}) avec les données:`, JSON.stringify(updateData, null, 2));
   
   try {
-    const keys = Object.keys(data);
+    const keys = Object.keys(updateData);
     const setClause = keys.map(k => `${k} = ?`).join(', ');
-    const values = keys.map(k => data[k]);
+    const values = keys.map(k => updateData[k]);
     
     // Ajout des paramètres pour la clause WHERE (user_id, guild_id)
     values.push(userId, guildId);
