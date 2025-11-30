@@ -159,9 +159,25 @@ const defaultConfig = {
   },
   missions: {
     daily: [
-      { id: 'messages_30', description: 'Envoyer 30 messages', goal: 30, reward: 50 },
-      { id: 'coinflip_multi', description: 'Jouer une partie de pile ou face multijoueurs', goal: 1, reward: 100 },
-      { id: 'messages_50', description: 'Envoyer 50 messages', goal: 50, reward: 150 }
+      { id: 'daily_win', description: 'Gagner une partie', goal: 1, reward: 200 },
+      { id: 'daily_lose', description: 'Perdre une partie', goal: 1, reward: 200 },
+      { id: 'daily_play_5', description: 'Faire 5 parties dans la journée', goal: 5, reward: 200 },
+      { id: 'daily_3_games', description: 'Jouer à 3 jeux différents', goal: 3, reward: 200 }
+    ],
+    weekly: [
+      { id: 'weekly_boost', description: 'Activer un boost', goal: 1, reward: 1000 },
+      { id: 'weekly_buy_item', description: 'Acheter un objet dans la boutique', goal: 1, reward: 1000 },
+      { id: 'weekly_give_2000', description: 'Donner 2000 coquillages (cumulé)', goal: 2000, reward: 1000 },
+      { id: 'weekly_win_50000', description: 'Gagner 50000 coquillages (cumulé)', goal: 50000, reward: 1000 }
+    ],
+    lifetime: [
+      { id: 'lifetime_1000_games', description: 'Jouer 1000 parties', goal: 1000, reward: 10000 },
+      { id: 'lifetime_2000_games', description: 'Jouer 2000 parties', goal: 2000, reward: 20000 },
+      { id: 'lifetime_5000_games', description: 'Jouer 5000 parties', goal: 5000, reward: 50000 },
+      { id: 'lifetime_give_30000', description: 'Donner 30000 coquillages (cumulé)', goal: 30000, reward: 30000 },
+      { id: 'lifetime_open_50_boxes', description: 'Ouvrir 50 boîtes à organes', goal: 50, reward: 100000 },
+      { id: 'lifetime_open_100_boxes', description: 'Ouvrir 100 boîtes à organes', goal: 100, reward: 150000 },
+      { id: 'lifetime_open_200_boxes', description: 'Ouvrir 200 boîtes à organes', goal: 200, reward: 200000 }
     ]
   },
   // Configuration pour le salon spécial High Low

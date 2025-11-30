@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const { ensureUser, updateUser, getUserEffects, addUserEffect } = require('../database');
+const { handleItemPurchase, handleBoxOpening, handleBoostActivation } = require('../utils/missionUtils');
 
 // Gestion de la boutique et des effets temporaires
 
@@ -107,9 +108,8 @@ async function handleShop(interaction) {
 }
 
 // Fonction pour appliquer les effets des consommables
-function applyConsumableEffect(userId, item, interaction) {
+function applyConsumableEffect(item, userId, guildId, interaction) {
     const now = Date.now();
-    const guildId = interaction.guildId || (interaction.guild && interaction.guild.id) || null;
     
     console.log(`[SHOP] applyConsumableEffect - userId: ${userId}, guildId: ${guildId}, item: ${item.name}`);
     
@@ -175,12 +175,12 @@ function openMysteryBox(userId, item, interaction) {
         // Récompense en item
         const rewardItem = config.shop[randomReward];
         if (rewardItem) {
-            applyConsumableEffect(userId, rewardItem, interaction);
+            applyConsumableEffect(rewardItem, userId, interaction.guildId, interaction);
             rewardText = `Vous avez gagné **${rewardItem.name}** !`;
         }
     }
     
-    return `🎉 **${item.name}** ouverte !\n${rewardText}`;
+    return `🎁 Vous avez ouvert une ${item.name} et obtenu : ${rewardText}`;
 }
 
 // Fonction pour gérer les achats de manière sécurisée
@@ -226,16 +226,19 @@ async function handlePurchase(interaction) {
                 balance: user.balance - item.price
             });
             
-            if (updateResult) {
-                const effectMessage = applyConsumableEffect(userId, item, interaction);
-                reply.content = effectMessage;
-                console.log(`[Achat] Consommable ${item.name} utilisé par ${interaction.user.tag}`);
-            } else {
-                reply.content = '❌ Erreur lors de la transaction.';
+            // Appliquer l'effet de l'objet consommable
+            const result = await applyConsumableEffect(item, userId, interaction.guildId, interaction);
+            reply.content = result;
+            
+            // Mettre à jour les missions pour l'achat d'objet
+            handleItemPurchase(userId, interaction.guildId);
+            
+            // Si c'est un boost, mettre à jour les missions de boost
+            if (item.effect) {
+                handleBoostActivation(userId, interaction.guildId);
             }
             
-            return interaction.reply(reply);
-            
+            console.log(`[Achat] Consommable ${item.name} utilisé par ${interaction.user.tag}`);
         } else if (item.type === 'mystery_box') {
             // Boîte mystère - ouvrir immédiatement
             const updateResult = updateUser(userId, interaction.guildId, {
@@ -243,15 +246,17 @@ async function handlePurchase(interaction) {
             });
             
             if (updateResult) {
-                const boxMessage = openMysteryBox(userId, item, interaction);
-                reply.content = boxMessage;
-                console.log(`[Achat] Boîte mystère ${item.name} ouverte par ${interaction.user.tag}`);
+                // Ouvrir la boîte mystère
+                const reward = openMysteryBox(userId, item, interaction);
+                reply.content = `🎁 Vous avez ouvert une ${item.name} et obtenu : ${reward}`;
+                
+                // Mettre à jour les missions pour l'ouverture de boîte
+                handleBoxOpening(userId, interaction.guildId);
             } else {
                 reply.content = '❌ Erreur lors de la transaction.';
             }
             
-            return interaction.reply(reply);
-            
+            console.log(`[Achat] Boîte mystère ${item.name} ouverte par ${interaction.user.tag}`);
         } else if (item.type === 'gift') {
             // Article cadeau - déduire le montant et informer l'utilisateur
             const updateResult = updateUser(userId, interaction.guildId, {
@@ -284,8 +289,8 @@ ${adminMention}`);
                 reply.content = '❌ Erreur lors de la transaction.';
             }
             
-            return interaction.reply(reply);
-            
+            // Gérer les articles cadeaux (cadeauSurprise1 et cadeauSurprise2)
+            handleItemPurchase(userId, interaction.guildId);
         } else if (item.type === 'event_access' || item.type === 'vip_temporary') {
             const updateResult = updateUser(userId, interaction.guildId, {
                 balance: user.balance - item.price

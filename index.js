@@ -859,23 +859,92 @@ async function handleSlashCommand(interaction) {
       break;
 
     case 'missions':
-      const userMissions = ensureUser(interaction.user.id);
-      const missions = JSON.parse(userMissions.daily_missions || '[]');
-      let missionText = '';
-      
-      missions.forEach(mission => {
-        const status = mission.completed ? '✅' : `${mission.progress || 0}/${mission.goal}`;
-        const emoji = mission.completed ? '✅' : '❌';
-        missionText += `${emoji} **${mission.description}**\n`;
-        missionText += `   Progression: ${status} • Récompense: ${mission.reward} ${config.currency.emoji}\n\n`;
-      });
-      
-      const missionEmbed = new EmbedBuilder()
-        .setTitle(' Missions Journalières')
-        .setDescription(missionText || 'Aucune mission disponible')
-        .setColor(0xffaa00);
-      
-      await interaction.reply({ embeds: [missionEmbed] });
+      try {
+        const user = ensureUser(interaction.user.id, interaction.guildId);
+        const config = require('./config');
+        
+        // Vérifier si l'utilisateur a des missions, sinon les initialiser
+        if (!user.missions) {
+          user.missions = { 
+            daily: {}, 
+            weekly: {},
+            lifetime: {},
+            lastDailyReset: 0,
+            lastWeeklyReset: 0
+          };
+          updateUser(interaction.user.id, interaction.guildId, { missions: user.missions });
+        }
+        
+        // Fonction pour formater une mission
+        const formatMission = (mission, missionDef) => {
+          const progress = mission?.progress || 0;
+          const goal = missionDef?.goal || 1;
+          const completed = mission?.completed || false;
+          const claimed = mission?.claimed || false;
+          const emoji = completed ? (claimed ? '✅' : '🎁') : '🔄';
+          const status = completed 
+            ? (claimed ? 'Terminée' : 'Récompense à réclamer')
+            : `${progress}/${goal}`;
+          
+          return `${emoji} **${missionDef.description}**
+          Progression: ${status} • Récompense: ${missionDef.reward} ${config.currency.emoji}${completed && !claimed ? '\n          *Cliquez sur le bouton pour réclamer*' : ''}\n`;
+        };
+        
+        // Créer les champs pour chaque catégorie de missions
+        const dailyMissions = config.missions.daily.map(mission => {
+          const missionData = user.missions.daily[mission.id] || { progress: 0 };
+          return formatMission(missionData, mission);
+        }).join('\n\n');
+        
+        const weeklyMissions = config.missions.weekly.map(mission => {
+          const missionData = user.missions.weekly[mission.id] || { progress: 0 };
+          return formatMission(missionData, mission);
+        }).join('\n\n');
+        
+        const lifetimeMissions = config.missions.lifetime.map(mission => {
+          const missionData = user.missions.lifetime[mission.id] || { progress: 0 };
+          return formatMission(missionData, mission);
+        }).join('\n\n');
+        
+        // Créer l'embed avec les onglets
+        const missionEmbed = new EmbedBuilder()
+          .setTitle('🎯 Missions')
+          .setColor(0x00ff00)
+          .addFields(
+            { name: '📅 Journalières', value: dailyMissions || 'Aucune mission disponible', inline: false },
+            { name: '📅 Hebdomadaires', value: weeklyMissions || 'Aucune mission disponible', inline: false },
+            { name: '🏆 Permanentes', value: lifetimeMissions || 'Aucune mission disponible', inline: false }
+          )
+          .setFooter({ text: 'Les missions se réinitialisent automatiquement à minuit (journalières) et le lundi (hebdomadaires)' });
+        
+        // Créer les boutons pour les onglets
+        const row = new ActionRowBuilder()
+          .addComponents(
+            new ButtonBuilder()
+              .setCustomId('missions_daily')
+              .setLabel('Journalières')
+              .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+              .setCustomId('missions_weekly')
+              .setLabel('Hebdomadaires')
+              .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+              .setCustomId('missions_lifetime')
+              .setLabel('Permanentes')
+              .setStyle(ButtonStyle.Primary)
+          );
+        
+        return interaction.reply({ 
+          embeds: [missionEmbed],
+          components: [row]
+        });
+      } catch (error) {
+        console.error('Erreur lors de l\'affichage des missions:', error);
+        return interaction.reply({
+          content: '❌ Une erreur est survenue lors de la récupération des missions. Veuillez réessayer plus tard.',
+          ephemeral: true
+        });
+      }
       break;
 
     case 'classement':
@@ -1967,6 +2036,120 @@ function scheduleDailyResets() {
 // Démarrer les réinitialisations quotidiennes
 scheduleDailyReset(scheduleDailyResets);
 console.log('⏰ Réinitialisations quotidiennes programmées à 00h01 chaque jour');
+
+// Gestion des interactions de boutons pour les missions
+client.on('interactionCreate', async interaction => {
+  if (!interaction.isButton() || !interaction.customId.startsWith('missions_')) return;
+  
+  try {
+    await interaction.deferUpdate();
+    
+    const userId = interaction.user.id;
+    const guildId = interaction.guildId;
+    const category = interaction.customId.split('_')[1]; // daily, weekly ou lifetime
+    
+    if (!['daily', 'weekly', 'lifetime'].includes(category)) {
+      return interaction.followUp({
+        content: '❌ Catégorie de mission non valide.',
+        ephemeral: true
+      });
+    }
+    
+    const user = ensureUser(userId, guildId);
+    const config = require('./config');
+    
+    // Vérifier si l'utilisateur a des missions, sinon les initialiser
+    if (!user.missions) {
+      user.missions = { 
+        daily: {}, 
+        weekly: {},
+        lifetime: {},
+        lastDailyReset: 0,
+        lastWeeklyReset: 0
+      };
+      updateUser(userId, guildId, { missions: user.missions });
+    }
+    
+    // Fonction pour formater une mission
+    const formatMission = (mission, missionDef) => {
+      const progress = mission?.progress || 0;
+      const goal = missionDef?.goal || 1;
+      const completed = mission?.completed || false;
+      const claimed = mission?.claimed || false;
+      const emoji = completed ? (claimed ? '✅' : '🎁') : '🔄';
+      const status = completed 
+        ? (claimed ? 'Terminée' : 'Récompense à réclamer')
+        : `${progress}/${goal}`;
+      
+      return `${emoji} **${missionDef.description}**
+      Progression: ${status} • Récompense: ${missionDef.reward} ${config.currency.emoji}${completed && !claimed ? '\n      *Cliquez sur le bouton pour réclamer*' : ''}\n`;
+    };
+    
+    // Filtrer les missions par catégorie sélectionnée
+    const missions = config.missions[category].map(mission => {
+      const missionData = user.missions[category][mission.id] || { progress: 0 };
+      return formatMission(missionData, mission);
+    }).join('\n\n');
+    
+    // Mettre à jour l'embed avec la catégorie sélectionnée
+    const missionEmbed = new EmbedBuilder()
+      .setTitle(`🎯 Missions ${getCategoryName(category)}`)
+      .setDescription(missions || 'Aucune mission disponible pour cette catégorie')
+      .setColor(0x00ff00)
+      .setFooter({ 
+        text: category === 'daily' 
+          ? 'Réinitialisation quotidienne à minuit' 
+          : category === 'weekly' 
+            ? 'Réinitialisation hebdomadaire le lundi' 
+            : 'Missions permanentes' 
+      });
+    
+    // Mettre à jour les boutons avec la catégorie active en surbrillance
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('missions_daily')
+        .setLabel('Journalières')
+        .setStyle(category === 'daily' ? ButtonStyle.Success : ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId('missions_weekly')
+        .setLabel('Hebdomadaires')
+        .setStyle(category === 'weekly' ? ButtonStyle.Success : ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId('missions_lifetime')
+        .setLabel('Permanentes')
+        .setStyle(category === 'lifetime' ? ButtonStyle.Success : ButtonStyle.Primary)
+    );
+    
+    await interaction.editReply({
+      embeds: [missionEmbed],
+      components: [row]
+    });
+    
+  } catch (error) {
+    console.error('Erreur lors de la gestion du bouton de mission:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ Une erreur est survenue lors du traitement de votre demande.',
+        ephemeral: true
+      });
+    } else {
+      await interaction.followUp({
+        content: '❌ Une erreur est survenue lors du traitement de votre demande.',
+        ephemeral: true
+      });
+    }
+  }
+});
+
+// Fonction utilitaire pour obtenir le nom d'affichage de la catégorie
+function getCategoryName(category) {
+  switch (category) {
+    case 'daily': return 'Journalières';
+    case 'weekly': return 'Hebdomadaires';
+    case 'lifetime': return 'Permanentes';
+    default: return category;
+  }
+}
 
 // Connexion du bot
 client.login(process.env.DISCORD_TOKEN);

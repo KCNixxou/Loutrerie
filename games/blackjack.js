@@ -1,6 +1,22 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const config = require('../config');
-const { ensureUser, updateUser, getUserEffects, useEffect, hasActiveEffect } = require('../database');
+const { 
+  getGameConfig, 
+  formatCurrency, 
+  ensureUser, 
+  updateUser, 
+  calculateEffectMultiplier, 
+  checkLossProtection, 
+  applyDoubleOrNothing,
+  addUserEffect,
+  getUserEffects,
+  updateMissionProgress
+} = require('../database');
+const { 
+  handleGameWin, 
+  handleGameLose, 
+  MISSION_EVENTS 
+} = require('../utils/missionUtils');
 
 // Variables pour stocker les parties en cours
 const activeBlackjackGames = new Map();
@@ -391,6 +407,8 @@ async function playDealerTurn(gameState, interaction) {
         resultLines.push(`Main ${index + 1}: **BUST** → 🫀 Cœur de Remplacement activé ! (mise remboursée)`);
       } else {
         resultLines.push(`Main ${index + 1}: **BUST** (perdu)`);
+        // Mettre à jour les missions pour la défaite
+        handleGameLose(gameState.userId, 'blackjack', gameState.guildId);
       }
       return;
     }
@@ -409,6 +427,8 @@ async function playDealerTurn(gameState, interaction) {
       totalWinnings += winnings;
       const bonusText = effectMultiplier > 1 ? ` (x${effectMultiplier.toFixed(2)})` : '';
       resultLines.push(`Main ${index + 1}: Croupier BUST → gagné (+${winnings} ${config.currency.emoji}${bonusText})`);
+      // Mettre à jour les missions pour la victoire
+      handleGameWin(gameState.userId, 'blackjack', gameState.guildId, winnings);
     } else if (score > gameState.dealerScore) {
       // Joueur gagne 1:1
       let winnings = bet * 2;
@@ -419,6 +439,9 @@ async function playDealerTurn(gameState, interaction) {
       if (doubleResult.message) {
         doubleOrNothingMessages.push(`Main ${index + 1}: ${doubleResult.message}`);
       }
+      
+      // Mettre à jour les missions
+      handleGameWin(gameState.userId, 'blackjack', gameState.guildId, winnings);
 
       totalWinnings += winnings;
       const bonusText = effectMultiplier > 1 ? ` (x${effectMultiplier.toFixed(2)})` : '';
@@ -431,6 +454,8 @@ async function playDealerTurn(gameState, interaction) {
         resultLines.push(`Main ${index + 1}: ${score} contre ${gameState.dealerScore} → 🫀 Cœur de Remplacement activé ! (mise remboursée)`);
       } else {
         resultLines.push(`Main ${index + 1}: ${score} contre ${gameState.dealerScore} → perdu`);
+        // Mettre à jour les missions pour la défaite
+        handleGameLose(gameState.userId, 'blackjack', gameState.guildId);
       }
     } else {
       // Égalité: on rend la mise (push)

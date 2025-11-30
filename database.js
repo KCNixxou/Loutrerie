@@ -357,39 +357,148 @@ function updateUser(userId, guildId = null, data) {
   }
 }
 
+/**
+ * Génère des missions quotidiennes aléatoires
+ */
 function generateDailyMissions() {
-  return config.missions.daily.map(mission => ({
-    ...mission,
-    progress: 0,
-    completed: false
-  }));
+  const config = require('./config');
+  const dailyMissions = [];
+  const missionPool = [...config.missions.daily];
+  
+  // Sélectionner 4 missions aléatoires
+  for (let i = 0; i < 4 && missionPool.length > 0; i++) {
+    const randomIndex = Math.floor(Math.random() * missionPool.length);
+    dailyMissions.push(missionPool.splice(randomIndex, 1)[0]);
+  }
+  
+  return dailyMissions;
 }
 
+/**
+ * Met à jour la progression d'une mission et attribue les récompenses si l'objectif est atteint
+ * @param {string} userId - ID de l'utilisateur
+ * @param {string} missionType - Type de mission (ex: 'daily_win', 'weekly_boost', etc.)
+ * @param {number} amount - Montant à ajouter à la progression
+ * @param {string} guildId - ID du serveur (optionnel)
+ * @returns {Object} Résultat de la mise à jour avec les informations sur les récompenses
+ */
 function updateMissionProgress(userId, missionType, amount = 1, guildId = null) {
-  const user = ensureUser(userId, guildId);
-  let missions = JSON.parse(user.daily_missions || '[]');
-  let updated = false;
-  let rewardEarned = 0;
-
-  missions.forEach(mission => {
-    if (mission.id === missionType && !mission.completed) {
-      mission.progress = Math.min(mission.progress + amount, mission.goal);
-      if (mission.progress >= mission.goal) {
-        mission.completed = true;
-        rewardEarned += mission.reward;
-        updated = true;
+  try {
+    const now = Date.now();
+    const user = ensureUser(userId, guildId);
+    const config = require('./config');
+    
+    // Vérifier si l'utilisateur a déjà des missions
+    if (!user.missions) {
+      user.missions = { 
+        daily: {}, 
+        weekly: {},
+        lifetime: {},
+        lastDailyReset: 0,
+        lastWeeklyReset: 0
+      };
+    }
+    
+    // Vérifier et réinitialiser les missions quotidiennes si nécessaire
+    const lastReset = new Date(user.missions.lastDailyReset || 0);
+    const today = new Date();
+    if (lastReset.getDate() !== today.getDate() || 
+        lastReset.getMonth() !== today.getMonth() || 
+        lastReset.getFullYear() !== today.getFullYear()) {
+      user.missions.daily = {};
+      user.missions.lastDailyReset = now;
+    }
+    
+    // Vérifier et réinitialiser les missions hebdomadaires si nécessaire (tous les lundis)
+    const lastWeeklyReset = new Date(user.missions.lastWeeklyReset || 0);
+    const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+    if (lastWeeklyReset < weekAgo || lastWeeklyReset.getDay() !== 1) {
+      user.missions.weekly = {};
+      user.missions.lastWeeklyReset = now;
+    }
+    
+    // Déterminer la catégorie de la mission
+    let category = null;
+    let mission = null;
+    
+    // Vérifier dans chaque catégorie de mission
+    for (const [cat, missions] of Object.entries(config.missions)) {
+      const foundMission = missions.find(m => m.id === missionType);
+      if (foundMission) {
+        category = cat;
+        mission = foundMission;
+        break;
       }
     }
-  });
-
-  if (updated) {
-    updateUser(userId, guildId, {
-      daily_missions: JSON.stringify(missions),
-      balance: user.balance + rewardEarned
-    });
+    
+    if (!category || !mission) {
+      console.log(`[MISSIONS] Mission non trouvée: ${missionType}`);
+      return { success: false, error: 'Mission not found' };
+    }
+    
+    // Initialiser la mission si elle n'existe pas
+    if (!user.missions[category][missionType]) {
+      user.missions[category][missionType] = {
+        progress: 0,
+        completed: false,
+        claimed: false,
+        lastUpdated: now
+      };
+    }
+    
+    const missionData = user.missions[category][missionType];
+    
+    // Si la mission est déjà complétée, ne rien faire
+    if (missionData.completed) {
+      return { 
+        success: true, 
+        alreadyCompleted: true,
+        progress: missionData.progress,
+        goal: mission.goal,
+        reward: mission.reward,
+        claimed: missionData.claimed
+      };
+    }
+    
+    // Mettre à jour la progression
+    missionData.progress = Math.min(missionData.progress + amount, mission.goal);
+    missionData.lastUpdated = now;
+    
+    // Vérifier si la mission est complétée
+    let reward = null;
+    if (missionData.progress >= mission.goal) {
+      missionData.completed = true;
+      missionData.progress = mission.goal; // S'assurer que la progression ne dépasse pas l'objectif
+      
+      // Attribuer la récompense
+      if (mission.reward) {
+        reward = {
+          type: 'coins',
+          amount: mission.reward
+        };
+        
+        // Ajouter les coquillages à l'utilisateur
+        updateUser(userId, guildId, { 
+          balance: (user.balance || 0) + mission.reward 
+        });
+      }
+    }
+    
+    // Mettre à jour l'utilisateur dans la base de données
+    updateUser(userId, guildId, { missions: user.missions });
+    
+    return {
+      success: true,
+      completed: missionData.completed,
+      progress: missionData.progress,
+      goal: mission.goal,
+      reward: reward,
+      claimed: missionData.claimed
+    };
+  } catch (error) {
+    console.error('[MISSIONS] Erreur lors de la mise à jour de la progression de la mission:', error);
+    return { success: false, error: error.message };
   }
-
-  return rewardEarned;
 }
 
 // Fonctions pour les statistiques du morpion
