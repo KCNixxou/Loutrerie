@@ -298,7 +298,13 @@ function ensureUser(userId, guildId = null) {
 
   // 3. Si toujours rien, créer un nouvel utilisateur pour ce serveur
   if (!user) {
-    const missions = JSON.stringify(generateDailyMissions());
+    const missions = JSON.stringify({
+      daily: {},
+      weekly: {},
+      lifetime: {},
+      lastDailyReset: 0,
+      lastWeeklyReset: 0
+    });
     const startingBalance = config.currency.startingBalance;
 
     db.prepare(`
@@ -306,7 +312,7 @@ function ensureUser(userId, guildId = null) {
         user_id,
         guild_id,
         balance,
-        daily_missions,
+        missions,
         last_mission_reset
       ) 
       VALUES (?, ?, ?, ?, ?)
