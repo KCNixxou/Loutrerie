@@ -698,12 +698,21 @@ function addUserEffect(userId, effectData) {
     const guildId = effectData.guildId || null;
     const now = Date.now();
     
-    const stmt = db.prepare(`
+    // Supprimer d'abord tout effet existant du même type pour cet utilisateur
+    const deleteStmt = db.prepare(`
+      DELETE FROM user_effects 
+      WHERE user_id = ? AND effect = ? AND (guild_id = ? OR (guild_id IS NULL AND ? IS NULL))
+    `);
+    
+    deleteStmt.run(userId, effectData.effect, guildId, guildId);
+    
+    // Ensuite, ajouter le nouvel effet
+    const insertStmt = db.prepare(`
       INSERT INTO user_effects (user_id, guild_id, effect, value, uses, expires_at, description, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
-    stmt.run(
+    insertStmt.run(
       userId,
       guildId,
       effectData.effect,
@@ -714,7 +723,7 @@ function addUserEffect(userId, effectData) {
       now
     );
     
-    console.log(`[Effects] Effet ${effectData.effect} ajouté pour l'utilisateur ${userId}`);
+    console.log(`[Effects] Effet ${effectData.effect} ajouté pour l'utilisateur ${userId} (anciens effets du même type supprimés)`);
     return true;
   } catch (error) {
     console.error('[Effects] Erreur lors de l\'ajout de l\'effet:', error);
