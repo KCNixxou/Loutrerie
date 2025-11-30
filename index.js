@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const { Client, GatewayIntentBits, REST, Routes, Partials, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, Partials, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { isMaintenanceMode, isAdmin, maintenanceMiddleware, setMaintenance } = require('./maintenance');
 
 // Modules personnalisés
@@ -867,25 +867,43 @@ async function handleSlashCommand(interaction) {
         // Log de débogage pour voir la structure de l'utilisateur
         console.log('[MISSIONS] Données utilisateur brutes:', JSON.stringify(user, null, 2));
         
-        // Vérifier si l'utilisateur a des missions, sinon les initialiser
-        if (!user.missions) {
-          console.log('[MISSIONS] Aucune mission trouvée, initialisation...');
-          user.missions = { 
-            daily: {}, 
-            weekly: {},
-            lifetime: {},
-            lastDailyReset: 0,
-            lastWeeklyReset: 0
-          };
-          updateUser(interaction.user.id, interaction.guildId, { missions: user.missions });
-          console.log('[MISSIONS] Missions initialisées:', JSON.stringify(user.missions, null, 2));
-        } else if (typeof user.missions === 'string') {
-          console.log('[MISSIONS] Missions au format chaîne, conversion en objet...');
+        // Vérifier si l'utilisateur a des missions dans daily_missions ou missions
+        if (user.daily_missions) {
+          console.log('[MISSIONS] Ancien format de missions détecté (daily_missions), migration...');
           try {
-            user.missions = JSON.parse(user.missions);
-            console.log('[MISSIONS] Missions converties:', JSON.stringify(user.missions, null, 2));
+            // Convertir les anciennes missions au nouveau format
+            const oldMissions = JSON.parse(user.daily_missions);
+            user.missions = {
+              daily: {},
+              weekly: {},
+              lifetime: {},
+              lastDailyReset: user.last_mission_reset || 0,
+              lastWeeklyReset: 0
+            };
+            
+            // Convertir les anciennes missions en format quotidien
+            if (Array.isArray(oldMissions)) {
+              oldMissions.forEach(mission => {
+                if (mission && mission.id) {
+                  user.missions.daily[mission.id] = {
+                    progress: mission.progress || 0,
+                    completed: mission.completed || false,
+                    claimed: mission.claimed || false,
+                    lastUpdated: Date.now()
+                  };
+                }
+              });
+            }
+            
+            // Mettre à jour l'utilisateur avec le nouveau format
+            await updateUser(interaction.user.id, interaction.guildId, { 
+              missions: JSON.stringify(user.missions),
+              daily_missions: null // Supprimer l'ancien champ
+            });
+            
+            console.log('[MISSIONS] Migration des missions terminée');
           } catch (e) {
-            console.error('[MISSIONS] Erreur lors de la conversion des missions:', e);
+            console.error('[MISSIONS] Erreur lors de la migration des missions:', e);
             user.missions = { 
               daily: {}, 
               weekly: {},
@@ -893,8 +911,37 @@ async function handleSlashCommand(interaction) {
               lastDailyReset: 0,
               lastWeeklyReset: 0
             };
-            updateUser(interaction.user.id, interaction.guildId, { missions: user.missions });
           }
+        } else if (!user.missions || typeof user.missions === 'string') {
+          // Gérer le cas où missions est une chaîne ou n'existe pas
+          if (user.missions && typeof user.missions === 'string') {
+            try {
+              user.missions = JSON.parse(user.missions);
+            } catch (e) {
+              console.error('[MISSIONS] Erreur lors de la conversion des missions:', e);
+              user.missions = { 
+                daily: {}, 
+                weekly: {},
+                lifetime: {},
+                lastDailyReset: 0,
+                lastWeeklyReset: 0
+              };
+            }
+          } else {
+            // Aucune mission, initialiser
+            console.log('[MISSIONS] Aucune mission trouvée, initialisation...');
+            user.missions = { 
+              daily: {}, 
+              weekly: {},
+              lifetime: {},
+              lastDailyReset: 0,
+              lastWeeklyReset: 0
+            };
+          }
+          // Mettre à jour l'utilisateur avec la nouvelle structure
+          await updateUser(interaction.user.id, interaction.guildId, { 
+            missions: JSON.stringify(user.missions) 
+          });
         }
         
         // Fonction pour formater une mission
