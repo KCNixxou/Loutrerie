@@ -73,6 +73,9 @@ function updateUserGameStats(userId, gameId, guildId = null) {
   user.gameStats.gamesPlayedToday++;
 
   // Mettre à jour les jeux différents
+  if (!user.gameStats.differentGamesPlayed || !Array.isArray(user.gameStats.differentGamesPlayed)) {
+    user.gameStats.differentGamesPlayed = [];
+  }
   if (!user.gameStats.differentGamesPlayed.includes(gameId)) {
     user.gameStats.differentGamesPlayed.push(gameId);
   }
