@@ -127,6 +127,20 @@ const defaultConfig = {
       type: 'vip_temporary',
       duration: 604800000, // 7 jours en ms
       effect: 'temporary_vip'
+    },
+
+    cadeauSurprise1: {
+      price: 500000,
+      name: '🎁 Cadeau surprise 1',
+      emoji: '🎁',
+      description: 'Un code vous sera envoyé en message privé après achat.'
+    },
+    
+    cadeauSurprise2: {
+      price: 500000,
+      name: '🎁 Cadeau surprise 2',
+      emoji: '🎁',
+      description: 'Un code vous sera envoyé en message privé après achat.'
     }
   },
   missions: {
