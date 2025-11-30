@@ -6,8 +6,7 @@ const {
   ensureUser, 
   updateUser, 
   calculateEffectMultiplier, 
-  checkLossProtection, 
-  applyDoubleOrNothing,
+  checkLossProtection,
   addUserEffect,
   getUserEffects,
   updateMissionProgress
