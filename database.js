@@ -50,6 +50,9 @@ function updateDatabaseSchema() {
   addColumnIfNotExists('users', 'last_bdg_claim', 'INTEGER DEFAULT 0');
   addColumnIfNotExists('users', 'last_bdh_claim', 'INTEGER DEFAULT 0');
   
+  // Ajout de la colonne pour les statistiques de jeu
+  addColumnIfNotExists('users', 'gameStats', 'TEXT DEFAULT "{}"');
+  
   // Ajout de la colonne pour stocker les missions
   addColumnIfNotExists('users', 'missions', 'TEXT DEFAULT "{}"');
 
@@ -345,6 +348,32 @@ function ensureUser(userId, guildId = null) {
     };
   }
 
+  // S'assurer que le champ gameStats est correctement analysé depuis la chaîne JSON
+  if (user && user.gameStats && typeof user.gameStats === 'string') {
+    try {
+      user.gameStats = JSON.parse(user.gameStats);
+    } catch (e) {
+      console.error('Erreur lors de l\'analyse du champ gameStats:', e);
+      user.gameStats = {
+        gamesPlayed: 0,
+        gamesWon: 0,
+        gamesLost: 0,
+        lastPlayed: Date.now(),
+        gamesPlayedToday: 0,
+        differentGamesPlayed: []
+      };
+    }
+  } else if (!user.gameStats) {
+    user.gameStats = {
+      gamesPlayed: 0,
+      gamesWon: 0,
+      gamesLost: 0,
+      lastPlayed: Date.now(),
+      gamesPlayedToday: 0,
+      differentGamesPlayed: []
+    };
+  }
+
   return user;
 }
 
@@ -360,6 +389,11 @@ function updateUser(userId, guildId = null, data) {
   // Si l'objet missions est présent, le convertir en chaîne JSON
   if (updateData.missions && typeof updateData.missions === 'object') {
     updateData.missions = JSON.stringify(updateData.missions);
+  }
+  
+  // Si l'objet gameStats est présent, le convertir en chaîne JSON
+  if (updateData.gameStats && typeof updateData.gameStats === 'object') {
+    updateData.gameStats = JSON.stringify(updateData.gameStats);
   }
   
   console.log(`[DB DEBUG] Mise à jour de l'utilisateur ${userId} (guild: ${guildId || 'NULL'}) avec les données:`, JSON.stringify(updateData, null, 2));

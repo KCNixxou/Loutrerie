@@ -27,71 +27,137 @@ const MISSION_EVENTS = {
 };
 
 // Suivre les jeux joués par l'utilisateur aujourd'hui
-const userGameStats = new Map();
-
 // Mettre à jour les statistiques de jeu d'un utilisateur
-function updateUserGameStats(userId, gameId) {
-  if (!userGameStats.has(userId)) {
-    userGameStats.set(userId, {
+function updateUserGameStats(userId, gameId, guildId = null) {
+  const user = ensureUser(userId, guildId);
+  
+  // Initialiser les statistiques de jeu si elles n'existent pas
+  if (!user.gameStats) {
+    user.gameStats = {
       gamesPlayed: 0,
       gamesWon: 0,
       gamesLost: 0,
+      lastPlayed: Date.now(),
       gamesPlayedToday: 0,
-      differentGamesPlayed: new Set()
-    });
+      differentGamesPlayed: []
+    };
+  } else if (typeof user.gameStats === 'string') {
+    // Si gameStats est une chaîne, le parser
+    try {
+      user.gameStats = JSON.parse(user.gameStats);
+    } catch (e) {
+      console.error('Erreur lors de l\'analyse de gameStats:', e);
+      user.gameStats = {
+        gamesPlayed: 0,
+        gamesWon: 0,
+        gamesLost: 0,
+        lastPlayed: Date.now(),
+        gamesPlayedToday: 0,
+        differentGamesPlayed: []
+      };
+    }
   }
+
+  // Mettre à jour les statistiques
+  user.gameStats.gamesPlayed++;
+  user.gameStats.lastPlayed = Date.now();
   
-  const stats = userGameStats.get(userId);
-  stats.gamesPlayed++;
-  stats.gamesPlayedToday++;
-  stats.differentGamesPlayed.add(gameId);
-  
+  // Vérifier si c'est une nouvelle journée pour réinitialiser le compteur quotidien
+  const lastPlayedDate = new Date(user.gameStats.lastPlayed);
+  const today = new Date();
+  if (lastPlayedDate.getDate() !== today.getDate() || 
+      lastPlayedDate.getMonth() !== today.getMonth() || 
+      lastPlayedDate.getFullYear() !== today.getFullYear()) {
+    user.gameStats.gamesPlayedToday = 0;
+  }
+  user.gameStats.gamesPlayedToday++;
+
+  // Mettre à jour les jeux différents
+  if (!user.gameStats.differentGamesPlayed.includes(gameId)) {
+    user.gameStats.differentGamesPlayed.push(gameId);
+  }
+
+  // Sauvegarder les statistiques mises à jour
+  updateUser(userId, guildId, { gameStats: JSON.stringify(user.gameStats) });
+
   // Mettre à jour les missions basées sur le nombre de parties
-  updateMissionProgress(userId, MISSION_EVENTS.GAME_PLAY, 1);
+  updateMissionProgress(userId, MISSION_EVENTS.GAME_PLAY, 1, guildId);
   
   // Vérifier les objectifs de parties totales
-  if (stats.gamesPlayed >= 1000) {
-    updateMissionProgress(userId, MISSION_EVENTS.TOTAL_GAMES_1000, 1);
+  if (user.gameStats.gamesPlayed >= 1000) {
+    updateMissionProgress(userId, MISSION_EVENTS.TOTAL_GAMES_1000, 1, guildId);
   }
-  if (stats.gamesPlayed >= 2000) {
-    updateMissionProgress(userId, MISSION_EVENTS.TOTAL_GAMES_2000, 1);
+  if (user.gameStats.gamesPlayed >= 2000) {
+    updateMissionProgress(userId, MISSION_EVENTS.TOTAL_GAMES_2000, 1, guildId);
   }
-  if (stats.gamesPlayed >= 5000) {
-    updateMissionProgress(userId, MISSION_EVENTS.TOTAL_GAMES_5000, 1);
+  if (user.gameStats.gamesPlayed >= 5000) {
+    updateMissionProgress(userId, MISSION_EVENTS.TOTAL_GAMES_5000, 1, guildId);
   }
   
   // Vérifier les jeux différents
-  if (stats.differentGamesPlayed.size >= 3) {
-    updateMissionProgress(userId, MISSION_EVENTS.DIFFERENT_GAMES, 1);
+  if (user.gameStats.differentGamesPlayed.length >= 3) {
+    updateMissionProgress(userId, MISSION_EVENTS.DIFFERENT_GAMES, 1, guildId);
   }
 }
 
 // Gérer une victoire au jeu
 function handleGameWin(userId, gameId, guildId, winnings = 0) {
-  if (!userGameStats.has(userId)) {
-    updateUserGameStats(userId, gameId);
+  // Mettre à jour les statistiques de jeu
+  updateUserGameStats(userId, gameId, guildId);
+  
+  // Récupérer les statistiques mises à jour
+  const user = ensureUser(userId, guildId);
+  let gameStats = {};
+  
+  // Gérer le cas où gameStats est une chaîne
+  if (user.gameStats) {
+    gameStats = typeof user.gameStats === 'string' ? JSON.parse(user.gameStats) : user.gameStats;
   }
   
-  const stats = userGameStats.get(userId);
-  stats.gamesWon++;
+  // Mettre à jour les statistiques
+  gameStats.gamesWon = (gameStats.gamesWon || 0) + 1;
+  
+  // Mettre à jour le solde si des gains sont spécifiés
+  if (winnings > 0) {
+    user.balance = (user.balance || 0) + winnings;
+  }
+  
+  // Sauvegarder les modifications
+  updateUser(userId, guildId, { 
+    gameStats: JSON.stringify(gameStats),
+    balance: user.balance
+  });
   
   // Mettre à jour les missions
   updateMissionProgress(userId, MISSION_EVENTS.GAME_WIN, 1, guildId);
   
   // Mettre à jour les gains cumulés
-  if (winnings >= 50000) {
-    updateMissionProgress(userId, MISSION_EVENTS.WIN_COINS, 50000, guildId);
+  if (winnings > 0) {
+    updateMissionProgress(userId, MISSION_EVENTS.WIN_COINS, winnings, guildId);
   }
 }
 
 // Gérer une défaite au jeu
 function handleGameLose(userId, gameId, guildId) {
-  if (!userGameStats.has(userId)) {
-    updateUserGameStats(userId, gameId);
+  // Mettre à jour les statistiques de jeu
+  updateUserGameStats(userId, gameId, guildId);
+  
+  // Récupérer les statistiques mises à jour
+  const user = ensureUser(userId, guildId);
+  let gameStats = {};
+  
+  // Gérer le cas où gameStats est une chaîne
+  if (user.gameStats) {
+    gameStats = typeof user.gameStats === 'string' ? JSON.parse(user.gameStats) : user.gameStats;
   }
   
-  const stats = userGameStats.get(userId);
-  stats.gamesLost++;
+  // Mettre à jour les statistiques
+  gameStats.gamesLost = (gameStats.gamesLost || 0) + 1;
+  
+  // Sauvegarder les modifications
+  updateUser(userId, guildId, { 
+    gameStats: JSON.stringify(gameStats)
+  });
   
   // Mettre à jour les missions
   updateMissionProgress(userId, MISSION_EVENTS.GAME_LOSE, 1, guildId);
