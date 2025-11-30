@@ -191,25 +191,46 @@ function handleBoxOpening(userId, guildId) {
 }
 
 // Réinitialiser les statistiques quotidiennes
-function resetDailyStats() {
-  userGameStats.forEach(stats => {
-    stats.gamesPlayedToday = 0;
-    stats.differentGamesPlayed.clear();
-  });
+async function resetDailyStats() {
+  try {
+    // Récupérer tous les utilisateurs
+    const users = db.prepare('SELECT user_id, guild_id, gameStats FROM users').all();
+    
+    // Mettre à jour chaque utilisateur
+    for (const user of users) {
+      try {
+        let gameStats = {};
+        
+        // Parser gameStats s'il existe
+        if (user.gameStats && typeof user.gameStats === 'string') {
+          gameStats = JSON.parse(user.gameStats);
+        } else if (user.gameStats) {
+          gameStats = user.gameStats;
+        }
+        
+        // Réinitialiser les compteurs quotidiens
+        gameStats.gamesPlayedToday = 0;
+        gameStats.differentGamesPlayed = [];
+        
+        // Mettre à jour l'utilisateur dans la base de données
+        db.prepare('UPDATE users SET gameStats = ? WHERE user_id = ? AND guild_id IS ?')
+          .run(JSON.stringify(gameStats), user.user_id, user.guild_id);
+      } catch (error) {
+        console.error(`Erreur lors de la réinitialisation des statistiques pour l'utilisateur ${user.user_id}:`, error);
+      }
+    }
+    
+    console.log('Réinitialisation quotidienne des statistiques de jeu effectuée avec succès');
+  } catch (error) {
+    console.error('Erreur lors de la réinitialisation quotidienne des statistiques:', error);
+  }
   
-  // Planifier la prochaine réinitialisation (à minuit)
-  const now = new Date();
-  const midnight = new Date(now);
-  midnight.setHours(24, 0, 0, 0);
-  const timeUntilMidnight = midnight - now;
-  
-  setTimeout(() => {
-    resetDailyStats();
-  }, timeUntilMidnight);
+  // Planifier la prochaine réinitialisation (toutes les 24 heures)
+  setTimeout(resetDailyStats, 24 * 60 * 60 * 1000);
 }
 
-// Démarrer le timer de réinitialisation quotidienne
-resetDailyStats();
+// Démarrer le timer de réinitialisation quotidienne (dans 24 heures)
+setTimeout(resetDailyStats, 24 * 60 * 60 * 1000);
 
 module.exports = {
   MISSION_TYPES,
