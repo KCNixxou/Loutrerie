@@ -1038,7 +1038,8 @@ async function handleSlashCommand(interaction) {
         
         return interaction.reply({ 
           embeds: [missionEmbed],
-          components: [row]
+          components: [row],
+          ephemeral: true
         });
       } catch (error) {
         console.error('Erreur lors de l\'affichage des missions:', error);
