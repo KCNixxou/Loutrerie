@@ -1,6 +1,6 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const config = require('../config');
-const { ensureUser, updateUser, getUserEffects, useEffect, hasActiveEffect, calculateEffectMultiplier, applyDoubleOrNothing } = require('../database');
+const { ensureUser, updateUser, getUserEffects, useEffect, hasActiveEffect, calculateEffectMultiplier, applyDoubleOrNothing, checkLossProtection } = require('../database');
 const { updateUserGameStats, handleGameWin, handleGameLose } = require('../utils/missionUtils');
 
 // Objet pour stocker les parties en cours
@@ -543,7 +543,7 @@ async function handleMinesButtonInteraction(interaction) {
   } catch (error) {
     console.error('Erreur dans handleMinesButtonInteraction:', error);
     try {
-      await interaction.reply({ content: 'Une erreur est survenue lors du traitement de votre action.', ephemeral: true });
+      await interaction.followUp({ content: 'Une erreur est survenue lors du traitement de votre action.', ephemeral: true });
     } catch (e) {
       console.error('Impossible d\'envoyer le message d\'erreur:', e);
     }
