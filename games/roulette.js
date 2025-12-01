@@ -119,6 +119,13 @@ async function handleRouletteStart(interaction) {
   // Appliquer les multiplicateurs d'effets
   const effectMultiplier = calculateEffectMultiplier(userId, guildId);
   let finalWin = Math.floor(baseWin * effectMultiplier);
+  
+  // Consommer une utilisation de l'effet double_winnings si utilisé
+  if (effectMultiplier > 1.0) {
+    const { useEffect } = require('../database');
+    const effectUsed = useEffect(userId, 'double_winnings', guildId);
+    console.log(`[Roulette] Effet double_winnings consommé: ${effectUsed}`);
+  }
 
   // Appliquer Double ou Crève si applicable
   const doubleResult = applyDoubleOrNothing(userId, guildId, finalWin);

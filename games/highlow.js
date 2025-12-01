@@ -417,6 +417,12 @@ async function handleHighLowDecision(interaction) {
       
       winnings = Math.floor(winnings * effectMultiplier);
       console.log(`[HighLow] Gains après effets: ${winnings}`);
+      
+      // Consommer une utilisation de l'effet double_winnings si utilisé
+      if (effectMultiplier > 1.0) {
+        const effectUsed = useEffect(gameState.userId, 'double_winnings', gameState.guildId);
+        console.log(`[HighLow] Effet double_winnings consommé: ${effectUsed}`);
+      }
 
       const doubleResult = applyDoubleOrNothing(gameState.userId, gameState.guildId, winnings);
       console.log(`[HighLow] Double ou Crève résultat:`, doubleResult);

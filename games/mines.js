@@ -444,6 +444,14 @@ async function handleMinesButtonInteraction(interaction) {
       
       // Les gains sont déjà calculés dans winAmount (qui inclut la mise initiale)
       console.log(`Cashout: Gains de ${winAmount} (déjà inclus la mise initiale)`);
+      
+      // Consommer une utilisation de l'effet double_winnings si utilisé
+      const effectMultiplier = calculateEffectMultiplier(gameState.userId, guildId);
+      if (effectMultiplier > 1.0) {
+        const effectUsed = useEffect(gameState.userId, 'double_winnings', guildId);
+        console.log(`[Mines] Effet double_winnings consommé: ${effectUsed}`);
+      }
+      
       // Mettre à jour le solde (ne pas ajouter la mise deux fois)
       updateUser(interaction.user.id, guildId, { balance: user.balance + winAmount });
       

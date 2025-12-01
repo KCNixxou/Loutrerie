@@ -103,6 +103,13 @@ async function handleSlots(interaction) {
   // Appliquer les effets de multiplicateur
   const effectMultiplier = calculateEffectMultiplier(userId, guildId);
   let finalWinnings = Math.floor(baseWinnings * effectMultiplier);
+  
+  // Consommer une utilisation de l'effet double_winnings si utilisé
+  if (effectMultiplier > 1.0) {
+    const { useEffect } = require('../database');
+    const effectUsed = useEffect(userId, 'double_winnings', guildId);
+    console.log(`[Slots] Effet double_winnings consommé: ${effectUsed}`);
+  }
 
   // Appliquer Double ou Crève
   const doubleResult = applyDoubleOrNothing(userId, guildId, finalWinnings);
