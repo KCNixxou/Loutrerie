@@ -1096,5 +1096,4 @@ module.exports = {
   cleanupExpiredEffects,
   hasActiveEffect,
   calculateEffectMultiplier,
-  getGameConfig,
 };

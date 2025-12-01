@@ -1,7 +1,6 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const config = require('../config');
 const { 
-  getGameConfig, 
   formatCurrency, 
   ensureUser, 
   updateUser, 
@@ -11,6 +10,9 @@ const {
   getUserEffects,
   updateMissionProgress
 } = require('../database');
+const { 
+  getGameConfig
+} = require('../game-utils');
 const { 
   handleGameWin, 
   handleGameLose, 

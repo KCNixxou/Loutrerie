@@ -1,5 +1,13 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
-const { ensureUser, updateUser, getUserEffects, useEffect, hasActiveEffect } = require('../database');
+const { 
+  ensureUser, 
+  updateUser, 
+  getUserEffects, 
+  useEffect, 
+  hasActiveEffect,
+  calculateEffectMultiplier,
+  checkLossProtection
+} = require('../database');
 const { updateUserGameStats, handleGameWin, handleGameLose } = require('../utils/missionUtils');
 const { getGameConfig } = require('../game-utils');
 
@@ -16,32 +24,6 @@ const CARD_EMOJIS = {
   '♣': '♣️'
 };
 
-// Fonctions pour les effets temporaires
-function calculateEffectMultiplier(userId, guildId) {
-  const effects = getUserEffects(userId, guildId);
-  let multiplier = 1.0;
-  
-  effects.forEach(effect => {
-    switch (effect.effect) {
-      case 'casino_bonus':
-        multiplier *= (1 + effect.value); // +15% par défaut
-        break;
-      case 'double_winnings':
-        multiplier *= effect.value; // x2 par défaut
-        break;
-    }
-  });
-  
-  return multiplier;
-}
-
-function checkLossProtection(userId, guildId, lossAmount) {
-  if (hasActiveEffect(userId, 'loss_protection', guildId)) {
-    useEffect(userId, 'loss_protection', guildId);
-    return true;
-  }
-  return false;
-}
 
 function applyDoubleOrNothing(userId, guildId, baseWinnings) {
   if (!guildId || baseWinnings <= 0) {
