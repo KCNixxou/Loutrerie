@@ -603,7 +603,10 @@ async function handleSlashCommand(interaction) {
       
       try {
         const userEffects = getUserEffects(effectsTargetUser.id, effectsGuildId);
-        const activeEffects = userEffects.filter(effect => effect.expires_at > Date.now());
+        const activeEffects = userEffects.filter(effect => 
+          (effect.expires_at && effect.expires_at > Date.now()) || 
+          (!effect.expires_at && effect.uses > 0)
+        );
         
         if (activeEffects.length === 0) {
           await interaction.reply({
@@ -621,8 +624,8 @@ async function handleSlashCommand(interaction) {
         
         activeEffects.forEach(effect => {
           const timeLeft = effect.expires_at ? Math.floor((effect.expires_at - Date.now()) / 1000 / 60) : null;
-          const timeText = timeLeft ? ` (${timeLeft} min restantes)` : ' (Illimité)';
-          const usesText = effect.uses > 0 ? ` | ${effect.uses} utilisation(s)` : '';
+          const timeText = timeLeft ? ` (${timeLeft} min restantes)` : '';
+          const usesText = effect.uses > 0 ? ` | ${effect.uses} utilisation(s) restante(s)` : '';
           
           embed.addFields({
             name: `🔮 ${effect.description || effect.effect}`,

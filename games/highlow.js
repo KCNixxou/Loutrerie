@@ -412,7 +412,11 @@ async function handleHighLowDecision(interaction) {
       // Le joueur choisit de s'arrêter (bouton 'Petite couille')
       const effectMultiplier = calculateEffectMultiplier(gameState.userId, gameState.guildId);
       let winnings = Math.floor(gameState.currentBet * gameState.currentMultiplier);
+      console.log(`[HighLow] Calcul gains - Mise: ${gameState.currentBet}, Multiplicateur: ${gameState.currentMultiplier}, Gains base: ${winnings}`);
+      console.log(`[HighLow] EffectMultiplier: ${effectMultiplier}`);
+      
       winnings = Math.floor(winnings * effectMultiplier);
+      console.log(`[HighLow] Gains après effets: ${winnings}`);
 
       const doubleResult = applyDoubleOrNothing(gameState.userId, gameState.guildId, winnings);
       console.log(`[HighLow] Double ou Crève résultat:`, doubleResult);
