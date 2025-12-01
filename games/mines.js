@@ -272,17 +272,6 @@ function revealCell(gameState, x, y) {
 }
 
 
-// Fonction pour vérifier et utiliser la protection contre les pertes
-function checkLossProtection(userId, guildId, lossAmount) {
-  if (!guildId) return false; // Pas de guildId, pas de protection
-  
-  if (hasActiveEffect(userId, 'loss_protection', guildId)) {
-    // Utiliser l'effet de protection
-    useEffect(userId, 'loss_protection', guildId);
-    return true; // Protection appliquée
-  }
-  return false; // Pas de protection
-}
 
 // Calculer les gains actuels avec effets
 function calculateCurrentWin(gameState) {

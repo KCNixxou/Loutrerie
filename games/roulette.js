@@ -1,6 +1,6 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, StringSelectMenuBuilder } = require('discord.js');
 const config = require('../config');
-const { ensureUser, updateUser, getUserEffects, hasActiveEffect, useEffect } = require('../database');
+const { ensureUser, updateUser, getUserEffects, hasActiveEffect, useEffect, checkLossProtection } = require('../database');
 
 // Variables pour stocker les parties en cours
 const activeRouletteGames = new Map();
@@ -54,14 +54,6 @@ function calculateEffectMultiplier(userId, guildId) {
   return multiplier;
 }
 
-function checkLossProtection(userId, guildId, lossAmount) {
-  if (!guildId) return false;
-  if (hasActiveEffect(userId, 'loss_protection', guildId)) {
-    useEffect(userId, 'loss_protection', guildId);
-    return true;
-  }
-  return false;
-}
 
 function applyDoubleOrNothing(userId, guildId, baseWinnings) {
   if (!guildId || baseWinnings <= 0) {

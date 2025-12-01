@@ -1,5 +1,5 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
-const { ensureUser, updateUser, getUserEffects, hasActiveEffect, useEffect } = require('../database');
+const { ensureUser, updateUser, getUserEffects, hasActiveEffect, useEffect, checkLossProtection } = require('../database');
 const { getGameConfig } = require('../game-utils');
 
 // Variables pour stocker les parties en cours
@@ -40,14 +40,6 @@ function calculateEffectMultiplier(userId, guildId) {
   return multiplier;
 }
 
-function checkLossProtection(userId, guildId, lossAmount) {
-  if (!guildId) return false;
-  if (hasActiveEffect(userId, 'loss_protection', guildId)) {
-    useEffect(userId, 'loss_protection', guildId);
-    return true;
-  }
-  return false;
-}
 
 function applyDoubleOrNothing(userId, guildId, baseWinnings) {
   if (!guildId || baseWinnings <= 0) {
