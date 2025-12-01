@@ -111,7 +111,7 @@ async function handleShop(interaction) {
 function applyConsumableEffect(item, userId, guildId, interaction) {
     const now = Date.now();
     
-    console.log(`[SHOP] applyConsumableEffect - userId: ${userId}, guildId: ${guildId}, item: ${item.name}`);
+    console.log(`[SHOP] applyConsumableEffect - userId: ${userId}, guildId: ${guildId}, item: ${JSON.stringify(item)}`);
     
     switch (item.effect) {
         case 'casino_bonus':
@@ -154,33 +154,60 @@ function applyConsumableEffect(item, userId, guildId, interaction) {
             return `✅ **${item.name}** activé ! Vos gains sont multipliés par 2 pour les ${item.uses} prochaines parties.`;
             
         default:
+            console.log(`[SHOP] Effet non géré: ${item.effect} pour l'item ${item.name}`);
             return `✅ **${item.name}** acheté !`;
     }
 }
 
 // Fonction pour ouvrir une boîte mystère
 function openMysteryBox(userId, item, interaction) {
+    console.log(`[MysteryBox] Ouverture de boîte - userId: ${userId}, item: ${JSON.stringify(item)}`);
+    
     const config = interaction.client.getConfig(interaction.guildId);
+    console.log(`[MysteryBox] Config obtenue:`, !!config);
+    
+    if (!config) {
+        console.error('[MysteryBox] Config est undefined!');
+        return '❌ Erreur de configuration';
+    }
+    
     const rewards = item.rewards;
+    console.log(`[MysteryBox] Récompenses disponibles:`, rewards?.length || 0);
+    
+    if (!rewards || rewards.length === 0) {
+        console.error('[MysteryBox] Aucune récompense définie!');
+        return '❌ Aucune récompense disponible';
+    }
+    
     const randomReward = rewards[Math.floor(Math.random() * rewards.length)];
+    console.log(`[MysteryBox] Récompense choisie:`, randomReward);
     
     let rewardText = '';
     
     if (typeof randomReward === 'number') {
         // Récompense en argent
+        console.log(`[MysteryBox] Récompense en argent: ${randomReward}`);
         const user = ensureUser(userId, interaction.guildId);
         updateUser(userId, interaction.guildId, { balance: user.balance + randomReward });
         rewardText = `Vous avez gagné **${randomReward}** ${config.currency.emoji} !`;
     } else {
         // Récompense en item
+        console.log(`[MysteryBox] Récompense en item: ${randomReward}`);
         const rewardItem = config.shop[randomReward];
+        console.log(`[MysteryBox] Item trouvé dans shop:`, !!rewardItem);
+        
         if (rewardItem) {
             applyConsumableEffect(rewardItem, userId, interaction.guildId, interaction);
             rewardText = `Vous avez gagné **${rewardItem.name}** !`;
+        } else {
+            rewardText = `Item non trouvé: ${randomReward}`;
         }
     }
     
-    return `🎁 Vous avez ouvert une ${item.name} et obtenu : ${rewardText}`;
+    const finalMessage = `🎁 Vous avez ouvert une ${item.name} et obtenu : ${rewardText}`;
+    console.log(`[MysteryBox] Message final: ${finalMessage}`);
+    
+    return finalMessage;
 }
 
 // Fonction pour gérer les achats de manière sécurisée
@@ -241,22 +268,29 @@ async function handlePurchase(interaction) {
             console.log(`[Achat] Consommable ${item.name} utilisé par ${interaction.user.tag}`);
         } else if (item.type === 'mystery_box') {
             // Boîte mystère - ouvrir immédiatement
+            console.log(`[Achat] Traitement boîte mystère - Solde avant: ${user.balance}, Prix: ${item.price}`);
+            
             const updateResult = updateUser(userId, interaction.guildId, {
                 balance: user.balance - item.price
             });
             
+            console.log(`[Achat] Résultat mise à jour solde:`, updateResult);
+            
             if (updateResult) {
                 // Ouvrir la boîte mystère
+                console.log(`[Achat] Ouverture de la boîte mystère...`);
                 const reward = openMysteryBox(userId, item, interaction);
+                console.log(`[Achat] Récompense obtenue: ${reward}`);
                 reply.content = `🎁 Vous avez ouvert une ${item.name} et obtenu : ${reward}`;
                 
                 // Mettre à jour les missions pour l'ouverture de boîte
                 handleBoxOpening(userId, interaction.guildId);
             } else {
+                console.error(`[Achat] Erreur lors de la mise à jour du solde`);
                 reply.content = '❌ Erreur lors de la transaction.';
             }
             
-            console.log(`[Achat] Boîte mystère ${item.name} ouverte par ${interaction.user.tag}`);
+            console.log(`[Achat] Boîte mystère ${item.name} traitée pour ${interaction.user.tag}`);
         } else if (item.type === 'gift') {
             // Article cadeau - déduire le montant et informer l'utilisateur
             const updateResult = updateUser(userId, interaction.guildId, {

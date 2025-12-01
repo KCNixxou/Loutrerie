@@ -6,7 +6,8 @@ const {
   useEffect, 
   hasActiveEffect,
   calculateEffectMultiplier,
-  checkLossProtection
+  checkLossProtection,
+  applyDoubleOrNothing
 } = require('../database');
 const { updateUserGameStats, handleGameWin, handleGameLose } = require('../utils/missionUtils');
 const { getGameConfig } = require('../game-utils');
@@ -24,31 +25,6 @@ const CARD_EMOJIS = {
   '♣': '♣️'
 };
 
-
-function applyDoubleOrNothing(userId, guildId, baseWinnings) {
-  if (!guildId || baseWinnings <= 0) {
-    return { winnings: baseWinnings, message: null };
-  }
-
-  if (!hasActiveEffect(userId, 'double_or_nothing', guildId)) {
-    return { winnings: baseWinnings, message: null };
-  }
-
-  useEffect(userId, 'double_or_nothing', guildId);
-
-  const success = Math.random() < 0.5;
-  if (success) {
-    return {
-      winnings: baseWinnings * 2,
-      message: '🔪 **Double ou Crève** a réussi : vos gains de High Low ont été **doublés**.'
-    };
-  }
-
-  return {
-    winnings: 0,
-    message: '🔪 **Double ou Crève** a échoué : vous perdez **tous vos gains** sur cette partie.'
-  };
-}
 
 // Fonction utilitaire pour clôturer une partie High Low
 function endHighLowGame(gameId, interaction, isAdmin = false) {
@@ -439,11 +415,14 @@ async function handleHighLowDecision(interaction) {
       winnings = Math.floor(winnings * effectMultiplier);
 
       const doubleResult = applyDoubleOrNothing(gameState.userId, gameState.guildId, winnings);
+      console.log(`[HighLow] Double ou Crève résultat:`, doubleResult);
       winnings = doubleResult.winnings;
       const user = ensureUser(gameState.userId, gameState.guildId);
       
       // Calculer le nouveau solde
-      const newBalance = user.balance + (gameState.totalWon || winnings);
+      console.log(`[HighLow] Solde avant: ${user.balance}, totalWon: ${gameState.totalWon}, winnings: ${winnings}`);
+      const newBalance = user.balance + winnings;
+      console.log(`[HighLow] Nouveau solde calculé: ${newBalance}`);
       
       // Mettre à jour le solde du joueur
       updateUser(gameState.userId, gameState.guildId, { balance: newBalance });

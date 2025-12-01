@@ -1,6 +1,6 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const config = require('../config');
-const { ensureUser, updateUser, getUserEffects, useEffect, hasActiveEffect, calculateEffectMultiplier } = require('../database');
+const { ensureUser, updateUser, getUserEffects, useEffect, hasActiveEffect, calculateEffectMultiplier, applyDoubleOrNothing } = require('../database');
 const { updateUserGameStats, handleGameWin, handleGameLose } = require('../utils/missionUtils');
 
 // Objet pour stocker les parties en cours
@@ -296,31 +296,6 @@ function calculateCurrentWin(gameState) {
   console.log(`[MINES] calculateCurrentWin - base: ${multiplier}, effect: ${effectMultiplier}, final: ${finalMultiplier}`);
   
   return Math.floor(gameState.bet * finalMultiplier);
-}
-
-function applyDoubleOrNothing(userId, guildId, baseWinnings) {
-  if (!guildId || baseWinnings <= 0) {
-    return { winnings: baseWinnings, message: null };
-  }
-
-  if (!hasActiveEffect(userId, 'double_or_nothing', guildId)) {
-    return { winnings: baseWinnings, message: null };
-  }
-
-  useEffect(userId, 'double_or_nothing', guildId);
-
-  const success = Math.random() < 0.5;
-  if (success) {
-    return {
-      winnings: baseWinnings * 2,
-      message: '🔪 **Double ou Crève** a réussi : vos gains des Mines ont été **doublés**.'
-    };
-  }
-
-  return {
-    winnings: 0,
-    message: '🔪 **Double ou Crève** a échoué : vous perdez **tous vos gains** sur cette partie.'
-  };
 }
 
 // Commande pour démarrer une nouvelle partie

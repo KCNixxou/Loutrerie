@@ -1,6 +1,6 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, StringSelectMenuBuilder } = require('discord.js');
 const config = require('../config');
-const { ensureUser, updateUser, getUserEffects, hasActiveEffect, useEffect, checkLossProtection } = require('../database');
+const { ensureUser, updateUser, getUserEffects, hasActiveEffect, useEffect, checkLossProtection, applyDoubleOrNothing } = require('../database');
 
 // Variables pour stocker les parties en cours
 const activeRouletteGames = new Map();
@@ -54,32 +54,6 @@ function calculateEffectMultiplier(userId, guildId) {
   return multiplier;
 }
 
-
-function applyDoubleOrNothing(userId, guildId, baseWinnings) {
-  if (!guildId || baseWinnings <= 0) {
-    return { winnings: baseWinnings, message: null };
-  }
-
-  if (!hasActiveEffect(userId, 'double_or_nothing', guildId)) {
-    return { winnings: baseWinnings, message: null };
-  }
-
-  // Consommer l'effet
-  useEffect(userId, 'double_or_nothing', guildId);
-
-  const success = Math.random() < 0.5;
-  if (success) {
-    return {
-      winnings: baseWinnings * 2,
-      message: '🔪 **Double ou Crève** a réussi : vos gains ont été **doublés** !'
-    };
-  }
-
-  return {
-    winnings: 0,
-    message: '🔪 **Double ou Crève** a échoué : vous perdez **tous vos gains** sur ce tour.'
-  };
-}
 
 // Fonction pour démarrer une nouvelle partie de roulette
 async function handleRouletteStart(interaction) {

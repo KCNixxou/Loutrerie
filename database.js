@@ -959,6 +959,8 @@ function getUserEffects(userId, guildId = null) {
 function useEffect(userId, effectType, guildId = null) {
   try {
     const now = Date.now();
+    console.log(`[UseEffect] Appel - userId: ${userId}, effectType: ${effectType}, guildId: ${guildId}`);
+    
     let stmt;
     
     if (guildId) {
@@ -969,6 +971,7 @@ function useEffect(userId, effectType, guildId = null) {
         AND (expires_at IS NULL OR expires_at > ?)
       `);
       const result = stmt.run(userId, guildId, effectType, now);
+      console.log(`[UseEffect] Résultat guild: ${result.changes} changements`);
       return result.changes > 0;
     } else {
       stmt = db.prepare(`
@@ -978,6 +981,7 @@ function useEffect(userId, effectType, guildId = null) {
         AND (expires_at IS NULL OR expires_at > ?)
       `);
       const result = stmt.run(userId, effectType, now);
+      console.log(`[UseEffect] Résultat no guild: ${result.changes} changements`);
       return result.changes > 0;
     }
   } catch (error) {
@@ -1008,6 +1012,8 @@ function cleanupExpiredEffects() {
 function hasActiveEffect(userId, effectType, guildId = null) {
   try {
     const now = Date.now();
+    console.log(`[HasActiveEffect] Appel - userId: ${userId}, effectType: ${effectType}, guildId: ${guildId}`);
+    
     let stmt;
     
     if (guildId) {
@@ -1017,6 +1023,7 @@ function hasActiveEffect(userId, effectType, guildId = null) {
         AND (expires_at IS NULL OR expires_at > ?) AND uses > 0
       `);
       const result = stmt.get(userId, guildId, effectType, now);
+      console.log(`[HasActiveEffect] Résultat guild: ${result.count} effets actifs`);
       return result.count > 0;
     } else {
       stmt = db.prepare(`
@@ -1025,6 +1032,7 @@ function hasActiveEffect(userId, effectType, guildId = null) {
         AND (expires_at IS NULL OR expires_at > ?) AND uses > 0
       `);
       const result = stmt.get(userId, effectType, now);
+      console.log(`[HasActiveEffect] Résultat no guild: ${result.count} effets actifs`);
       return result.count > 0;
     }
   } catch (error) {
@@ -1078,17 +1086,26 @@ function checkLossProtection(userId, guildId, lossAmount) {
 
 // Fonction pour appliquer l'effet Double ou Crève
 function applyDoubleOrNothing(userId, guildId, baseWinnings) {
+  console.log(`[DoubleOrNothing] Appel - userId: ${userId}, guildId: ${guildId}, baseWinnings: ${baseWinnings}`);
+  
   if (!guildId || baseWinnings <= 0) {
+    console.log(`[DoubleOrNothing] Conditions non remplies - guildId: ${!!guildId}, baseWinnings: ${baseWinnings}`);
     return { winnings: baseWinnings, message: null };
   }
 
-  if (!hasActiveEffect(userId, 'double_or_nothing', guildId)) {
+  const hasEffect = hasActiveEffect(userId, 'double_or_nothing', guildId);
+  console.log(`[DoubleOrNothing] Effet actif: ${hasEffect}`);
+  
+  if (!hasEffect) {
     return { winnings: baseWinnings, message: null };
   }
 
-  useEffect(userId, 'double_or_nothing', guildId);
+  const effectUsed = useEffect(userId, 'double_or_nothing', guildId);
+  console.log(`[DoubleOrNothing] Effet utilisé: ${effectUsed}`);
 
   const success = Math.random() < 0.5;
+  console.log(`[DoubleOrNothing] Succès: ${success}`);
+  
   if (success) {
     return {
       winnings: baseWinnings * 2,
