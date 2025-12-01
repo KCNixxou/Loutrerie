@@ -497,7 +497,7 @@ async function handleMinesButtonInteraction(interaction) {
       }
       
       // Mettre à jour les statistiques de victoire pour les missions
-      handleGameWin(interaction.user.id, 'mines', guildId, winAmount);
+      handleGameWin(interaction.user.id, 'mines', guildId);
       
       // Supprimer la partie de la mémoire
       activeMinesGames.delete(interaction.message.id);
