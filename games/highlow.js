@@ -417,11 +417,14 @@ async function handleHighLowDecision(interaction) {
       const doubleResult = applyDoubleOrNothing(gameState.userId, gameState.guildId, winnings);
       console.log(`[HighLow] Double ou Crève résultat:`, doubleResult);
       winnings = doubleResult.winnings;
-      const user = ensureUser(gameState.userId, gameState.guildId);
+      
+      // Relire le solde actuel depuis la base de données pour éviter les problèmes de concurrence
+      const currentUser = ensureUser(gameState.userId, gameState.guildId);
+      console.log(`[HighLow] Solde actuel re-lu: ${currentUser.balance}`);
       
       // Calculer le nouveau solde
-      console.log(`[HighLow] Solde avant: ${user.balance}, totalWon: ${gameState.totalWon}, winnings: ${winnings}`);
-      const newBalance = user.balance + winnings;
+      console.log(`[HighLow] Solde avant: ${currentUser.balance}, totalWon: ${gameState.totalWon}, winnings: ${winnings}`);
+      const newBalance = currentUser.balance + winnings;
       console.log(`[HighLow] Nouveau solde calculé: ${newBalance}`);
       
       // Mettre à jour le solde du joueur
