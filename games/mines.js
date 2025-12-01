@@ -271,36 +271,6 @@ function revealCell(gameState, x, y) {
   console.log('Nombre de cases révélées:', gameState.revealedCount);
 }
 
-// Fonction pour calculer les multiplicateurs d'effets temporaires
-function calculateEffectMultiplier(userId, guildId) {
-  if (!guildId) return 1.0; // Pas de guildId, pas d'effets
-  
-  try {
-    const effects = getUserEffects(userId, guildId);
-    if (!Array.isArray(effects)) {
-      console.log(`[MINES] getUserEffects n'a pas retourné un tableau pour ${userId}, guildId=${guildId}:`, effects);
-      return 1.0;
-    }
-    
-    let multiplier = 1.0;
-    
-    effects.forEach(effect => {
-      switch (effect.effect) {
-        case 'casino_bonus':
-          multiplier *= (1 + effect.value); // +15% par défaut
-          break;
-        case 'double_winnings':
-          multiplier *= effect.value; // x2 par défaut
-          break;
-      }
-    });
-    
-    return multiplier;
-  } catch (error) {
-    console.error('[MINES] Erreur dans calculateEffectMultiplier:', error);
-    return 1.0;
-  }
-}
 
 // Fonction pour vérifier et utiliser la protection contre les pertes
 function checkLossProtection(userId, guildId, lossAmount) {

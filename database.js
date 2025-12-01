@@ -512,6 +512,9 @@ function updateMissionProgress(userId, missionType, amount = 1, guildId = null) 
     }
     
     // Initialiser la mission si elle n'existe pas
+    if (!user.missions[category]) {
+      user.missions[category] = {};
+    }
     if (!user.missions[category][missionType]) {
       user.missions[category][missionType] = {
         progress: 0,
@@ -1030,6 +1033,37 @@ function hasActiveEffect(userId, effectType, guildId = null) {
   }
 }
 
+// Fonction pour calculer les multiplicateurs d'effets temporaires
+function calculateEffectMultiplier(userId, guildId) {
+  if (!guildId) return 1.0; // Pas de guildId, pas d'effets
+  
+  try {
+    const effects = getUserEffects(userId, guildId);
+    if (!Array.isArray(effects)) {
+      console.log(`[DB] getUserEffects n'a pas retourné un tableau pour ${userId}, guildId=${guildId}:`, effects);
+      return 1.0;
+    }
+    
+    let multiplier = 1.0;
+    
+    effects.forEach(effect => {
+      switch (effect.effect) {
+        case 'casino_bonus':
+          multiplier *= (1 + effect.value); // +15% par défaut
+          break;
+        case 'double_winnings':
+          multiplier *= effect.value; // x2 par défaut
+          break;
+      }
+    });
+    
+    return multiplier;
+  } catch (error) {
+    console.error('[DB] Erreur dans calculateEffectMultiplier:', error);
+    return 1.0;
+  }
+}
+
 module.exports = {
   db,
   ensureUser,
@@ -1060,5 +1094,7 @@ module.exports = {
   getUserEffects,
   useEffect,
   cleanupExpiredEffects,
-  hasActiveEffect
+  hasActiveEffect,
+  calculateEffectMultiplier,
+  getGameConfig,
 };
