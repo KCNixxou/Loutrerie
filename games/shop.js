@@ -207,7 +207,13 @@ function openMysteryBox(userId, item, interaction) {
     const finalMessage = `🎁 Vous avez ouvert une ${item.name} et obtenu : ${rewardText}`;
     console.log(`[MysteryBox] Message final: ${finalMessage}`);
     
-    return finalMessage;
+    // Retourner un objet structuré pour un meilleur affichage
+    return {
+        message: finalMessage,
+        rewardText: rewardText,
+        rewardType: typeof randomReward === 'number' ? 'money' : 'item',
+        rewardValue: randomReward
+    };
 }
 
 // Fonction pour gérer les achats de manière sécurisée
@@ -266,6 +272,7 @@ async function handlePurchase(interaction) {
             }
             
             console.log(`[Achat] Consommable ${item.name} utilisé par ${interaction.user.tag}`);
+            return interaction.reply(reply);
         } else if (item.type === 'mystery_box') {
             // Boîte mystère - ouvrir immédiatement
             console.log(`[Achat] Traitement boîte mystère - Solde avant: ${user.balance}, Prix: ${item.price}`);
@@ -279,9 +286,52 @@ async function handlePurchase(interaction) {
             if (updateResult) {
                 // Ouvrir la boîte mystère
                 console.log(`[Achat] Ouverture de la boîte mystère...`);
-                const reward = openMysteryBox(userId, item, interaction);
-                console.log(`[Achat] Récompense obtenue: ${reward}`);
-                reply.content = `🎁 Vous avez ouvert une ${item.name} et obtenu : ${reward}`;
+                const rewardResult = openMysteryBox(userId, item, interaction);
+                console.log(`[Achat] Récompense obtenue:`, rewardResult);
+                
+                // Créer un embed magnifique pour l'ouverture de la boîte
+                const boxEmbed = new EmbedBuilder()
+                    .setTitle('🎁 **OUVERTURE DE BOÎTE À ORGANES** 🎁')
+                    .setDescription(`**Félicitations ${interaction.user.username} !**\n\nVous avez ouvert une **${item.name}** et obtenu :`)
+                    .setColor(0xFFD700) // Or pour la victoire
+                    .setThumbnail('https://emoji.discord.stickers/🎁.png');
+                
+                // Personnaliser l'affichage selon le type de récompense
+                if (rewardResult.rewardType === 'money') {
+                    boxEmbed.addFields(
+                        { 
+                            name: '💰 **GAINS EN COQUILLAGES**', 
+                            value: `**${rewardResult.rewardValue.toLocaleString()}** ${config.currency.emoji}`, 
+                            inline: false 
+                        }
+                    );
+                    boxEmbed.setColor(0x00FF00); // Vert pour l'argent
+                } else if (rewardResult.rewardType === 'item') {
+                    boxEmbed.addFields(
+                        { 
+                            name: '🎁 **ITEM SPÉCIAL**', 
+                            value: rewardResult.rewardText, 
+                            inline: false 
+                        }
+                    );
+                    boxEmbed.setColor(0xFF69B4); // Rose pour les items
+                } else {
+                    boxEmbed.addFields(
+                        { 
+                            name: '🏆 **RÉCOMPENSE**', 
+                            value: rewardResult.rewardText, 
+                            inline: false 
+                        }
+                    );
+                }
+                
+                boxEmbed.setFooter({ 
+                    text: `Solde mis à jour • ${new Date().toLocaleString('fr-FR')}`,
+                    iconURL: interaction.user.displayAvatarURL()
+                });
+                
+                reply.embeds = [boxEmbed];
+                reply.content = ''; // Pas de texte supplémentaire
                 
                 // Mettre à jour les missions pour l'ouverture de boîte
                 handleBoxOpening(userId, interaction.guildId);
@@ -291,6 +341,9 @@ async function handlePurchase(interaction) {
             }
             
             console.log(`[Achat] Boîte mystère ${item.name} traitée pour ${interaction.user.tag}`);
+            
+            // Envoyer la réponse et arrêter le traitement ici
+            return interaction.reply(reply);
         } else if (item.type === 'gift') {
             // Article cadeau - déduire le montant et informer l'utilisateur
             const updateResult = updateUser(userId, interaction.guildId, {
@@ -325,6 +378,7 @@ ${adminMention}`);
             
             // Gérer les articles cadeaux (cadeauSurprise1 et cadeauSurprise2)
             handleItemPurchase(userId, interaction.guildId);
+            return interaction.reply(reply);
         } else if (item.type === 'event_access' || item.type === 'vip_temporary') {
             const updateResult = updateUser(userId, interaction.guildId, {
                 balance: user.balance - item.price
@@ -353,6 +407,10 @@ ${adminMention}`);
             reply.content = `ℹ️ **${item.name}** - ${item.description}\n\nCet article donne accès à des avantages permanents. Contactez un administrateur pour l'activer.`;
             return interaction.reply(reply);
         }
+        
+        // Si on arrive ici, c'est que l'item n'est pas d'un type géré ci-dessus
+        // On continue avec le traitement des rôles (pour la compatibilité avec l'ancien système)
+        console.log(`[Achat] Type d'article non géré: ${item.type}, traitement par défaut pour les rôles`);
         
         // Pour les rôles BDG/BDH (gestion existante)
         const roleType = itemId.startsWith('bdg') ? 'BDG' : itemId.startsWith('bdh') ? 'BDH' : null;
