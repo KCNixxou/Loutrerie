@@ -1076,6 +1076,32 @@ function checkLossProtection(userId, guildId, lossAmount) {
   return false; // Pas de protection
 }
 
+// Fonction pour appliquer l'effet Double ou Crève
+function applyDoubleOrNothing(userId, guildId, baseWinnings) {
+  if (!guildId || baseWinnings <= 0) {
+    return { winnings: baseWinnings, message: null };
+  }
+
+  if (!hasActiveEffect(userId, 'double_or_nothing', guildId)) {
+    return { winnings: baseWinnings, message: null };
+  }
+
+  useEffect(userId, 'double_or_nothing', guildId);
+
+  const success = Math.random() < 0.5;
+  if (success) {
+    return {
+      winnings: baseWinnings * 2,
+      message: '🔪 **Double ou Crève** a réussi : vos gains ont été **doublés** sur cette main.'
+    };
+  }
+
+  return {
+    winnings: 0,
+    message: '🔪 **Double ou Crève** a échoué : vos gains ont été **perdus** sur cette main.'
+  };
+}
+
 module.exports = {
   db,
   ensureUser,
@@ -1109,4 +1135,5 @@ module.exports = {
   hasActiveEffect,
   calculateEffectMultiplier,
   checkLossProtection,
+  applyDoubleOrNothing,
 };

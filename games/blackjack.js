@@ -8,6 +8,9 @@ const {
   checkLossProtection,
   addUserEffect,
   getUserEffects,
+  hasActiveEffect,
+  useEffect,
+  applyDoubleOrNothing,
   updateMissionProgress
 } = require('../database');
 const { 
@@ -34,31 +37,6 @@ const CARD_EMOJIS = {
   'C': '♣️'  // Trèfles
 };
 
-// Fonctions pour les effets temporaires
-function applyDoubleOrNothing(userId, guildId, baseWinnings) {
-  if (!guildId || baseWinnings <= 0) {
-    return { winnings: baseWinnings, message: null };
-  }
-
-  if (!hasActiveEffect(userId, 'double_or_nothing', guildId)) {
-    return { winnings: baseWinnings, message: null };
-  }
-
-  useEffect(userId, 'double_or_nothing', guildId);
-
-  const success = Math.random() < 0.5;
-  if (success) {
-    return {
-      winnings: baseWinnings * 2,
-      message: '🔪 **Double ou Crève** a réussi : vos gains ont été **doublés** sur cette main.'
-    };
-  }
-
-  return {
-    winnings: 0,
-    message: '🔪 **Double ou Crève** a échoué : vous perdez **tous vos gains** sur cette main.'
-  };
-}
 
 // Fonction pour démarrer une nouvelle partie de blackjack
 async function handleBlackjackStart(interaction) {
