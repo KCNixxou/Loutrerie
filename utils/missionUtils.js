@@ -90,18 +90,18 @@ function updateUserGameStats(userId, gameId, guildId = null) {
   if (user.gameStats.gamesPlayed >= 1000) {
     updateMissionProgress(userId, MISSION_EVENTS.TOTAL_GAMES_1000, 1, guildId);
   } else {
-    // Mettre à jour la progression même si l'objectif n'est pas atteint
-    updateMissionProgress(userId, MISSION_EVENTS.TOTAL_GAMES_1000, user.gameStats.gamesPlayed, guildId);
+    // Mettre à jour la progression de 1 (pas le nombre total)
+    updateMissionProgress(userId, MISSION_EVENTS.TOTAL_GAMES_1000, 1, guildId);
   }
   if (user.gameStats.gamesPlayed >= 2000) {
     updateMissionProgress(userId, MISSION_EVENTS.TOTAL_GAMES_2000, 1, guildId);
   } else {
-    updateMissionProgress(userId, MISSION_EVENTS.TOTAL_GAMES_2000, user.gameStats.gamesPlayed, guildId);
+    updateMissionProgress(userId, MISSION_EVENTS.TOTAL_GAMES_2000, 1, guildId);
   }
   if (user.gameStats.gamesPlayed >= 5000) {
     updateMissionProgress(userId, MISSION_EVENTS.TOTAL_GAMES_5000, 1, guildId);
   } else {
-    updateMissionProgress(userId, MISSION_EVENTS.TOTAL_GAMES_5000, user.gameStats.gamesPlayed, guildId);
+    updateMissionProgress(userId, MISSION_EVENTS.TOTAL_GAMES_5000, 1, guildId);
   }
   
   // Vérifier les jeux différents
