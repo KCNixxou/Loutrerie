@@ -318,6 +318,13 @@ async function handleHighLowAction(interaction) {
     let updatedBalance = user.balance;
     let lossMessage = `❌ **Vous avez perdu !**`;
     
+    // Consommer une utilisation de l'effet double_winnings si actif (à chaque partie, win or lose)
+    const effectMultiplier = calculateEffectMultiplier(game.userId, game.guildId);
+    if (effectMultiplier > 1.0) {
+      const effectUsed = useEffect(game.userId, 'double_winnings', game.guildId);
+      console.log(`[HighLow] Effet double_winnings consommé (perte): ${effectUsed}`);
+    }
+    
     // Mettre à jour les statistiques de défaite pour les missions
     handleGameLose(game.userId, 'highlow', game.guildId);
     
@@ -415,14 +422,14 @@ async function handleHighLowDecision(interaction) {
       console.log(`[HighLow] Calcul gains - Mise: ${gameState.currentBet}, Multiplicateur: ${gameState.currentMultiplier}, Gains base: ${winnings}`);
       console.log(`[HighLow] EffectMultiplier: ${effectMultiplier}`);
       
-      winnings = Math.floor(winnings * effectMultiplier);
-      console.log(`[HighLow] Gains après effets: ${winnings}`);
-      
-      // Consommer une utilisation de l'effet double_winnings si utilisé
+      // Consommer une utilisation de l'effet double_winnings si actif (à chaque partie, win or lose)
       if (effectMultiplier > 1.0) {
         const effectUsed = useEffect(gameState.userId, 'double_winnings', gameState.guildId);
         console.log(`[HighLow] Effet double_winnings consommé: ${effectUsed}`);
       }
+      
+      winnings = Math.floor(winnings * effectMultiplier);
+      console.log(`[HighLow] Gains après effets: ${winnings}`);
 
       const doubleResult = applyDoubleOrNothing(gameState.userId, gameState.guildId, winnings);
       console.log(`[HighLow] Double ou Crève résultat:`, doubleResult);

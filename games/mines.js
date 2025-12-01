@@ -208,6 +208,13 @@ function createGameEmbed(gameState, interaction) {
       const guildId = gameState.guildId || interaction.guildId || null;
       const currentUser = ensureUser(gameState.userId, guildId);
       
+      // Consommer une utilisation de l'effet double_winnings si actif (à chaque partie, win or lose)
+      const effectMultiplier = calculateEffectMultiplier(gameState.userId, guildId);
+      if (effectMultiplier > 1.0) {
+        const effectUsed = useEffect(gameState.userId, 'double_winnings', guildId);
+        console.log(`[Mines] Effet double_winnings consommé (perte): ${effectUsed}`);
+      }
+      
       // Vérifier si l'utilisateur a une protection contre les pertes
       const hasProtection = checkLossProtection(gameState.userId, guildId, originalBet);
       
