@@ -1018,22 +1018,24 @@ function hasActiveEffect(userId, effectType, guildId = null) {
     
     if (guildId) {
       stmt = db.prepare(`
-        SELECT COUNT(*) as count FROM user_effects 
+        SELECT * FROM user_effects 
         WHERE user_id = ? AND guild_id = ? AND effect = ? 
         AND (expires_at IS NULL OR expires_at > ?) AND uses > 0
       `);
-      const result = stmt.get(userId, guildId, effectType, now);
-      console.log(`[HasActiveEffect] Résultat guild: ${result.count} effets actifs`);
-      return result.count > 0;
+      const effects = stmt.all(userId, guildId, effectType, now);
+      console.log(`[HasActiveEffect] Résultat guild: ${effects.length} effets actifs trouvés`);
+      console.log(`[HasActiveEffect] Détails effets:`, effects);
+      return effects.length > 0;
     } else {
       stmt = db.prepare(`
-        SELECT COUNT(*) as count FROM user_effects 
+        SELECT * FROM user_effects 
         WHERE user_id = ? AND effect = ? 
         AND (expires_at IS NULL OR expires_at > ?) AND uses > 0
       `);
-      const result = stmt.get(userId, effectType, now);
-      console.log(`[HasActiveEffect] Résultat no guild: ${result.count} effets actifs`);
-      return result.count > 0;
+      const effects = stmt.all(userId, effectType, now);
+      console.log(`[HasActiveEffect] Résultat no guild: ${effects.length} effets actifs trouvés`);
+      console.log(`[HasActiveEffect] Détails effets:`, effects);
+      return effects.length > 0;
     }
   } catch (error) {
     console.error('[Effects] Erreur lors de la vérification de l\'effet:', error);
@@ -1097,9 +1099,11 @@ function applyDoubleOrNothing(userId, guildId, baseWinnings) {
   console.log(`[DoubleOrNothing] Effet actif: ${hasEffect}`);
   
   if (!hasEffect) {
+    console.log(`[DoubleOrNothing] Pas d'effet double_or_nothing actif pour ${userId}`);
     return { winnings: baseWinnings, message: null };
   }
 
+  console.log(`[DoubleOrNothing] Effet double_or_nothing trouvé pour ${userId} - application...`);
   const effectUsed = useEffect(userId, 'double_or_nothing', guildId);
   console.log(`[DoubleOrNothing] Effet utilisé: ${effectUsed}`);
 

@@ -206,7 +206,16 @@ function createGameEmbed(gameState, interaction) {
       // En cas de perte, vérifier la protection contre les pertes
       const originalBet = gameState.originalBet || gameState.bet;
       const guildId = gameState.guildId || interaction.guildId || null;
+      
+      // Forcer la relecture du solde depuis la base de données pour éviter les bugs de cache
+      // IMPORTANT: Relire après toutes les autres mises à jour pour avoir le solde final correct
+      setTimeout(() => {
+        const finalUser = ensureUser(gameState.userId, guildId);
+        console.log(`[MINES] Solde final après perte: ${finalUser.balance} (attendu: ${actualBalance})`);
+      }, 100);
+      
       const currentUser = ensureUser(gameState.userId, guildId);
+      const actualBalance = currentUser.balance; // Solde réel après déduction de la mise
       
       // Consommer une utilisation de l'effet double_winnings si actif (à chaque partie, win or lose)
       const effectMultiplier = calculateEffectMultiplier(gameState.userId, guildId);
@@ -220,20 +229,20 @@ function createGameEmbed(gameState, interaction) {
       
       if (hasProtection) {
         // Protection appliquée : rembourser la mise
-        updateUser(gameState.userId, guildId, { balance: currentUser.balance + originalBet });
+        updateUser(gameState.userId, guildId, { balance: actualBalance + originalBet });
         
         embed.setTitle('🫀 Cœur de Remplacement Activé !')
              .setDescription(
                `💥 BOOM ! Vous avez cliqué sur une mine, mais votre **Cœur de Remplacement** a protégé votre mise !\n` +
                `💰 Votre mise de **${originalBet}** ${config.currency.emoji} a été remboursée.\n` +
-               `💵 Votre solde actuel : **${currentUser.balance + originalBet}** ${config.currency.emoji}`
+               `💵 Votre solde actuel : **${actualBalance + originalBet}** ${config.currency.emoji}`
              )
              .setColor(0xFF6B6B); // Couleur spéciale pour la protection
       } else {
         embed.setTitle('💥 BOOM !')
              .setDescription(
                `Vous avez cliqué sur une mine ! Votre mise de **${originalBet}** ${config.currency.emoji} est perdue.\n` +
-               `💵 Votre solde actuel : **${currentUser.balance}** ${config.currency.emoji}`
+               `💵 Votre solde actuel : **${actualBalance}** ${config.currency.emoji}`
              )
              .setColor(GAME_OVER_EMBED_COLOR);
       }
@@ -267,6 +276,12 @@ function revealCell(gameState, x, y) {
     
     // Mettre à jour les statistiques de défaite pour les missions
     handleGameLose(gameState.userId, 'mines', gameState.guildId);
+    
+    // Forcer une synchronisation du solde après toutes les mises à jour
+    setTimeout(() => {
+      const finalUser = ensureUser(gameState.userId, gameState.guildId);
+      console.log(`[MINES] Solde synchronisé après perte: ${finalUser.balance}`);
+    }, 50);
     
     // La mise a déjà été déduite au début de la partie, donc pas besoin de la déduire à nouveau
     // On marque simplement la partie comme perdue
@@ -445,9 +460,9 @@ async function handleMinesButtonInteraction(interaction) {
       gameState.won = true;
       gameState.winAmount = winAmount;
       
-      // Récupérer le solde actuel de l'utilisateur
+      // Récupérer le solde actuel de l'utilisateur (après déduction de la mise)
       const user = ensureUser(interaction.user.id, guildId);
-      console.log(`[MINES] Cashout - solde avant: ${user.balance}, guildId: ${guildId}`);
+      console.log(`[MINES] Cashout - solde actuel (après déduction mise): ${user.balance}, guildId: ${guildId}`);
       
       // Les gains sont déjà calculés dans winAmount (qui inclut la mise initiale)
       console.log(`Cashout: Gains de ${winAmount} (déjà inclus la mise initiale)`);
@@ -459,10 +474,11 @@ async function handleMinesButtonInteraction(interaction) {
         console.log(`[Mines] Effet double_winnings consommé: ${effectUsed}`);
       }
       
-      // Mettre à jour le solde (ne pas ajouter la mise deux fois)
-      updateUser(interaction.user.id, guildId, { balance: user.balance + winAmount });
+      // Mettre à jour le solde (ajouter les gains au solde actuel)
+      const newBalance = user.balance + winAmount;
+      updateUser(interaction.user.id, guildId, { balance: newBalance });
       
-      const newUserBalance = user.balance + winAmount;
+      const newUserBalance = newBalance;
       console.log(`[MINES] Cashout - solde après: ${newUserBalance} (+${winAmount})`);
       
       console.log('Mise à jour de l\'interface avec le cashout');
