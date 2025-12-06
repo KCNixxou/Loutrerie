@@ -895,13 +895,14 @@ function addUserEffect(userId, effectData) {
     const guildId = effectData.guildId || null;
     const now = Date.now();
     
-    // Supprimer d'abord tout effet existant du même type pour cet utilisateur
+    // Supprimer TOUS les effets existants pour cet utilisateur dans cette guilde
     const deleteStmt = db.prepare(`
       DELETE FROM user_effects 
-      WHERE user_id = ? AND effect = ? AND (guild_id = ? OR (guild_id IS NULL AND ? IS NULL))
+      WHERE user_id = ? AND (guild_id = ? OR (guild_id IS NULL AND ? IS NULL))
     `);
     
-    deleteStmt.run(userId, effectData.effect, guildId, guildId);
+    deleteStmt.run(userId, guildId, guildId);
+    console.log(`[Effects] Tous les effets existants supprimés pour l'utilisateur ${userId} avant l'ajout du nouvel effet`);
     
     // Ensuite, ajouter le nouvel effet
     const insertStmt = db.prepare(`
@@ -1056,13 +1057,24 @@ function calculateEffectMultiplier(userId, guildId) {
     
     let multiplier = 1.0;
     
+    // Ne prendre que l'effet le plus récent de chaque type
+    const latestEffects = {};
     effects.forEach(effect => {
+      if (!latestEffects[effect.effect] || (effect.created_at > (latestEffects[effect.effect].created_at || 0))) {
+        latestEffects[effect.effect] = effect;
+      }
+    });
+    
+    // Appliquer chaque type d'effet une seule fois (le plus récent)
+    Object.values(latestEffects).forEach(effect => {
       switch (effect.effect) {
         case 'casino_bonus':
-          multiplier *= (1 + effect.value); // +15% par défaut
+          // Ne pas cumuler, prendre le plus récent
+          multiplier = (1 + effect.value);
           break;
         case 'double_winnings':
-          multiplier *= effect.value; // x2 par défaut
+          // Ne pas cumuler, prendre le plus récent
+          multiplier = effect.value;
           break;
       }
     });

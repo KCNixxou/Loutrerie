@@ -13,7 +13,9 @@ async function handleShop(interaction) {
         // Créer un embed pour la boutique avec style thématique
         const embed = new EmbedBuilder()
             .setTitle('🏥 **BOUTIQUE DE LA LOUTRERIE** 🏥')
-            .setDescription('Bienvenue dans notre boutique médicale... Utilisez `/achat` avec le nom de l\'article pour effectuer un achat.')
+            .setDescription('Bienvenue dans notre boutique médicale... Utilisez `/achat` avec le nom de l\'article pour effectuer un achat.\n\n' +
+                          '⚠️ **ATTENTION** : Les effets ne sont **pas cumulables**. L\'activation d\'un nouvel effet remplacera automatiquement l\'effet actif précédent.\n' +
+                          '❌ **Aucun remboursement** ne sera effectué en cas de remplacement d\'effet.')
             .setColor(0x8B0000) // Rouge sang
             .setThumbnail('https://emoji.discord.stickers/🏥.png');
         

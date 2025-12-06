@@ -315,7 +315,8 @@ async function handleHighLowAction(interaction) {
   } else {
     // Le joueur a perdu
     const user = ensureUser(game.userId, game.guildId);
-    let updatedBalance = user.balance;
+    // Déduire d'abord la mise du solde
+    let updatedBalance = user.balance - game.currentBet;
     let lossMessage = `❌ **Vous avez perdu !**`;
     
     // Consommer une utilisation de l'effet double_winnings si actif (à chaque partie, win or lose)
