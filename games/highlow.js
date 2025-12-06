@@ -321,13 +321,13 @@ async function handleHighLowAction(interaction) {
     const hasProtection = false; // Désactivé pour les tests
     
     if (hasProtection) {
-      // Si protection, on rembourse la mise
-      const refund = game.currentBet;
+      // Si protection, on rembourse la mise initiale
+      const refund = game.initialBet;
       updateUser(game.userId, game.guildId, { balance: user.balance + refund });
-      lossMessage = `🫀 **Cœur de Remplacement activé !**\n\n❌ Vous avez perdu, mais votre mise de ${formatCurrency(refund, interaction)} vous a été remboursée !`;
+      lossMessage = `🫀 **Cœur de Remplacement activé !**\n\n❌ Vous avez perdu, mais votre mise initiale de ${formatCurrency(refund, interaction)} vous a été remboursée !`;
     } else {
-      // Sinon, on affiche simplement le message de perte
-      lossMessage += `\n💸 Vous avez perdu ${formatCurrency(game.currentBet, interaction)}.`;
+      // La mise a déjà été déduite au début de la partie, pas besoin de la redéduire
+      lossMessage += `\n💸 Vous avez perdu ${formatCurrency(game.initialBet, interaction)}.`;
     }
     
     // Désactivation de la consommation d'effets en cas de perte pour les tests
@@ -438,15 +438,15 @@ async function handleHighLowDecision(interaction) {
       // Relire le solde actuel depuis la base de données pour éviter les problèmes de concurrence
       const currentUser = ensureUser(gameState.userId, gameState.guildId);
       
-      // Calculer le nouveau solde
-      // Le solde actuel a déjà la mise déduite, on ajoute donc les gains bruts
-      // car les gains incluent déjà la mise (gain = mise * multiplicateur)
-      const newBalance = currentUser.balance + winnings;
+      // Calculer les gains nets (en retirant la mise initiale qui a déjà été déduite)
+      const netWinnings = winnings - gameState.initialBet;
+      const newBalance = currentUser.balance + netWinnings;
+      
       // Mise à jour du total des gains pour le débogage
       gameState.totalWon = winnings;
-      log.debug(`Solde avant: ${currentUser.balance}, Mise: ${gameState.initialBet}, Gains: ${winnings}, Nouveau solde: ${newBalance}`);
+      log.debug(`[HighLow] Cashout - Solde avant: ${currentUser.balance}, Mise: ${gameState.initialBet}, Gains bruts: ${winnings}, Gains nets: ${netWinnings}, Nouveau solde: ${newBalance}`);
       
-      // Mettre à jour le solde du joueur avec les gains
+      // Mettre à jour le solde du joueur avec les gains nets
       updateUser(gameState.userId, gameState.guildId, { balance: newBalance });
       
       // Mettre à jour les statistiques de victoire pour les missions
@@ -630,8 +630,9 @@ async function handleHighLow(interaction, isSpecial = false) {
     }
     
     // Déduire la mise du solde normal
-    updateUser(userId, guildId, { balance: user.balance - bet });
-    log.debug(`[HighLow] Mise de ${bet} déduite pour l'utilisateur ${userId}. Nouveau solde: ${user.balance - bet}`);
+  const newBalance = user.balance - bet;
+  updateUser(userId, guildId, { balance: newBalance });
+  log.debug(`[HighLow] Mise initiale de ${bet} déduite pour l'utilisateur ${userId}. Ancien solde: ${user.balance}, Nouveau solde: ${newBalance}`);
   }
   
   // Créer un nouvel ID de partie
