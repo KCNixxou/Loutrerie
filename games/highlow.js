@@ -12,6 +12,14 @@ const {
 const { updateUserGameStats, handleGameWin, handleGameLose } = require('../utils/missionUtils');
 const { getGameConfig } = require('../game-utils');
 
+// Configuration du logging
+const DEBUG = false;
+const log = {
+  debug: (...args) => DEBUG && console.log('[HighLow]', ...args),
+  info: (...args) => console.log('[HighLow]', ...args),
+  error: (...args) => console.error('[HighLow]', ...args)
+};
+
 // Stockage des parties en cours
 const activeHighLowGames = new Map();
 
@@ -142,8 +150,7 @@ function createWinningsField(label, amount, inline = true) {
 // Gestion du jeu High Low
 // Gérer les actions du jeu High Low
 async function handleHighLowAction(interaction) {
-  console.log('[HighLow] handleHighLowAction called');
-  console.log('[HighLow] Interaction customId:', interaction.customId);
+  log.debug('Traitement de l\'action:', interaction.customId);
   
   // Vérifier si c'est une interaction spéciale
   const isSpecial = interaction.customId.startsWith('special_highlow_');
@@ -158,19 +165,15 @@ async function handleHighLowAction(interaction) {
   
   const action = actionMatch[1];
   const gameId = actionMatch[2];
-  console.log('[HighLow] Action:', action, 'Game ID:', gameId);
+  log.debug(`Action: ${action} (Partie: ${gameId})`);
   
   const game = activeHighLowGames.get(gameId);
-  console.log('[HighLow] Game found:', !!game);
-  
   if (!game) {
-    return interaction.update({
-      content: '❌ Partie introuvable ou expirée.',
-      components: []
-    });
+    log.error('Partie introuvable:', gameId);
+    return interaction.reply({ content: '❌ Partie introuvable ou expirée.', ephemeral: true });
   }
   
-  if (game.userId !== interaction.user.id) {
+  if (interaction.user.id !== game.userId) {
     // Vérifier si c'est un administrateur qui tente de clôturer la partie
     if (interaction.customId && interaction.customId.startsWith('admin_close_')) {
       const { specialHighLow } = getGameConfig(interaction);
@@ -207,9 +210,8 @@ async function handleHighLowAction(interaction) {
   }
   
   // Tirer une nouvelle carte
-  console.log('[HighLow] Current card:', game.currentCard);
+  log.debug(`Carte actuelle: ${game.currentCard.value}${game.currentCard.suit}, Nouvelle carte: ${newCard.value}${newCard.suit}`);
   const newCard = game.deck.pop();
-  console.log('[HighLow] New card drawn:', newCard);
   
   // Utiliser la fonction compareCards pour gérer les comparaisons
   const config = getGameConfig(interaction);
@@ -227,8 +229,7 @@ async function handleHighLowAction(interaction) {
   else if (newValue < currentValue) result = 'lower';
   else result = 'same';
   
-  console.log(`[HighLow] Current: ${game.currentCard.value} (${currentValue}), New: ${newCard.value} (${newValue}), Action: ${action}, Result: ${result}, Same: ${sameCard}`);
-  console.log('[HighLow] User won:', userWon, 'Same card:', sameCard);
+  log.debug(`Résultat: ${userWon ? 'Gagné' : 'Perdu'}${sameCard ? ' (Carte identique)' : ''}`);
   
   // Calculer les gains
   if (userWon) {
@@ -277,7 +278,6 @@ async function handleHighLowAction(interaction) {
       game.round = (game.round || 1) + 1;
     }
     game.potentialWinnings = potentialWinnings; // Stocker les gains potentiels
-    console.log('[HighLow] Game updated - New multiplier:', multiplier, 'Total won:', game.totalWon);
     
     // Créer les boutons pour continuer ou s'arrêter
     const buttonPrefix = game.isSpecial ? 'special_highlow_' : 'highlow_';
@@ -315,27 +315,31 @@ async function handleHighLowAction(interaction) {
   } else {
     // Le joueur a perdu
     const user = ensureUser(game.userId, game.guildId);
-    // Déduire d'abord la mise du solde
-    let updatedBalance = user.balance - game.currentBet;
+    let updatedBalance = user.balance;
     let lossMessage = `❌ **Vous avez perdu !**`;
+    
+    // Vérifier d'abord la protection contre les pertes
+    const hasProtection = checkLossProtection(game.userId, game.guildId, game.currentBet);
+    
+    // Mettre à jour le solde en fonction de la protection
+    if (hasProtection) {
+      // Si protection, on ne déduit pas la mise
+      lossMessage = `🫀 **Cœur de Remplacement activé !**\n\n❌ Vous avez perdu, mais votre mise a été remboursée !`;
+    } else {
+      // Si pas de protection, on déduit la mise
+      updatedBalance -= game.currentBet;
+      updateUser(game.userId, game.guildId, { balance: updatedBalance });
+    }
     
     // Consommer une utilisation de l'effet double_winnings si actif (à chaque partie, win or lose)
     const effectMultiplier = calculateEffectMultiplier(game.userId, game.guildId);
     if (effectMultiplier > 1.0) {
       const effectUsed = useEffect(game.userId, 'double_winnings', game.guildId);
-      console.log(`[HighLow] Effet double_winnings consommé (perte): ${effectUsed}`);
+      log.debug('Effet double_winnings consommé (perte)');
     }
     
     // Mettre à jour les statistiques de défaite pour les missions
     handleGameLose(game.userId, 'highlow', game.guildId);
-    
-    // Vérifier la protection contre les pertes
-    const hasProtection = checkLossProtection(game.userId, game.guildId, game.currentBet);
-    if (hasProtection) {
-      updatedBalance += game.currentBet; // Rembourser la mise
-      updateUser(game.userId, game.guildId, { balance: updatedBalance });
-      lossMessage = `🫀 **Cœur de Remplacement activé !**\n\n❌ Vous avez perdu, mais votre mise a été remboursée !`;
-    }
     
     const lossEmbed = new EmbedBuilder()
       .setTitle('🎴 High Low - Partie terminée')
@@ -364,8 +368,7 @@ async function handleHighLowAction(interaction) {
 
 // Gestion des interactions de boutons pour High Low (gère à la fois les actions et les décisions)
 async function handleHighLowInteraction(interaction) {
-  console.log('[HighLow] handleHighLowInteraction called');
-  console.log('[HighLow] Interaction customId:', interaction.customId);
+  log.debug('Interaction reçue:', interaction.customId);
   
   // Vérifier si c'est une interaction spéciale (highlow spécial)
   const isSpecial = interaction.customId.startsWith('special_highlow_');
@@ -383,8 +386,7 @@ async function handleHighLowInteraction(interaction) {
 
 // Fonction pour gérer la décision de continuer ou de s'arrêter
 async function handleHighLowDecision(interaction) {
-  console.log('[HighLow] handleHighLowDecision called');
-  console.log('[HighLow] Interaction customId:', interaction.customId);
+  log.debug('Traitement de la décision:', interaction.customId);
   
   // Vérifier si c'est une interaction spéciale
   const isSpecial = interaction.customId.startsWith('special_highlow_');
@@ -399,11 +401,9 @@ async function handleHighLowDecision(interaction) {
   
   const action = actionMatch[1];
   const gameId = actionMatch[2];
-  console.log('[HighLow] Decision action:', action, 'Game ID:', gameId);
+  log.debug(`Décision: ${action} (Partie: ${gameId})`);
   
   const gameState = activeHighLowGames.get(gameId);
-  console.log('[HighLow] Game state found:', !!gameState);
-  
   if (!gameState) {
     return interaction.update({
       content: '❌ Cette partie est terminée !',
@@ -420,18 +420,15 @@ async function handleHighLowDecision(interaction) {
       // Le joueur choisit de s'arrêter (bouton 'Petite couille')
       const effectMultiplier = calculateEffectMultiplier(gameState.userId, gameState.guildId);
       let winnings = Math.floor(gameState.currentBet * gameState.currentMultiplier);
-      console.log(`[HighLow] Calcul gains - Mise: ${gameState.currentBet}, Multiplicateur: ${gameState.currentMultiplier}, Gains base: ${winnings}`);
-      console.log(`[HighLow] EffectMultiplier: ${effectMultiplier}`);
       
       // Consommer une utilisation de l'effet double_winnings si actif (à chaque partie, win or lose)
       if (effectMultiplier > 1.0) {
         const effectUsed = useEffect(gameState.userId, 'double_winnings', gameState.guildId);
-        console.log(`[HighLow] Effet double_winnings consommé: ${effectUsed}`);
+        log.debug('Effet double_winnings consommé (victoire)');
       }
       
       winnings = Math.floor(winnings * effectMultiplier);
-      console.log(`[HighLow] Gains après effets: ${winnings}`);
-
+      
       const doubleResult = applyDoubleOrNothing(gameState.userId, gameState.guildId, winnings);
       console.log(`[HighLow] Double ou Crève résultat:`, doubleResult);
       winnings = doubleResult.winnings;

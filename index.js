@@ -24,12 +24,15 @@ const gameUtils = require('./game-utils');
 // Importer les fonctions de jeux
 const gameFunctions = require('./games');
 
-// Debug: Afficher les fonctions de jeux importées
-console.log('--- Fonctions de jeux importées ---');
-console.log('Type de gameFunctions:', typeof gameFunctions);
-console.log('gameFunctions contient handleHighLow?', 'handleHighLow' in gameFunctions);
-console.log('Propriétés de gameFunctions:', Object.keys(gameFunctions));
-console.log('------------------------------------');
+// Configuration du logging
+const DEBUG = false;
+const log = {
+  debug: (...args) => DEBUG && console.log('[App]', ...args),
+  info: (...args) => console.log('[App]', ...args),
+  error: (...args) => console.error('[App]', ...args)
+};
+
+log.info('Initialisation de l\'application...');
 
 // Importer les fonctions spécifiques au crash
 const { 
@@ -39,17 +42,11 @@ const {
   activeGames 
 } = require('./crash');
 
-// Debug: Afficher les fonctions de jeux importées
-console.log('--- Fonctions de jeux importées ---');
-console.log('Type de handleHighLow:', typeof gameFunctions.handleHighLow);
-console.log('Toutes les propriétés de gameFunctions:', Object.getOwnPropertyNames(gameFunctions));
-console.log('Propriétés énumérables:', Object.keys(gameFunctions));
-console.log('gameFunctions est un objet?', typeof gameFunctions === 'object');
-console.log('gameFunctions a une propriété handleHighLow?', 'handleHighLow' in gameFunctions);
-console.log('gameFunctions.handleHighLow est défini?', gameFunctions.handleHighLow !== undefined);
-console.log('gameFunctions.handleHighLow est une fonction?', typeof gameFunctions.handleHighLow === 'function');
-console.log('gameFunctions.__proto__:', Object.getPrototypeOf(gameFunctions));
-console.log('------------------------------------');
+// Vérification des fonctions de jeux importées
+if (DEBUG) {
+  log.debug('Fonctions de jeux chargées:', Object.keys(gameFunctions));
+  log.debug('handleHighLow disponible:', 'handleHighLow' in gameFunctions);
+}
 
 // Initialisation du serveur web pour uptime
 const app = express();
@@ -62,7 +59,7 @@ app.get('/', (req, res) => {
 
 // Démarrer le serveur web
 app.listen(PORT, () => {
-  console.log(`Serveur web démarré sur le port ${PORT}`);
+  log.info(`Serveur web démarré sur le port ${PORT}`);
 });
 
 // Client Discord
@@ -103,7 +100,7 @@ if (!client.database) {
 
 // Événement ready
 client.once('ready', async () => {
-  console.log(`✅ ${client.user.tag} est connecté !`);
+  log.info(`✅ ${client.user.tag} est connecté !`);
   
   // Configuration du client REST avec timeout
   const rest = new REST({ 
@@ -135,7 +132,7 @@ client.once('ready', async () => {
   }
   
   try {
-    console.log('🔍 Vérification des commandes...');
+    log.info('Vérification des commandes...');
     
     // Vérifier si les commandes existent déjà
     let needUpdate = false;
@@ -150,22 +147,22 @@ client.once('ready', async () => {
         
         // Vérifier si le nombre de commandes a changé
         if (existing.length !== commands.length) {
-          console.log(`ℹ️  Nombre de commandes différent sur ${guild.name}, mise à jour nécessaire`);
+          log.info(`Mise à jour nécessaire sur ${guild.name} (${existing.length} → ${commands.length} commandes)`);
           needUpdate = true;
         }
       } catch (error) {
-        console.log(`⚠️  Impossible de récupérer les commandes pour ${guild.name}:`, error.message);
+        log.error(`Impossible de récupérer les commandes pour ${guild.name}:`, error.message);
         needUpdate = true;
       }
     }
     
     // Si aucune mise à jour n'est nécessaire, on sort
     if (!needUpdate) {
-      console.log('✅ Les commandes sont à jour sur tous les serveurs');
+      log.info('Les commandes sont à jour sur tous les serveurs');
       return;
     }
     
-    console.log('🔄 Mise à jour des commandes...');
+    log.info('Mise à jour des commandes...');
     
     // Si on arrive ici, c'est qu'une mise à jour est nécessaire
     try {
@@ -173,37 +170,40 @@ client.once('ready', async () => {
       const guilds = Array.from(client.guilds.cache.values());
       const startTime = Date.now();
       
-      console.log(`🔄 Début de la mise à jour des commandes sur ${guilds.length} serveurs...`);
+      log.info(`Mise à jour des commandes sur ${guilds.length} serveurs...`);
       
       for (let i = 0; i < guilds.length; i++) {
         const guild = guilds[i];
         const guildStartTime = Date.now();
         const progress = `[${i+1}/${guilds.length}]`;
         
-        console.log(`\n📡 ${progress} Traitement de "${guild.name}" (${guild.id})...`);
+        log.debug(`${progress} Traitement de "${guild.name}" (${guild.id})...`);
         
         try {
-          // Afficher les commandes qui vont être mises à jour
-          console.log(`   📋 ${commands.length} commandes à synchroniser...`);
-          
           // Mettre à jour les commandes pour cette guilde avec timeout
-          console.log('   ⏳ Envoi de la requête à Discord (timeout: 15s)...');
+          log.debug(`   Synchronisation de ${commands.length} commandes...`);
           await updateGuildCommands(guild.id);
           
           const guildTime = ((Date.now() - guildStartTime) / 1000).toFixed(2);
-          console.log(`   ✅ Synchronisation réussie en ${guildTime}s`);
+          log.info(`   ${progress} ${guild.name} synchronisé en ${guildTime}s`);
           
           // Ajouter un délai entre chaque guilde pour éviter le rate limiting
           if (i < guilds.length - 1) {
-            console.log('   ⏳ Attente de 1.5s avant le prochain serveur...');
             await new Promise(resolve => setTimeout(resolve, 1500));
           }
           
         } catch (guildError) {
           const errorTime = ((Date.now() - guildStartTime) / 1000).toFixed(2);
-          console.error(`   ❌ Échec après ${errorTime}s:`, guildError.message);
+          log.error(`   ❌ Échec après ${errorTime}s:`, guildError.message);
           if (guildError.requestBody) {
-            console.error('   📦 Corps de la requête:', JSON.parse(guildError.requestBody));
+            log.error(`Erreur sur ${guild.name}:`, guildError.message);
+        
+        // En cas d'erreur 429 (Too Many Requests), attendre le temps indiqué
+        if (guildError.code === 429) {
+          const retryAfter = guildError.requestBody?.json?.retry_after || 5;
+          log.warn(`Trop de requêtes, attente de ${retryAfter} secondes...`);
+          await new Promise(resolve => setTimeout(resolve, (retryAfter + 1) * 1000));
+          log.debug('Reprise après délai...');
           }
           // Continuer avec la guilde suivante même en cas d'erreur
           continue;
@@ -211,15 +211,15 @@ client.once('ready', async () => {
       }
       
       const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
-      console.log(`\n✅ Synchronisation terminée en ${totalTime} secondes`);
-      console.log(`   • ${guilds.length} serveurs traités`);
-      console.log(`   • ${commands.length} commandes synchronisées`);
+      log.info(`\n✅ Synchronisation terminée en ${totalTime} secondes`);
+      log.info(`   • ${guilds.length} serveurs traités`);
+      log.info(`   • ${commands.length} commandes synchronisées`);
     } catch (putError) {
-      console.error('❌ Erreur lors de la mise à jour des commandes:', putError);
+      log.error('Erreur lors de la mise à jour des commandes:', putError);
     }
     
   } catch (error) {
-    console.error('❌ Erreur lors de l\'enregistrement des commandes:', error);
+    log.error('Erreur lors de l\'enregistrement des commandes:', error);
   }
   
   // Planifier le reset quotidien
