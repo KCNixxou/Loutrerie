@@ -318,30 +318,20 @@ async function handleHighLowAction(interaction) {
     let updatedBalance = user.balance;
     let lossMessage = `❌ **Vous avez perdu !**`;
     
-    // Vérifier d'abord la protection contre les pertes
-    const hasProtection = checkLossProtection(game.userId, game.guildId, game.currentBet);
+    // Désactivation temporaire de la protection contre les pertes pour les tests
+    const hasProtection = false; // Désactivé pour les tests
     
-    // Mettre à jour le solde en fonction de la protection
-    if (hasProtection) {
-      // Si protection, on ne déduit pas la mise
-      lossMessage = `🫀 **Cœur de Remplacement activé !**\n\n❌ Vous avez perdu, mais votre mise a été remboursée !`;
-      // On ajoute la mise au solde car elle a été déduite précédemment
-      updatedBalance += game.currentBet;
-      updateUser(game.userId, game.guildId, { balance: updatedBalance });
-    } else {
-      // Si pas de protection, on déduit la mise
-      lossMessage += `\n💸 Vous avez perdu ${formatCurrency(game.currentBet, interaction)}.`;
-      // Mettre à jour le solde pour refléter la perte
-      updatedBalance = user.balance - game.currentBet;
-      updateUser(game.userId, game.guildId, { balance: updatedBalance });
-    }
+    // Logique simplifiée sans protection
+    lossMessage += `\n💸 Vous avez perdu ${formatCurrency(game.currentBet, interaction)}.`;
+    updatedBalance = user.balance - game.currentBet;
+    updateUser(game.userId, game.guildId, { balance: updatedBalance });
     
-    // Consommer une utilisation de l'effet double_winnings si actif (à chaque partie, win or lose)
-    const effectMultiplier = calculateEffectMultiplier(game.userId, game.guildId);
-    if (effectMultiplier > 1.0) {
-      const effectUsed = useEffect(game.userId, 'double_winnings', game.guildId);
-      log.debug('Effet double_winnings consommé (perte)');
-    }
+    // Désactivation de la consommation d'effets en cas de perte pour les tests
+    // const effectMultiplier = calculateEffectMultiplier(game.userId, game.guildId);
+    // if (effectMultiplier > 1.0) {
+    //   const effectUsed = useEffect(game.userId, 'double_winnings', game.guildId);
+    //   log.debug('Effet double_winnings consommé (perte)');
+    // }
     
     // Mettre à jour les statistiques de défaite pour les missions
     handleGameLose(game.userId, 'highlow', game.guildId);
@@ -428,18 +418,18 @@ async function handleHighLowDecision(interaction) {
       // Calculer les gains bruts (sans les effets)
       let winnings = Math.floor(gameState.currentBet * gameState.currentMultiplier);
       
-      // Appliquer le multiplicateur d'effet si actif
-      if (effectMultiplier > 1.0) {
-        winnings = Math.floor(winnings * effectMultiplier);
-        // Consommer une utilisation de l'effet
-        const effectUsed = useEffect(gameState.userId, 'double_winnings', gameState.guildId);
-        log.debug('Effet double_winnings consommé (victoire)');
-      }
+      // Désactivation temporaire des effets pour les tests
+      // if (effectMultiplier > 1.0) {
+      //   winnings = Math.floor(winnings * effectMultiplier);
+      //   const effectUsed = useEffect(gameState.userId, 'double_winnings', gameState.guildId);
+      //   log.debug('Effet double_winnings consommé (victoire)');
+      // }
       
-      // Appliquer l'effet Double ou Crève si actif (seulement sur les gains)
-      const doubleResult = applyDoubleOrNothing(gameState.userId, gameState.guildId, winnings);
-      log.debug('Double ou Crève résultat:', doubleResult);
-      winnings = doubleResult.winnings;
+      // Désactivation temporaire de l'effet Double ou Crève pour les tests
+      // const doubleResult = applyDoubleOrNothing(gameState.userId, gameState.guildId, winnings);
+      // log.debug('Double ou Crève résultat:', doubleResult);
+      // winnings = doubleResult.winnings;
+      const doubleResult = { winnings: winnings, message: null }; // Garde la structure attendue
       
       // Relire le solde actuel depuis la base de données pour éviter les problèmes de concurrence
       const currentUser = ensureUser(gameState.userId, gameState.guildId);
