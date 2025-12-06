@@ -317,8 +317,8 @@ async function handleHighLowAction(interaction) {
     const user = ensureUser(game.userId, game.guildId);
     let lossMessage = `❌ **Vous avez perdu !**`;
     
-    // Désactivation temporaire de la protection contre les pertes pour les tests
-    const hasProtection = false; // Désactivé pour les tests
+    // Vérifier si l'utilisateur a une protection contre les pertes
+    const hasProtection = checkLossProtection(game.userId, game.guildId, game.currentBet);
     
     if (hasProtection) {
       // Si protection, on rembourse la mise initiale
@@ -422,18 +422,17 @@ async function handleHighLowDecision(interaction) {
       // Calculer les gains bruts (sans les effets)
       let winnings = Math.floor(gameState.currentBet * gameState.currentMultiplier);
       
-      // Désactivation temporaire des effets pour les tests
-      // if (effectMultiplier > 1.0) {
-      //   winnings = Math.floor(winnings * effectMultiplier);
-      //   const effectUsed = useEffect(gameState.userId, 'double_winnings', gameState.guildId);
-      //   log.debug('Effet double_winnings consommé (victoire)');
-      // }
+      // Appliquer le multiplicateur d'effet si actif
+      if (effectMultiplier > 1.0) {
+        winnings = Math.floor(winnings * effectMultiplier);
+        const effectUsed = useEffect(gameState.userId, 'double_winnings', gameState.guildId);
+        log.debug('Effet double_winnings consommé (victoire)');
+      }
       
-      // Désactivation temporaire de l'effet Double ou Crève pour les tests
-      // const doubleResult = applyDoubleOrNothing(gameState.userId, gameState.guildId, winnings);
-      // log.debug('Double ou Crève résultat:', doubleResult);
-      // winnings = doubleResult.winnings;
-      const doubleResult = { winnings: winnings, message: null }; // Garde la structure attendue
+      // Appliquer l'effet Double ou Crève si actif
+      const doubleResult = applyDoubleOrNothing(gameState.userId, gameState.guildId, winnings);
+      log.debug('Double ou Crève résultat:', doubleResult);
+      winnings = doubleResult.winnings;
       
       // Relire le solde actuel depuis la base de données pour éviter les problèmes de concurrence
       const currentUser = ensureUser(gameState.userId, gameState.guildId);

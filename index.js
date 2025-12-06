@@ -344,20 +344,12 @@ client.on('interactionCreate', async (interaction) => {
         await gameFunctions.handleConnectFourMove(interaction);
       } else if (interaction.customId === 'cashout' || interaction.customId === 'next_multiplier') {
         await handleCrashButton(interaction);
-      } else if (interaction.customId.startsWith('highlow_')) {
-        // Gérer les actions du High Low normal
-        if (interaction.customId.startsWith('highlow_continue_') || interaction.customId.startsWith('highlow_stop_')) {
-          await gameFunctions.handleHighLowDecision(interaction);
-        } else {
-          await gameFunctions.handleHighLowAction(interaction);
-        }
-      } else if (interaction.customId.startsWith('special_highlow_')) {
-        // Gérer les actions du High Low spécial
-        if (interaction.customId.startsWith('special_highlow_continue_') || interaction.customId.startsWith('special_highlow_stop_')) {
-          await gameFunctions.handleHighLowDecision(interaction);
-        } else {
-          await gameFunctions.handleHighLowAction(interaction);
-        }
+      } else if (interaction.customId.startsWith('highlow_') || interaction.customId.startsWith('special_highlow_')) {
+        // Désactiver temporairement les interactions High Low
+        await interaction.reply({
+          content: '⚠️ Le jeu High Low est temporairement désactivé pour maintenance. Veuillez réessayer plus tard.',
+          ephemeral: true
+        });
       } else if (interaction.customId.startsWith('blackjack_')) {
         if (isMaintenanceMode() && !isAdmin(interaction.user.id)) {
           return interaction.reply({ content: '⛔ Le bot est en maintenance. Veuillez réessayer plus tard.', ephemeral: true });
@@ -648,11 +640,17 @@ async function handleSlashCommand(interaction) {
       break;
       
     case 'highlow':
-      await gameFunctions.handleHighLow(interaction);
+      await interaction.reply({
+        content: '⚠️ Le jeu High Low est temporairement désactivé pour maintenance. Veuillez réessayer plus tard.',
+        ephemeral: true
+      });
       break;
       
     case 'highlow-special':
-      await gameFunctions.handleSpecialHighLow(interaction);
+      await interaction.reply({
+        content: '⚠️ Le jeu High Low spécial est temporairement désactivé pour maintenance. Veuillez réessayer plus tard.',
+        ephemeral: true
+      });
       break;
       
     case 'solde-special':
