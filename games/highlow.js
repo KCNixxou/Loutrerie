@@ -322,8 +322,10 @@ async function handleHighLowAction(interaction) {
     const hasProtection = false; // Désactivé pour les tests
     
     // Logique simplifiée sans protection
+    // La mise a déjà été déduite au début de la partie, donc pas besoin de la redéduire
     lossMessage += `\n💸 Vous avez perdu ${formatCurrency(game.currentBet, interaction)}.`;
-    updatedBalance = user.balance - game.currentBet;
+    // Le solde est déjà à jour avec la déduction de la mise
+    updatedBalance = user.balance;
     updateUser(game.userId, game.guildId, { balance: updatedBalance });
     
     // Désactivation de la consommation d'effets en cas de perte pour les tests
