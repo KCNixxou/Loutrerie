@@ -195,15 +195,13 @@ client.once('ready', async () => {
         } catch (guildError) {
           const errorTime = ((Date.now() - guildStartTime) / 1000).toFixed(2);
           log.error(`   ❌ Échec après ${errorTime}s:`, guildError.message);
-          if (guildError.requestBody) {
-            log.error(`Erreur sur ${guild.name}:`, guildError.message);
-        
-        // En cas d'erreur 429 (Too Many Requests), attendre le temps indiqué
-        if (guildError.code === 429) {
-          const retryAfter = guildError.requestBody?.json?.retry_after || 5;
-          log.warn(`Trop de requêtes, attente de ${retryAfter} secondes...`);
-          await new Promise(resolve => setTimeout(resolve, (retryAfter + 1) * 1000));
-          log.debug('Reprise après délai...');
+          
+          // En cas d'erreur 429 (Too Many Requests), attendre le temps indiqué
+          if (guildError.code === 429) {
+            const retryAfter = guildError.requestBody?.json?.retry_after || 5;
+            log.warn(`Trop de requêtes, attente de ${retryAfter} secondes...`);
+            await new Promise(resolve => setTimeout(resolve, (retryAfter + 1) * 1000));
+            log.debug('Reprise après délai...');
           }
           // Continuer avec la guilde suivante même en cas d'erreur
           continue;
@@ -217,7 +215,6 @@ client.once('ready', async () => {
     } catch (putError) {
       log.error('Erreur lors de la mise à jour des commandes:', putError);
     }
-    
   } catch (error) {
     log.error('Erreur lors de l\'enregistrement des commandes:', error);
   }
