@@ -322,11 +322,10 @@ async function handleHighLowAction(interaction) {
     const hasProtection = false; // Désactivé pour les tests
     
     // Logique simplifiée sans protection
-    // La mise a déjà été déduite au début de la partie, donc pas besoin de la redéduire
+    // La mise a déjà été déduite au début de la partie
     lossMessage += `\n💸 Vous avez perdu ${formatCurrency(game.currentBet, interaction)}.`;
-    // Le solde est déjà à jour avec la déduction de la mise
-    updatedBalance = user.balance;
-    updateUser(game.userId, game.guildId, { balance: updatedBalance });
+    // Ne pas réécrire le solde car il a déjà été mis à jour avec la déduction de la mise
+    updatedBalance = user.balance; // solde déjà correct (mise déduite)
     
     // Désactivation de la consommation d'effets en cas de perte pour les tests
     // const effectMultiplier = calculateEffectMultiplier(game.userId, game.guildId);
