@@ -325,9 +325,14 @@ async function handleHighLowAction(interaction) {
     if (hasProtection) {
       // Si protection, on ne déduit pas la mise
       lossMessage = `🫀 **Cœur de Remplacement activé !**\n\n❌ Vous avez perdu, mais votre mise a été remboursée !`;
+      // On ajoute la mise au solde car elle a été déduite précédemment
+      updatedBalance += game.currentBet;
+      updateUser(game.userId, game.guildId, { balance: updatedBalance });
     } else {
       // Si pas de protection, on déduit la mise
-      updatedBalance -= game.currentBet;
+      lossMessage += `\n💸 Vous avez perdu ${formatCurrency(game.currentBet, interaction)}.`;
+      // Mettre à jour le solde pour refléter la perte
+      updatedBalance = user.balance - game.currentBet;
       updateUser(game.userId, game.guildId, { balance: updatedBalance });
     }
     
@@ -419,30 +424,32 @@ async function handleHighLowDecision(interaction) {
     if (action === 'stop') {
       // Le joueur choisit de s'arrêter (bouton 'Petite couille')
       const effectMultiplier = calculateEffectMultiplier(gameState.userId, gameState.guildId);
+      
+      // Calculer les gains bruts (sans les effets)
       let winnings = Math.floor(gameState.currentBet * gameState.currentMultiplier);
       
-      // Consommer une utilisation de l'effet double_winnings si actif (à chaque partie, win or lose)
+      // Appliquer le multiplicateur d'effet si actif
       if (effectMultiplier > 1.0) {
+        winnings = Math.floor(winnings * effectMultiplier);
+        // Consommer une utilisation de l'effet
         const effectUsed = useEffect(gameState.userId, 'double_winnings', gameState.guildId);
         log.debug('Effet double_winnings consommé (victoire)');
       }
       
-      winnings = Math.floor(winnings * effectMultiplier);
-      
+      // Appliquer l'effet Double ou Crève si actif (seulement sur les gains)
       const doubleResult = applyDoubleOrNothing(gameState.userId, gameState.guildId, winnings);
-      console.log(`[HighLow] Double ou Crève résultat:`, doubleResult);
+      log.debug('Double ou Crève résultat:', doubleResult);
       winnings = doubleResult.winnings;
       
       // Relire le solde actuel depuis la base de données pour éviter les problèmes de concurrence
       const currentUser = ensureUser(gameState.userId, gameState.guildId);
-      console.log(`[HighLow] Solde actuel re-lu: ${currentUser.balance}`);
       
-      // Calculer le nouveau solde
-      console.log(`[HighLow] Solde avant: ${currentUser.balance}, totalWon: ${gameState.totalWon}, winnings: ${winnings}`);
+      // Calculer le nouveau solde (solde actuel - mise initiale + gains)
+      // La mise initiale a déjà été déduite au début de la partie
       const newBalance = currentUser.balance + winnings;
-      console.log(`[HighLow] Nouveau solde calculé: ${newBalance}`);
+      log.debug(`Solde avant: ${currentUser.balance}, Mise: ${gameState.initialBet}, Gains: ${winnings}, Nouveau solde: ${newBalance}`);
       
-      // Mettre à jour le solde du joueur
+      // Mettre à jour le solde du joueur avec les gains
       updateUser(gameState.userId, gameState.guildId, { balance: newBalance });
       
       // Mettre à jour les statistiques de victoire pour les missions
