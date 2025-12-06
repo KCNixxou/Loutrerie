@@ -379,7 +379,9 @@ function ensureUser(userId, guildId = null) {
 
 function updateUser(userId, guildId = null, data) {
   if (!data || Object.keys(data).length === 0) {
-    console.error('[DB DEBUG] No data provided for update');
+    if (config.logging?.database) {
+      console.error('[DB DEBUG] No data provided for update');
+    }
     return;
   }
   
@@ -396,7 +398,9 @@ function updateUser(userId, guildId = null, data) {
     updateData.gameStats = JSON.stringify(updateData.gameStats);
   }
   
-  console.log(`[DB DEBUG] Mise à jour de l'utilisateur ${userId} (guild: ${guildId || 'NULL'}) avec les données:`, JSON.stringify(updateData, null, 2));
+  if (config.logging?.database) {
+    console.log(`[DB DEBUG] Mise à jour de l'utilisateur ${userId} (guild: ${guildId || 'NULL'}) avec les données:`, JSON.stringify(updateData, null, 2));
+  }
   
   try {
     const keys = Object.keys(updateData);
@@ -407,27 +411,37 @@ function updateUser(userId, guildId = null, data) {
     values.push(userId, guildId);
     
     const query = `UPDATE users SET ${setClause} WHERE user_id = ? AND guild_id IS ?`;
-    console.log(`[DB DEBUG] Exécution de la requête: ${query}`, values);
+    if (config.logging?.database) {
+      console.log(`[DB DEBUG] Exécution de la requête: ${query}`, values);
+    }
     
     const stmt = db.prepare(query);
     const result = stmt.run(...values);
     
-    console.log(`[DB DEBUG] Résultat de la mise à jour:`, result);
+    if (config.logging?.database) {
+      console.log(`[DB DEBUG] Résultat de la mise à jour:`, result);
+    }
     
     if (result.changes === 0) {
-      console.warn(`[DB DEBUG] Aucun utilisateur trouvé avec l'ID: ${userId} (guild: ${guildId || 'NULL'}), tentative de création...`);
+      if (config.logging?.database) {
+        console.warn(`[DB DEBUG] Aucun utilisateur trouvé avec l'ID: ${userId} (guild: ${guildId || 'NULL'}), tentative de création...`);
+      }
       // Essayer de créer l'utilisateur s'il n'existe pas
       ensureUser(userId, guildId);
       // Réessayer la mise à jour
       const retryResult = stmt.run(...values);
-      console.log(`[DB DEBUG] Résultat de la tentative de réessai:`, retryResult);
+      if (config.logging?.database) {
+        console.log(`[DB DEBUG] Résultat de la tentative de réessai:`, retryResult);
+      }
       return retryResult;
     }
     
     return result;
   } catch (error) {
-    console.error('[DB DEBUG] Erreur lors de la mise à jour de l\'utilisateur:', error);
-    console.error('[DB DEBUG] Données en cours de mise à jour:', data);
+    if (config.logging?.database) {
+      console.error('[DB DEBUG] Erreur lors de la mise à jour de l\'utilisateur:', error);
+      console.error('[DB DEBUG] Données en cours de mise à jour:', data);
+    }
     throw error; // Re-throw the error to be caught by the caller
   }
 }

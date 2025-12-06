@@ -1,5 +1,10 @@
 // Configuration par défaut (pour la rétrocompatibilité)
 const defaultConfig = {
+  // Configuration des logs
+  logging: {
+    debug: false,  // Activer/désactiver les logs de débogage
+    database: false, // Activer/désactiver les logs de la base de données
+  },
   currency: {
     emoji: '🐚',
     dailyReward: 200,  // Augmenté de 100 à 200

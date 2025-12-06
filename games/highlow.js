@@ -210,8 +210,8 @@ async function handleHighLowAction(interaction) {
   }
   
   // Tirer une nouvelle carte
-  log.debug(`Carte actuelle: ${game.currentCard.value}${game.currentCard.suit}, Nouvelle carte: ${newCard.value}${newCard.suit}`);
   const newCard = game.deck.pop();
+  log.debug(`Carte actuelle: ${game.currentCard.value}${game.currentCard.suit}, Nouvelle carte: ${newCard.value}${newCard.suit}`);
   
   // Utiliser la fonction compareCards pour gérer les comparaisons
   const config = getGameConfig(interaction);
