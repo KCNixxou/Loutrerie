@@ -346,11 +346,11 @@ async function handleHighLowAction(interaction) {
       .addFields(
         { name: 'Mise perdue', value: formatCurrency(game.currentBet, interaction), inline: true },
         { name: 'Gains totaux', value: formatCurrency(0, interaction), inline: true },
-        { name: 'Nouveau solde', value: formatCurrency(updatedBalance, interaction), inline: false }
+        { name: 'Nouveau solde', value: formatCurrency(user.balance, interaction), inline: false }
       )
       .setColor(hasProtection ? 0xFF6B6B : 0xED4245) // Couleur différente si protection
       .setFooter({ 
-        text: `Solde mis à jour: ${formatCurrency(updatedBalance, interaction)}`,
+        text: `Solde actuel: ${formatCurrency(user.balance, interaction)}`,
         iconURL: interaction.user.displayAvatarURL() 
       });
     
