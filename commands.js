@@ -364,28 +364,54 @@ const commands = [
           { name: 'Récompense BDH', value: 'bdh' }
         )
         .setRequired(false)
+    ),
+
+  // Commande d'annonce pour les administrateurs
+  new SlashCommandBuilder()
+    .setName('annonce')
+    .setDescription(' Envoyer une annonce dans le salon actuel (Admin)')
+    .setDefaultMemberPermissions('0') // Seuls les administrateurs pourront utiliser cette commande
+    .setDMPermission(false)
+    .addStringOption(option =>
+      option.setName('message')
+        .setDescription('Le message de l\'annonce')
+        .setRequired(true)
+    )
+    .addStringOption(option =>
+      option.setName('couleur')
+        .setDescription('Couleur de l\'annonce')
+        .setRequired(false)
+        .addChoices(
+          { name: 'Bleu', value: '#3498db' },
+          { name: 'Rouge', value: '#e74c3c' },
+          { name: 'Vert', value: '#2ecc71' },
+          { name: 'Or', value: '#f1c40f' },
+          { name: 'Violet', value: '#9b59b6' }
+        )
+    )
+    .addChannelOption(option =>
+      option.setName('salon')
+        .setDescription('Salon où envoyer l\'annonce (par défaut: salon actuel)')
+        .setRequired(false)
+    ),
+
+  // Admin command for lottery pot
+  new SlashCommandBuilder()
+    .setName('tas')
+    .setDescription('[ADMIN] Gérer le pot commun de la loterie')
+    .setDefaultMemberPermissions('0') // Admin only
+    .setDMPermission(false)
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('tirer')
+        .setDescription('Tirer au sort le gagnant du pot commun')
+    )
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('statut')
+        .setDescription('Voir le montant actuel du pot commun')
     )
 ];
-
-// Admin command for lottery pot
-const adminCommand = new SlashCommandBuilder()
-  .setName('tas')
-  .setDescription('[ADMIN] Gérer le pot commun de la loterie')
-  .setDefaultMemberPermissions('0') // Admin only
-  .setDMPermission(false)
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('tirer')
-      .setDescription('Tirer au sort le gagnant du pot commun')
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('statut')
-      .setDescription('Voir le montant actuel du pot commun')
-  );
-
-// Ajouter la commande admin au tableau des commandes
-commands.push(adminCommand);
 
 // Exporter les commandes formatées pour Discord
 module.exports = commands.map(command => command.toJSON());

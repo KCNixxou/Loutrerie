@@ -468,6 +468,56 @@ async function handleSlashCommand(interaction) {
       await handleDaily(interaction);
       break;
       
+    case 'annonce':
+      try {
+        if (!isAdmin(interaction.user.id)) {
+          return interaction.reply({ 
+            content: '❌ Seuls les administrateurs peuvent utiliser cette commande.', 
+            ephemeral: true 
+          });
+        }
+
+        const message = interaction.options.getString('message', true);
+        const color = interaction.options.getString('couleur') || '#3498db'; // Bleu par défaut
+        const channelOption = interaction.options.getChannel('salon');
+        
+        const targetChannel = channelOption || interaction.channel;
+        
+        if (!targetChannel.isTextBased()) {
+          return interaction.reply({
+            content: '❌ Le salon cible doit être un salon textuel.',
+            ephemeral: true
+          });
+        }
+
+        const embed = new EmbedBuilder()
+          .setTitle('📢 ANNONCE')
+          .setDescription(message)
+          .setColor(color)
+          .setFooter({ 
+            text: `Annonce de ${interaction.user.username}`, 
+            iconURL: interaction.user.displayAvatarURL() 
+          })
+          .setTimestamp();
+
+        await targetChannel.send({ embeds: [embed] });
+        
+        await interaction.reply({
+          content: `✅ L'annonce a été envoyée avec succès dans ${channelOption ? channelOption.toString() : 'ce salon'} !`,
+          ephemeral: true
+        });
+        
+      } catch (error) {
+        console.error('Erreur lors de l\'envoi de l\'annonce :', error);
+        if (!interaction.replied) {
+          await interaction.reply({
+            content: '❌ Une erreur est survenue lors de l\'envoi de l\'annonce.',
+            ephemeral: true
+          });
+        }
+      }
+      break;
+      
     case 'tas':
       try {
         console.log(`[Lottery] Command /tas received from ${interaction.user.id}`);
